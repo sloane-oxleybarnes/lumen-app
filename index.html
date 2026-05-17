@@ -3,915 +3,644 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Lumen — Communication clarity for neurodivergent professionals</title>
+<title>Lumen — Your personal communication coach</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   :root {
-    --indigo: #4F46E5;
-    --indigo-light: #EEF2FF;
-    --indigo-mid: #818CF8;
-    --indigo-dark: #3730A3;
-    --warm: #FAFAF8;
-    --ink: #1A1917;
-    --ink-mid: #4A4845;
-    --ink-light: #8A8784;
-    --border: rgba(26,25,23,0.1);
-    --border-strong: rgba(26,25,23,0.18);
-    --serif: 'DM Serif Display', Georgia, serif;
-    --sans: 'DM Sans', system-ui, sans-serif;
-    --radius: 16px;
-    --radius-sm: 8px;
+    --indigo: #4F46E5; --indigo-light: #EEF2FF; --indigo-mid: #818CF8; --indigo-dark: #3730A3;
+    --warm: #FAFAF8; --ink: #1A1917; --ink-mid: #4A4845; --ink-light: #8A8784;
+    --border: rgba(26,25,23,0.1); --border-strong: rgba(26,25,23,0.18);
+    --serif: 'DM Serif Display', Georgia, serif; --sans: 'DM Sans', system-ui, sans-serif;
+    --radius: 16px; --radius-sm: 8px;
   }
-
   html { scroll-behavior: smooth; }
+  body { font-family: var(--sans); background: var(--warm); color: var(--ink); line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
 
-  body {
-    font-family: var(--sans);
-    background: var(--warm);
-    color: var(--ink);
-    line-height: 1.6;
-    -webkit-font-smoothing: antialiased;
-    overflow-x: hidden;
-  }
-
-  /* NAV */
-  nav {
-    position: fixed; top: 0; left: 0; right: 0; z-index: 100;
-    display: flex; align-items: center; justify-content: space-between;
-    padding: 1.25rem 2.5rem;
-    background: rgba(250,250,248,0.88);
-    backdrop-filter: blur(12px);
-    border-bottom: 0.5px solid var(--border);
-  }
-
-  .nav-logo {
-    font-family: var(--serif);
-    font-size: 22px;
-    color: var(--ink);
-    text-decoration: none;
-    letter-spacing: -0.02em;
-  }
+  nav { position: fixed; top: 0; left: 0; right: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; padding: 1.25rem 2.5rem; background: rgba(250,250,248,0.88); backdrop-filter: blur(12px); border-bottom: 0.5px solid var(--border); }
+  .nav-logo { font-family: var(--serif); font-size: 22px; color: var(--ink); text-decoration: none; letter-spacing: -0.02em; }
   .nav-logo span { color: var(--indigo); }
-
   .nav-links { display: flex; align-items: center; gap: 2rem; }
-  .nav-links a {
-    font-size: 14px; font-weight: 400; color: var(--ink-mid);
-    text-decoration: none; transition: color 0.2s;
-  }
+  .nav-links a { font-size: 14px; color: var(--ink-mid); text-decoration: none; transition: color 0.2s; }
   .nav-links a:hover { color: var(--ink); }
+  .nav-cta { background: var(--indigo) !important; color: #fff !important; padding: 0.5rem 1.25rem; border-radius: 100px; font-weight: 500; }
+  .nav-cta:hover { background: var(--indigo-dark) !important; }
 
-  .nav-cta {
-    background: var(--indigo); color: #fff !important;
-    padding: 0.5rem 1.25rem; border-radius: 100px;
-    font-weight: 500; font-size: 14px;
-    transition: background 0.2s, transform 0.15s;
-  }
-  .nav-cta:hover { background: var(--indigo-dark) !important; transform: translateY(-1px); }
-
-  /* HERO */
-  .hero {
-    min-height: 100vh;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
-    text-align: center;
-    padding: 7rem 2rem 4rem;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .hero::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79,70,229,0.08) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .hero-badge {
-    display: inline-flex; align-items: center; gap: 6px;
-    background: var(--indigo-light); color: var(--indigo-dark);
-    font-size: 12px; font-weight: 500; letter-spacing: 0.04em;
-    padding: 5px 14px; border-radius: 100px;
-    border: 0.5px solid rgba(79,70,229,0.2);
-    margin-bottom: 2rem;
-    animation: fadeUp 0.6s ease both;
-  }
-
-  .hero-badge::before {
-    content: '';
-    width: 6px; height: 6px; border-radius: 50%;
-    background: var(--indigo);
-    animation: pulse 2s ease infinite;
-  }
-
+  .hero { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 7rem 2rem 4rem; position: relative; overflow: hidden; }
+  .hero::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(79,70,229,0.08) 0%, transparent 70%); pointer-events: none; }
+  .hero-badge { display: inline-flex; align-items: center; gap: 6px; background: var(--indigo-light); color: var(--indigo-dark); font-size: 12px; font-weight: 500; letter-spacing: 0.04em; padding: 5px 14px; border-radius: 100px; border: 0.5px solid rgba(79,70,229,0.2); margin-bottom: 2rem; animation: fadeUp 0.6s ease both; }
+  .hero-badge::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--indigo); animation: pulse 2s ease infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-
-  h1 {
-    font-family: var(--serif);
-    font-size: clamp(2.8rem, 7vw, 5.5rem);
-    line-height: 1.08;
-    letter-spacing: -0.03em;
-    color: var(--ink);
-    max-width: 820px;
-    margin-bottom: 1.5rem;
-    animation: fadeUp 0.6s ease 0.1s both;
-  }
-
-  h1 em {
-    font-style: italic;
-    color: var(--indigo);
-  }
-
-  .hero-sub {
-    font-size: clamp(1rem, 2vw, 1.2rem);
-    color: var(--ink-mid);
-    max-width: 540px;
-    font-weight: 300;
-    line-height: 1.7;
-    margin-bottom: 2.5rem;
-    animation: fadeUp 0.6s ease 0.2s both;
-  }
-
-  .hero-actions {
-    display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center;
-    animation: fadeUp 0.6s ease 0.3s both;
-  }
-
-  .btn-primary {
-    background: var(--indigo); color: #fff;
-    padding: 0.85rem 2rem; border-radius: 100px;
-    font-size: 15px; font-weight: 500;
-    text-decoration: none; border: none; cursor: pointer;
-    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
+  h1 { font-family: var(--serif); font-size: clamp(2.8rem, 7vw, 5.5rem); line-height: 1.08; letter-spacing: -0.03em; color: var(--ink); max-width: 820px; margin-bottom: 1.5rem; animation: fadeUp 0.6s ease 0.1s both; }
+  h1 em { font-style: italic; color: var(--indigo); }
+  .hero-sub { font-size: clamp(1rem, 2vw, 1.2rem); color: var(--ink-mid); max-width: 560px; font-weight: 300; line-height: 1.7; margin-bottom: 2.5rem; animation: fadeUp 0.6s ease 0.2s both; }
+  .hero-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; justify-content: center; animation: fadeUp 0.6s ease 0.3s both; }
+  .btn-primary { background: var(--indigo); color: #fff; padding: 0.85rem 2rem; border-radius: 100px; font-size: 15px; font-weight: 500; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
   .btn-primary:hover { background: var(--indigo-dark); transform: translateY(-2px); box-shadow: 0 8px 24px rgba(79,70,229,0.25); }
+  .btn-secondary { background: transparent; color: var(--ink); padding: 0.85rem 1.75rem; border-radius: 100px; font-size: 15px; font-weight: 400; text-decoration: none; border: 0.5px solid var(--border-strong); cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px; }
+  .btn-secondary:hover { background: rgba(26,25,23,0.04); transform: translateY(-1px); }
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
 
-  .btn-secondary {
-    background: transparent; color: var(--ink);
-    padding: 0.85rem 1.75rem; border-radius: 100px;
-    font-size: 15px; font-weight: 400;
-    text-decoration: none; border: 0.5px solid var(--border-strong); cursor: pointer;
-    transition: background 0.2s, border-color 0.2s, transform 0.15s;
-    display: inline-flex; align-items: center; gap: 8px;
-  }
-  .btn-secondary:hover { background: rgba(26,25,23,0.04); border-color: var(--ink-mid); transform: translateY(-1px); }
-
-  /* FLOATING UI MOCKUP */
-  .hero-visual {
-    margin-top: 4rem;
-    position: relative;
-    width: 100%;
-    max-width: 860px;
-    animation: fadeUp 0.8s ease 0.4s both;
-  }
-
-  .browser-frame {
-    background: #fff;
-    border: 0.5px solid var(--border-strong);
-    border-radius: var(--radius);
-    overflow: hidden;
-    box-shadow: 0 24px 80px rgba(26,25,23,0.12), 0 4px 16px rgba(26,25,23,0.06);
-  }
-
-  .browser-chrome {
-    background: #F5F5F3;
-    padding: 12px 16px;
-    display: flex; align-items: center; gap: 10px;
-    border-bottom: 0.5px solid var(--border);
-  }
-
+  .hero-visual { margin-top: 4rem; width: 100%; max-width: 860px; animation: fadeUp 0.8s ease 0.4s both; }
+  .browser-frame { background: #fff; border: 0.5px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; box-shadow: 0 24px 80px rgba(26,25,23,0.12); }
+  .browser-chrome { background: #F5F5F3; padding: 12px 16px; display: flex; align-items: center; gap: 10px; border-bottom: 0.5px solid var(--border); }
   .browser-dots { display: flex; gap: 6px; }
-  .browser-dots span {
-    width: 11px; height: 11px; border-radius: 50%;
-  }
-  .dot-red { background: #FF5F57; }
-  .dot-yellow { background: #FEBC2E; }
-  .dot-green { background: #28C840; }
+  .browser-dots span { width: 11px; height: 11px; border-radius: 50%; }
+  .dot-r { background: #FF5F57; } .dot-y { background: #FEBC2E; } .dot-g { background: #28C840; }
+  .browser-url { flex: 1; background: #EBEBEA; border-radius: 6px; padding: 5px 12px; font-size: 12px; color: var(--ink-light); }
+  .browser-body { display: grid; grid-template-columns: 1fr 280px; min-height: 360px; }
+  .email-pane { padding: 24px; border-right: 0.5px solid var(--border); }
+  .e-from { font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 3px; }
+  .e-subject { font-size: 18px; font-weight: 500; font-family: var(--serif); color: var(--ink); margin-bottom: 2px; }
+  .e-date { font-size: 12px; color: var(--ink-light); margin-bottom: 16px; }
+  .e-body { font-size: 13px; color: var(--ink-mid); line-height: 1.7; }
+  .e-highlight { background: rgba(79,70,229,0.08); border-left: 2px solid var(--indigo); padding: 8px 12px; border-radius: 0 6px 6px 0; margin: 12px 0; font-size: 13px; font-style: italic; color: var(--ink); }
+  .l-sidebar { background: #fff; display: flex; flex-direction: column; padding: 16px; position: relative; }
+  .l-sidebar::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 2px; background: linear-gradient(180deg, var(--indigo), var(--indigo-mid)); }
+  .l-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+  .l-logo { font-family: var(--serif); font-size: 16px; color: var(--ink); display: flex; align-items: center; gap: 6px; }
+  .l-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); }
+  .m-pills { display: flex; background: #F5F5F3; border-radius: 100px; padding: 2px; gap: 2px; }
+  .m-pill { font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 100px; color: var(--ink-light); }
+  .m-pill.on { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+  .i-card { background: #F9F9F7; border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 8px; border: 0.5px solid var(--border); }
+  .i-label { font-size: 10px; font-weight: 500; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 4px; }
+  .i-text { font-size: 12px; color: var(--ink-mid); line-height: 1.5; }
+  .r-card { border-radius: var(--radius-sm); padding: 10px 12px; margin-bottom: 6px; border: 0.5px solid var(--border); background: #fff; }
+  .r-tag { display: inline-flex; align-items: center; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 100px; margin-bottom: 6px; }
+  .t-direct { background: #DBEAFE; color: #1E40AF; } .t-warm { background: #D1FAE5; color: #065F46; }
+  .r-text { font-size: 11px; color: var(--ink-mid); line-height: 1.55; }
+  .r-copy { display: flex; justify-content: flex-end; margin-top: 5px; }
+  .r-copy button { font-size: 10px; color: var(--ink-light); background: none; border: none; cursor: pointer; }
+  .ins-btn { width: 100%; background: var(--indigo); color: #fff; border: none; border-radius: var(--radius-sm); padding: 8px; font-size: 12px; font-weight: 500; cursor: pointer; margin-top: auto; }
 
-  .browser-url {
-    flex: 1; background: #EBEBEA; border-radius: 6px;
-    padding: 5px 12px; font-size: 12px; color: var(--ink-light);
-    font-family: var(--sans);
-  }
-
-  .browser-body {
-    display: grid;
-    grid-template-columns: 1fr 280px;
-    min-height: 360px;
-  }
-
-  .email-pane {
-    padding: 24px;
-    border-right: 0.5px solid var(--border);
-  }
-
-  .email-header { margin-bottom: 20px; }
-  .email-from { font-size: 13px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
-  .email-subject { font-size: 18px; font-weight: 500; color: var(--ink); margin-bottom: 2px; font-family: var(--serif); }
-  .email-date { font-size: 12px; color: var(--ink-light); }
-
-  .email-body { font-size: 13px; color: var(--ink-mid); line-height: 1.7; }
-
-  .email-highlight {
-    background: rgba(79,70,229,0.08);
-    border-left: 2px solid var(--indigo);
-    padding: 8px 12px;
-    border-radius: 0 6px 6px 0;
-    margin: 12px 0;
-    font-size: 13px;
-    color: var(--ink);
-    font-style: italic;
-  }
-
-  /* LUMEN SIDEBAR */
-  .lumen-sidebar {
-    background: #fff;
-    display: flex; flex-direction: column;
-    padding: 16px;
-    position: relative;
-  }
-
-  .lumen-sidebar::before {
-    content: '';
-    position: absolute; left: 0; top: 0; bottom: 0;
-    width: 2px;
-    background: linear-gradient(180deg, var(--indigo) 0%, var(--indigo-mid) 100%);
-  }
-
-  .sidebar-header {
-    display: flex; align-items: center; justify-content: space-between;
-    margin-bottom: 14px;
-  }
-
-  .sidebar-logo {
-    font-family: var(--serif);
-    font-size: 16px; color: var(--ink);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .sidebar-logo-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); }
-
-  .mode-pills {
-    display: flex; background: #F5F5F3; border-radius: 100px; padding: 2px; gap: 2px;
-  }
-  .mode-pill {
-    font-size: 11px; font-weight: 500; padding: 3px 10px; border-radius: 100px;
-    color: var(--ink-light); cursor: pointer;
-  }
-  .mode-pill.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-
-  .insight-card {
-    background: #F9F9F7;
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-    margin-bottom: 8px;
-    border: 0.5px solid var(--border);
-  }
-
-  .insight-label {
-    font-size: 10px; font-weight: 500; color: var(--ink-light);
-    text-transform: uppercase; letter-spacing: 0.06em;
-    margin-bottom: 4px;
-  }
-  .insight-text { font-size: 12px; color: var(--ink-mid); line-height: 1.5; }
-
-  .response-card {
-    border-radius: var(--radius-sm);
-    padding: 10px 12px;
-    margin-bottom: 6px;
-    border: 0.5px solid var(--border);
-    background: #fff;
-  }
-
-  .response-tag {
-    display: inline-flex; align-items: center; gap: 4px;
-    font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 100px;
-    margin-bottom: 6px;
-  }
-  .tag-direct { background: #DBEAFE; color: #1E40AF; }
-  .tag-warm { background: #D1FAE5; color: #065F46; }
-
-  .response-text { font-size: 11px; color: var(--ink-mid); line-height: 1.55; }
-
-  .copy-row {
-    display: flex; justify-content: flex-end; margin-top: 5px;
-  }
-  .copy-btn {
-    font-size: 10px; color: var(--ink-light); cursor: pointer;
-    background: none; border: none; padding: 2px 6px;
-    border-radius: 4px;
-  }
-  .copy-btn:hover { background: #F5F5F3; color: var(--ink); }
-
-  .composer-btn {
-    margin-top: auto; padding-top: 12px;
-    border-top: 0.5px solid var(--border);
-  }
-  .insert-btn {
-    width: 100%; background: var(--indigo); color: #fff;
-    border: none; border-radius: var(--radius-sm); padding: 8px;
-    font-size: 12px; font-weight: 500; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 6px;
-  }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  /* SECTIONS */
   section { padding: 6rem 2rem; }
   .container { max-width: 1080px; margin: 0 auto; }
-  .container-sm { max-width: 680px; margin: 0 auto; }
-
-  .section-label {
-    font-size: 12px; font-weight: 500; letter-spacing: 0.08em;
-    color: var(--indigo); text-transform: uppercase; margin-bottom: 1rem;
-  }
-
-  h2 {
-    font-family: var(--serif);
-    font-size: clamp(2rem, 4vw, 3rem);
-    letter-spacing: -0.02em;
-    line-height: 1.15;
-    color: var(--ink);
-    margin-bottom: 1.25rem;
-  }
-
+  .sec-label { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; color: var(--indigo); text-transform: uppercase; margin-bottom: 1rem; }
+  h2 { font-family: var(--serif); font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -0.02em; line-height: 1.15; color: var(--ink); margin-bottom: 1.25rem; }
   h2 em { font-style: italic; color: var(--indigo); }
+  .sec-sub { font-size: 1.05rem; color: var(--ink-mid); font-weight: 300; line-height: 1.75; max-width: 520px; }
 
-  .section-sub {
-    font-size: 1.05rem; color: var(--ink-mid); font-weight: 300;
-    line-height: 1.75; max-width: 520px;
-  }
+  .feat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-top: 3.5rem; }
+  .feat-card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.75rem; transition: transform 0.2s, box-shadow 0.2s; }
+  .feat-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(26,25,23,0.08); }
+  .feat-icon { width: 44px; height: 44px; border-radius: 12px; background: var(--indigo-light); display: flex; align-items: center; justify-content: center; margin-bottom: 1.25rem; font-size: 20px; }
+  .feat-title { font-size: 16px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+  .feat-text { font-size: 13px; color: var(--ink-mid); line-height: 1.65; font-weight: 300; }
+  .feat-plan { display: inline-block; font-size: 10px; font-weight: 500; padding: 2px 8px; border-radius: 100px; margin-top: 12px; }
+  .p-free { background: #F0FDF4; color: #166534; }
+  .p-pro { background: var(--indigo-light); color: var(--indigo-dark); }
 
-  /* HOW IT WORKS */
-  .how-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
-    margin-top: 3.5rem;
-  }
+  .plat-wrap { background: var(--ink); border-radius: 24px; margin: 0 2rem; }
+  .plat-wrap .container { padding: 5rem 3rem; }
+  .plat-wrap .sec-label { color: var(--indigo-mid); }
+  .plat-wrap h2 { color: #fff; }
+  .plat-wrap h2 em { color: var(--indigo-mid); }
+  .plat-wrap .sec-sub { color: rgba(255,255,255,0.55); }
+  .plat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 3rem; }
+  .plat-card { background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 1.75rem; transition: background 0.2s; }
+  .plat-card:hover { background: rgba(255,255,255,0.1); }
+  .plat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 700; }
+  .pi-slack { background: #4A154B; color: #ECB22E; } .pi-gmail { background: #EA4335; color: #fff; } .pi-meet { background: #00897B; color: #fff; } .pi-zoom { background: #2D8CFF; color: #fff; }
+  .plat-name { font-size: 15px; font-weight: 500; color: #fff; margin: 12px 0 6px; }
+  .plat-desc { font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.55; font-weight: 300; }
+  .plat-live { margin-top: 14px; display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 500; color: #4ADE80; }
+  .plat-live::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: #4ADE80; }
 
-  .how-card {
-    background: #fff;
-    border: 0.5px solid var(--border);
-    border-radius: var(--radius);
-    padding: 2rem;
-    transition: transform 0.2s, box-shadow 0.2s;
-  }
-  .how-card:hover { transform: translateY(-4px); box-shadow: 0 12px 40px rgba(26,25,23,0.08); }
-
-  .how-icon {
-    width: 44px; height: 44px; border-radius: 12px;
-    background: var(--indigo-light);
-    display: flex; align-items: center; justify-content: center;
-    margin-bottom: 1.25rem;
-    font-size: 20px;
-  }
-
-  .how-title { font-size: 17px; font-weight: 500; color: var(--ink); margin-bottom: 0.5rem; }
-  .how-text { font-size: 14px; color: var(--ink-mid); line-height: 1.65; font-weight: 300; }
-
-  /* PLATFORMS */
-  .platforms { background: var(--ink); color: #fff; border-radius: 24px; margin: 0 2rem; }
-  .platforms .container { padding: 5rem 3rem; }
-  .platforms .section-label { color: var(--indigo-mid); }
-  .platforms h2 { color: #fff; }
-  .platforms h2 em { color: var(--indigo-mid); }
-  .platforms .section-sub { color: rgba(255,255,255,0.55); }
-
-  .platform-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1rem;
-    margin-top: 3rem;
-  }
-
-  .platform-card {
-    background: rgba(255,255,255,0.06);
-    border: 0.5px solid rgba(255,255,255,0.1);
-    border-radius: var(--radius);
-    padding: 1.75rem;
-    display: flex; flex-direction: column; gap: 12px;
-    transition: background 0.2s;
-  }
-  .platform-card:hover { background: rgba(255,255,255,0.1); }
-
-  .platform-icon {
-    width: 40px; height: 40px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 18px; font-weight: 700;
-  }
-  .icon-slack { background: #4A154B; color: #ECB22E; }
-  .icon-gmail { background: #EA4335; color: #fff; }
-  .icon-meet { background: #00897B; color: #fff; }
-  .icon-zoom { background: #2D8CFF; color: #fff; }
-
-  .platform-name { font-size: 15px; font-weight: 500; color: #fff; }
-  .platform-desc { font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.55; font-weight: 300; }
-
-  .platform-status {
-    margin-top: auto;
-    display: inline-flex; align-items: center; gap: 5px;
-    font-size: 11px; font-weight: 500;
-    color: #4ADE80;
-  }
-  .platform-status::before {
-    content: ''; width: 6px; height: 6px; border-radius: 50%; background: #4ADE80;
-  }
-
-  /* MODES */
-  .modes-grid {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;
-    margin-top: 3.5rem;
-  }
-
-  .mode-card {
-    border-radius: var(--radius);
-    padding: 2.5rem;
-    border: 0.5px solid var(--border);
-    position: relative; overflow: hidden;
-  }
-
-  .mode-card-personal { background: #fff; }
-  .mode-card-business { background: #F5F4FF; }
-
-  .mode-card::before {
-    content: '';
-    position: absolute; top: 0; left: 0; right: 0; height: 3px;
-  }
-  .mode-card-personal::before { background: #10B981; }
-  .mode-card-business::before { background: var(--indigo); }
-
-  .mode-card-label {
-    font-size: 12px; font-weight: 500; letter-spacing: 0.06em;
-    text-transform: uppercase; margin-bottom: 1rem;
-  }
-  .mode-card-personal .mode-card-label { color: #059669; }
-  .mode-card-business .mode-card-label { color: var(--indigo); }
-
-  .mode-card h3 {
-    font-family: var(--serif); font-size: 22px;
-    color: var(--ink); margin-bottom: 0.75rem;
-  }
-
+  .modes-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 3.5rem; }
+  .mode-card { border-radius: var(--radius); padding: 2.5rem; border: 0.5px solid var(--border); position: relative; overflow: hidden; }
+  .mc-personal { background: #fff; } .mc-business { background: #F5F4FF; }
+  .mode-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .mc-personal::before { background: #10B981; } .mc-business::before { background: var(--indigo); }
+  .mc-label { font-size: 12px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; margin-bottom: 1rem; }
+  .mc-personal .mc-label { color: #059669; } .mc-business .mc-label { color: var(--indigo); }
+  .mode-card h3 { font-family: var(--serif); font-size: 22px; color: var(--ink); margin-bottom: 0.75rem; }
   .mode-card p { font-size: 14px; color: var(--ink-mid); line-height: 1.65; font-weight: 300; }
+  .mc-example { margin-top: 1.5rem; background: rgba(26,25,23,0.04); border-radius: var(--radius-sm); padding: 14px 16px; font-size: 13px; color: var(--ink-mid); font-style: italic; line-height: 1.6; border-left: 2px solid var(--border-strong); }
 
-  .mode-example {
-    margin-top: 1.5rem;
-    background: rgba(26,25,23,0.04);
-    border-radius: var(--radius-sm);
-    padding: 14px 16px;
-    font-size: 13px; color: var(--ink-mid);
-    font-style: italic; line-height: 1.6;
-    border-left: 2px solid var(--border-strong);
-  }
+  .skills-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-top: 3.5rem; }
+  .skill-card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1.75rem; transition: transform 0.2s, box-shadow 0.2s; }
+  .skill-card:hover { transform: translateY(-3px); box-shadow: 0 10px 32px rgba(26,25,23,0.07); }
+  .sk-diff { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 500; padding: 3px 8px; border-radius: 100px; margin-bottom: 12px; }
+  .d-low { background: #D1FAE5; color: #065F46; } .d-med { background: #FEF3C7; color: #92400E; } .d-high { background: #FEE2E2; color: #991B1B; }
+  .sk-title { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 6px; }
+  .sk-desc { font-size: 13px; color: var(--ink-mid); line-height: 1.6; font-weight: 300; }
 
-  /* LINKEDIN */
-  .linkedin-section { background: #EEF2FF; border-radius: 24px; margin: 0 2rem; }
-  .linkedin-section .container { padding: 5rem 3rem; }
+  .li-wrap { background: #EEF2FF; border-radius: 24px; margin: 0 2rem; }
+  .li-wrap .container { padding: 5rem 3rem; }
+  .li-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 4rem; align-items: center; }
+  .li-feat { display: flex; gap: 14px; margin-bottom: 1.5rem; align-items: flex-start; }
+  .li-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--indigo); flex-shrink: 0; margin-top: 7px; }
+  .li-ft h4 { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
+  .li-ft p { font-size: 14px; color: var(--ink-mid); font-weight: 300; line-height: 1.6; }
+  .li-mock { background: #fff; border-radius: var(--radius); border: 0.5px solid rgba(79,70,229,0.2); padding: 20px; box-shadow: 0 8px 32px rgba(79,70,229,0.1); }
+  .li-prow { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 0.5px solid var(--border); }
+  .li-av { width: 40px; height: 40px; border-radius: 50%; background: var(--indigo-light); display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 500; color: var(--indigo-dark); }
+  .li-nm { font-size: 14px; font-weight: 500; color: var(--ink); }
+  .li-tl { font-size: 12px; color: var(--ink-light); }
+  .li-cl { font-size: 11px; font-weight: 500; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .li-tag { display: inline-block; background: var(--indigo-light); color: var(--indigo-dark); font-size: 12px; padding: 4px 10px; border-radius: 100px; margin: 3px 3px 3px 0; }
 
-  .linkedin-card {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 4rem;
-    align-items: center;
-  }
+  .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.25rem; margin-top: 3.5rem; }
+  .pr-card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 2rem; position: relative; overflow: hidden; }
+  .pr-card.featured { background: var(--ink); border-color: var(--ink); }
+  .pr-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+  .pr-card:nth-child(1)::before { background: #10B981; }
+  .pr-card:nth-child(2)::before { background: var(--indigo); }
+  .pr-card:nth-child(3)::before { background: #F59E0B; }
+  .pr-plan { font-size: 12px; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; margin-bottom: 0.75rem; color: var(--ink-light); }
+  .pr-card.featured .pr-plan { color: var(--indigo-mid); }
+  .pr-price { font-family: var(--serif); font-size: 2.5rem; color: var(--ink); line-height: 1; margin-bottom: 0.25rem; }
+  .pr-card.featured .pr-price { color: #fff; }
+  .pr-period { font-size: 13px; color: var(--ink-light); margin-bottom: 1.5rem; }
+  .pr-card.featured .pr-period { color: rgba(255,255,255,0.5); }
+  .pr-feats { list-style: none; margin-bottom: 2rem; }
+  .pr-feats li { font-size: 13px; color: var(--ink-mid); padding: 6px 0; border-bottom: 0.5px solid var(--border); display: flex; align-items: flex-start; gap: 8px; line-height: 1.5; }
+  .pr-card.featured .pr-feats li { color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.1); }
+  .pr-feats li::before { content: '✓'; color: var(--indigo); font-size: 12px; flex-shrink: 0; margin-top: 2px; font-weight: 600; }
+  .pr-card.featured .pr-feats li::before { color: var(--indigo-mid); }
+  .pr-soon { color: var(--ink-light) !important; }
+  .pr-soon::before { content: '○' !important; color: var(--ink-light) !important; }
+  .pr-card.featured .pr-soon { color: rgba(255,255,255,0.35) !important; }
+  .pr-cta { display: block; text-align: center; padding: 10px; border-radius: 100px; font-size: 14px; font-weight: 500; text-decoration: none; transition: all 0.2s; cursor: pointer; border: none; font-family: var(--sans); }
+  .pr-cta-out { border: 0.5px solid var(--border-strong); color: var(--ink); background: transparent; }
+  .pr-cta-out:hover { background: rgba(26,25,23,0.04); }
+  .pr-cta-fill { background: var(--indigo); color: #fff; }
+  .pr-cta-fill:hover { background: var(--indigo-dark); transform: translateY(-1px); box-shadow: 0 6px 20px rgba(79,70,229,0.3); }
+  .pr-cta-wht { background: #fff; color: var(--ink); }
+  .pr-cta-wht:hover { background: #F5F5F3; }
 
-  .li-feature { display: flex; gap: 14px; margin-bottom: 1.5rem; align-items: flex-start; }
-  .li-dot {
-    width: 8px; height: 8px; border-radius: 50%;
-    background: var(--indigo); flex-shrink: 0; margin-top: 7px;
-  }
-  .li-feature-text h4 { font-size: 15px; font-weight: 500; color: var(--ink); margin-bottom: 4px; }
-  .li-feature-text p { font-size: 14px; color: var(--ink-mid); font-weight: 300; line-height: 1.6; }
+  .cs-wrap { background: var(--ink); border-radius: 24px; margin: 0 2rem; }
+  .cs-wrap .container { padding: 5rem 3rem; }
+  .cs-wrap .sec-label { color: var(--indigo-mid); }
+  .cs-wrap h2 { color: #fff; }
+  .cs-wrap h2 em { color: var(--indigo-mid); }
+  .cs-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-top: 3rem; }
+  .cs-card { background: rgba(255,255,255,0.06); border: 0.5px solid rgba(255,255,255,0.1); border-radius: var(--radius); padding: 1.75rem; }
+  .cs-ico { font-size: 24px; margin-bottom: 12px; }
+  .cs-title { font-size: 15px; font-weight: 500; color: #fff; margin-bottom: 6px; }
+  .cs-desc { font-size: 13px; color: rgba(255,255,255,0.5); line-height: 1.55; font-weight: 300; }
+  .cs-tag { display: inline-flex; font-size: 10px; font-weight: 500; padding: 3px 9px; border-radius: 100px; margin-top: 10px; background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.5); }
 
-  .li-mockup {
-    background: #fff;
-    border-radius: var(--radius);
-    border: 0.5px solid rgba(79,70,229,0.2);
-    padding: 20px;
-    box-shadow: 0 8px 32px rgba(79,70,229,0.1);
-  }
+  .quote-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-top: 3.5rem; }
+  .q-card { background: #fff; border: 0.5px solid var(--border); border-radius: var(--radius); padding: 2rem; }
+  .q-text { font-family: var(--serif); font-size: 17px; font-style: italic; color: var(--ink); line-height: 1.6; margin-bottom: 1.25rem; }
+  .q-author { display: flex; align-items: center; gap: 10px; }
+  .q-av { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 500; }
+  .qa1 { background: #E1F5EE; color: #065F46; } .qa2 { background: #FEF3C7; color: #92400E; } .qa3 { background: var(--indigo-light); color: var(--indigo-dark); }
+  .q-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+  .q-role { font-size: 12px; color: var(--ink-light); }
 
-  .li-profile-row {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 16px;
-    padding-bottom: 16px; border-bottom: 0.5px solid var(--border);
-  }
-  .li-avatar {
-    width: 40px; height: 40px; border-radius: 50%;
-    background: var(--indigo-light);
-    display: flex; align-items: center; justify-content: center;
-    font-size: 13px; font-weight: 500; color: var(--indigo-dark);
-  }
-  .li-name { font-size: 14px; font-weight: 500; color: var(--ink); }
-  .li-title { font-size: 12px; color: var(--ink-light); }
+  .beta-wrap { background: #F5F4FF; border-radius: 24px; margin: 0 2rem; }
+  .beta-wrap .container { padding: 5rem 3rem; text-align: center; }
+  .beta-wrap h2 { max-width: 600px; margin: 0 auto 1rem; }
+  .beta-wrap .sec-sub { margin: 0 auto 2.5rem; }
+  .beta-form { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; max-width: 480px; margin: 0 auto; }
+  .beta-input { flex: 1; min-width: 220px; padding: 11px 16px; border: 0.5px solid rgba(79,70,229,0.3); border-radius: 100px; font-size: 14px; font-family: var(--sans); color: var(--ink); background: #fff; outline: none; }
+  .beta-input:focus { border-color: var(--indigo); box-shadow: 0 0 0 3px rgba(79,70,229,0.1); }
+  .beta-btn { background: var(--indigo); color: #fff; padding: 11px 24px; border-radius: 100px; font-size: 14px; font-weight: 500; border: none; cursor: pointer; transition: all 0.2s; font-family: var(--sans); white-space: nowrap; }
+  .beta-btn:hover { background: var(--indigo-dark); transform: translateY(-1px); }
+  .beta-ok { display: none; font-size: 14px; color: #059669; font-weight: 500; margin-top: 12px; }
 
-  .li-context-label { font-size: 11px; font-weight: 500; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
-  .li-context-tag {
-    display: inline-block;
-    background: var(--indigo-light); color: var(--indigo-dark);
-    font-size: 12px; padding: 4px 10px; border-radius: 100px;
-    margin: 3px 3px 3px 0;
-  }
+  .cta-wrap { text-align: center; padding: 8rem 2rem; background: var(--ink); border-radius: 24px; margin: 0 2rem 4rem; position: relative; overflow: hidden; }
+  .cta-wrap::before { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(79,70,229,0.4) 0%, transparent 70%); pointer-events: none; }
+  .cta-wrap h2 { color: #fff; max-width: 600px; margin: 0 auto 1.25rem; }
+  .cta-wrap .sec-sub { color: rgba(255,255,255,0.5); margin: 0 auto 2.5rem; }
 
-  /* TESTIMONIALS */
-  .quote-grid {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 1.5rem; margin-top: 3.5rem;
-  }
+  footer { padding: 2.5rem; display: flex; align-items: center; justify-content: space-between; border-top: 0.5px solid var(--border); flex-wrap: wrap; gap: 1rem; }
+  .f-logo { font-family: var(--serif); font-size: 18px; color: var(--ink); }
+  .f-logo span { color: var(--indigo); }
+  .f-copy { font-size: 13px; color: var(--ink-light); }
+  .f-links { display: flex; gap: 1.5rem; }
+  .f-links a { font-size: 13px; color: var(--ink-light); text-decoration: none; }
+  .f-links a:hover { color: var(--ink); }
 
-  .quote-card {
-    background: #fff; border: 0.5px solid var(--border);
-    border-radius: var(--radius); padding: 2rem;
-  }
-
-  .quote-text {
-    font-family: var(--serif); font-size: 17px; font-style: italic;
-    color: var(--ink); line-height: 1.6; margin-bottom: 1.25rem;
-  }
-
-  .quote-author { display: flex; align-items: center; gap: 10px; }
-  .quote-avatar {
-    width: 36px; height: 36px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 12px; font-weight: 500;
-  }
-  .qa1 { background: #E1F5EE; color: #065F46; }
-  .qa2 { background: #FEF3C7; color: #92400E; }
-  .qa3 { background: var(--indigo-light); color: var(--indigo-dark); }
-
-  .quote-name { font-size: 13px; font-weight: 500; color: var(--ink); }
-  .quote-role { font-size: 12px; color: var(--ink-light); }
-
-  /* CTA */
-  .cta-section {
-    text-align: center; padding: 8rem 2rem;
-    background: var(--ink); border-radius: 24px; margin: 0 2rem 4rem;
-    position: relative; overflow: hidden;
-  }
-
-  .cta-section::before {
-    content: '';
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse 60% 80% at 50% 100%, rgba(79,70,229,0.4) 0%, transparent 70%);
-    pointer-events: none;
-  }
-
-  .cta-section h2 { color: #fff; max-width: 600px; margin: 0 auto 1.25rem; }
-  .cta-section .section-sub { color: rgba(255,255,255,0.5); margin: 0 auto 2.5rem; }
-
-  /* FOOTER */
-  footer {
-    padding: 2.5rem 2.5rem;
-    display: flex; align-items: center; justify-content: space-between;
-    border-top: 0.5px solid var(--border);
-    flex-wrap: wrap; gap: 1rem;
-  }
-
-  .footer-logo { font-family: var(--serif); font-size: 18px; color: var(--ink); }
-  .footer-logo span { color: var(--indigo); }
-  .footer-copy { font-size: 13px; color: var(--ink-light); }
-  .footer-links { display: flex; gap: 1.5rem; }
-  .footer-links a { font-size: 13px; color: var(--ink-light); text-decoration: none; }
-  .footer-links a:hover { color: var(--ink); }
-
-  /* UTILITIES */
   @media (max-width: 768px) {
-    nav { padding: 1rem 1.25rem; }
-    .nav-links { display: none; }
-    .modes-grid { grid-template-columns: 1fr; }
-    .linkedin-card { grid-template-columns: 1fr; }
-    .browser-body { grid-template-columns: 1fr; }
-    .lumen-sidebar { display: none; }
-    .platforms { margin: 0 1rem; }
-    .platforms .container { padding: 3rem 1.5rem; }
-    .linkedin-section { margin: 0 1rem; }
-    .linkedin-section .container { padding: 3rem 1.5rem; }
-    .cta-section { margin: 0 1rem 3rem; padding: 5rem 1.5rem; }
+    nav { padding: 1rem 1.25rem; } .nav-links { display: none; }
+    .modes-grid, .pricing-grid, .li-grid { grid-template-columns: 1fr; }
+    .browser-body { grid-template-columns: 1fr; } .l-sidebar { display: none; }
+    .plat-wrap, .li-wrap, .cs-wrap, .beta-wrap, .cta-wrap { margin: 0 1rem; }
+    .plat-wrap .container, .li-wrap .container, .cs-wrap .container, .beta-wrap .container { padding: 3rem 1.5rem; }
     footer { flex-direction: column; align-items: flex-start; }
   }
 </style>
 </head>
 <body>
 
-<!-- NAV -->
 <nav>
   <a href="#" class="nav-logo">lu<span>men</span></a>
   <div class="nav-links">
-    <a href="#how">How it works</a>
-    <a href="#platforms">Platforms</a>
-    <a href="#modes">Modes</a>
-    <a href="#" class="nav-cta">Add to Chrome</a>
+    <a href="#features">Features</a>
+    <a href="#integrations">Integrations</a>
+    <a href="#skills">Skill learning</a>
+    <a href="#pricing">Pricing</a>
+    <a href="#beta">Beta</a>
+    <a href="#beta" class="nav-cta">Get early access</a>
   </div>
 </nav>
 
 <!-- HERO -->
 <section class="hero">
-  <div class="hero-badge">Now available for Chrome</div>
-
-  <h1>Workplace communication,<br><em>finally clear.</em></h1>
-
-  <p class="hero-sub">Lumen sits inside Gmail, Slack, and your video calls — decoding ambiguous messages and drafting high-EQ responses in real time. Built for neurodivergent professionals.</p>
-
+  <div class="hero-badge">Now in beta — full coaching suite, free</div>
+  <h1>Your personal<br><em>communication coach.</em></h1>
+  <p class="hero-sub">Lumen is a communication assistant and coach that lives inside Gmail, Slack, and your video calls. It helps you understand what people really mean, find the right words to respond, and practice the conversations that matter most — before they happen.</p>
   <div class="hero-actions">
-    <a href="#" class="btn-primary">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M8 12l4-4 4 4M12 8v8"/></svg>
-      Add to Chrome — it's free
-    </a>
-    <a href="#how" class="btn-secondary">See how it works</a>
+    <a href="#beta" class="btn-primary">Get early access — it's free</a>
+    <a href="#features" class="btn-secondary">See all features</a>
   </div>
-
-  <!-- BROWSER MOCKUP -->
   <div class="hero-visual">
     <div class="browser-frame">
       <div class="browser-chrome">
-        <div class="browser-dots">
-          <span class="dot-red"></span>
-          <span class="dot-yellow"></span>
-          <span class="dot-green"></span>
-        </div>
+        <div class="browser-dots"><span class="dot-r"></span><span class="dot-y"></span><span class="dot-g"></span></div>
         <div class="browser-url">mail.google.com — Inbox</div>
       </div>
       <div class="browser-body">
         <div class="email-pane">
-          <div class="email-header">
-            <div class="email-from">Sarah Chen · Director of Product</div>
-            <div class="email-subject">Re: Q3 roadmap alignment</div>
-            <div class="email-date">Today at 2:14 PM</div>
-          </div>
-          <div class="email-body">
-            <p>Hi,</p>
-            <br>
+          <div class="e-from">Sarah Chen · Director of Product</div>
+          <div class="e-subject">Re: Q3 roadmap alignment</div>
+          <div class="e-date">Today at 2:14 PM</div>
+          <div class="e-body">
             <p>Per my last email, I wanted to make sure we're on the same page before the all-hands. Going forward, let's make sure decisions like this go through the right channels first.</p>
-            <div class="email-highlight">"Let's make sure decisions like this go through the right channels first."</div>
-            <p>Looking forward to syncing on this. Let me know if you have any questions.</p>
+            <div class="e-highlight">"Going forward, let's make sure decisions like this go through the right channels first."</div>
+            <p>Looking forward to syncing on this.</p>
           </div>
         </div>
-
-        <!-- LUMEN SIDEBAR -->
-        <div class="lumen-sidebar">
-          <div class="sidebar-header">
-            <div class="sidebar-logo">
-              <div class="sidebar-logo-dot"></div>
-              lumen
-            </div>
-            <div class="mode-pills">
-              <div class="mode-pill">Personal</div>
-              <div class="mode-pill active">Business</div>
-            </div>
+        <div class="l-sidebar">
+          <div class="l-header">
+            <div class="l-logo"><div class="l-dot"></div>lumen</div>
+            <div class="m-pills"><div class="m-pill">Personal</div><div class="m-pill on">Business</div></div>
           </div>
-
-          <div class="insight-card">
-            <div class="insight-label">What's really going on</div>
-            <div class="insight-text">Sarah is signaling frustration that you acted without her approval. This is a soft correction, not an open conflict.</div>
-          </div>
-
-          <div class="insight-card">
-            <div class="insight-label">What she wants from you</div>
-            <div class="insight-text">An acknowledgment that you understand the process expectations — and won't bypass them again.</div>
-          </div>
-
-          <div style="font-size: 10px; font-weight: 500; color: var(--ink-light); text-transform: uppercase; letter-spacing: 0.06em; margin: 10px 0 6px;">Draft responses</div>
-
-          <div class="response-card">
-            <div class="response-tag tag-direct">Direct</div>
-            <div class="response-text">Thanks for flagging — I'll make sure to loop you in before moving forward on decisions like this.</div>
-            <div class="copy-row"><button class="copy-btn">Copy</button></div>
-          </div>
-
-          <div class="response-card">
-            <div class="response-tag tag-warm">Warm</div>
-            <div class="response-text">Appreciate the note, Sarah. Happy to sync before the all-hands to make sure we're fully aligned.</div>
-            <div class="copy-row"><button class="copy-btn">Copy</button></div>
-          </div>
-
-          <div class="composer-btn">
-            <button class="insert-btn">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-              Insert into Gmail
-            </button>
-          </div>
+          <div class="i-card"><div class="i-label">What's really going on</div><div class="i-text">Sarah is signaling frustration that you acted without her approval — a soft correction, not open conflict.</div></div>
+          <div class="i-card"><div class="i-label">What she wants from you</div><div class="i-text">An acknowledgment that you understand the process and won't bypass it again.</div></div>
+          <div style="font-size:10px;font-weight:500;color:var(--ink-light);text-transform:uppercase;letter-spacing:.06em;margin:8px 0 6px">Draft responses</div>
+          <div class="r-card"><div class="r-tag t-direct">Direct</div><div class="r-text">Thanks for flagging — I'll make sure to loop you in before moving forward on decisions like this.</div><div class="r-copy"><button>Copy</button></div></div>
+          <div class="r-card"><div class="r-tag t-warm">Warm</div><div class="r-text">Appreciate the note, Sarah. Happy to sync before the all-hands to make sure we're fully aligned.</div><div class="r-copy"><button>Copy</button></div></div>
+          <button class="ins-btn">↗ Insert into Gmail</button>
         </div>
       </div>
     </div>
   </div>
 </section>
 
-<!-- HOW IT WORKS -->
-<section id="how">
+<!-- FEATURES -->
+<section id="features">
   <div class="container">
-    <div class="section-label">How it works</div>
-    <h2>Three modes. One <em>sidebar.</em></h2>
-    <p class="section-sub">Lumen reads what's on your screen and gives you the social context and language you need — without ever leaving the app you're in.</p>
-
-    <div class="how-grid">
-      <div class="how-card">
-        <div class="how-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
-        </div>
-        <div class="how-title">Message decoder</div>
-        <div class="how-text">Lumen reads your emails and Slack messages, surfaces the subtext and emotional tone, and drafts three ready-to-send replies that sound warm, confident, and socially fluent.</div>
-      </div>
-      <div class="how-card">
-        <div class="how-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-        </div>
-        <div class="how-title">Live overlay</div>
-        <div class="how-text">Pinned to the edge of Gmail and Slack, Lumen's sidebar appears the moment a message lands. No switching tabs, no copy-pasting — just instant clarity, in context.</div>
-      </div>
-      <div class="how-card">
-        <div class="how-icon">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4F46E5" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
-        </div>
-        <div class="how-title">Meeting guidance</div>
-        <div class="how-text">During Google Meet and Zoom calls, Lumen reads live captions and delivers real-time guidance: what's happening, the emotional undercurrent, and a specific thing you could say right now.</div>
-      </div>
+    <div class="sec-label">Everything in Lumen</div>
+    <h2>Your coach,<br><em>always in your corner.</em></h2>
+    <p class="sec-sub">Lumen works inside the apps you already use — reading context, coaching your responses, and helping you practice — so you're always prepared.</p>
+    <div class="feat-grid">
+      <div class="feat-card"><div class="feat-icon">💬</div><div class="feat-title">Message decoder</div><div class="feat-text">Lumen reads incoming Gmail and Slack messages and explains what's really going on — the subtext, the tone, what the person actually needs from you. Then it gives you three ready-to-send responses to choose from.</div><span class="feat-plan p-free">Free</span></div>
+      <div class="feat-card"><div class="feat-icon">✍️</div><div class="feat-title">Draft from scratch</div><div class="feat-text">Tell Lumen what you want to communicate and it writes the message for you — emails, Slack, anything. Your coach puts your thoughts into words that land the way you intend.</div><span class="feat-plan p-free">Free</span></div>
+      <div class="feat-card"><div class="feat-icon">🤍</div><div class="feat-title">Safe people mode</div><div class="feat-text">Mark close contacts as safe. With safe people, Lumen relaxes entirely — no coaching layer, just natural warmth. Because not every relationship needs the same approach.</div><span class="feat-plan p-free">Free</span></div>
+      <div class="feat-card"><div class="feat-icon">🎚️</div><div class="feat-title">Personal vs business mode</div><div class="feat-text">One toggle, two distinct approaches. Personal mode is warm and casual — for the people and conversations that don't need to be formal. Business mode is composed and professional — for the moments where that matters.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">🎯</div><div class="feat-title">Tone calibration</div><div class="feat-text">Lumen learns from how you actually communicate. Over time, its suggestions start sounding more like you — your vocabulary, your rhythm, your natural style. The more you use it, the better it fits.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">📋</div><div class="feat-title">Full thread context</div><div class="feat-text">Lumen reads the entire thread, not just the latest message — so its coaching is grounded in the full context of the conversation, not just a single moment.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">📅</div><div class="feat-title">Pre-meeting briefs</div><div class="feat-text">Before every meeting, your coach surfaces what you need to know — who's attending, recent threads with each person, and talking points to help you walk in confident and prepared.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">🎥</div><div class="feat-title">Live meeting guidance</div><div class="feat-text">During Google Meet and Zoom calls, Lumen reads live captions and coaches you in real time — what's happening in the room, where the energy is, and specific things you could say right now.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">✅</div><div class="feat-title">Post-conversation debrief</div><div class="feat-text">After a meeting ends, your coach gives you a debrief — what landed well, one moment worth revisiting, and a ready-to-send follow-up so nothing falls through the cracks.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">🔍</div><div class="feat-title">Contact history</div><div class="feat-text">Pull your full history with one person across Gmail and Slack. Your coach uses it to understand the relationship — so every read and every suggestion reflects what's actually been happening between you.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">🎭</div><div class="feat-title">AI conversation practice</div><div class="feat-text">Practice a hard conversation before you have it. Your coach plays the other person — realistically, including pushback and emotion. Afterward you get a debrief on what worked and what to try differently.</div><span class="feat-plan p-pro">Pro</span></div>
+      <div class="feat-card"><div class="feat-icon">🎓</div><div class="feat-title">Skill training modules</div><div class="feat-text">Structured coaching sessions for specific real-life situations. Your coach walks you through what to say, how to respond, and how to stay grounded — then practices it with you until it feels natural.</div><span class="feat-plan p-pro">Pro</span></div>
     </div>
   </div>
 </section>
 
 <!-- PLATFORMS -->
-<div class="platforms">
+<div class="plat-wrap">
   <div class="container">
-    <div class="section-label">Platforms</div>
+    <div class="sec-label">Platforms</div>
     <h2>Works where <em>you work.</em></h2>
-    <p class="section-sub">Lumen injects directly into the apps you already use — reading content natively, no copy-pasting required.</p>
-
-    <div class="platform-grid">
-      <div class="platform-card">
-        <div class="platform-icon icon-slack">S</div>
-        <div class="platform-name">Slack</div>
-        <div class="platform-desc">Reads messages in real time. Injects draft replies directly into the Slack composer.</div>
-        <div class="platform-status">Live</div>
-      </div>
-      <div class="platform-card">
-        <div class="platform-icon icon-gmail">G</div>
-        <div class="platform-name">Gmail</div>
-        <div class="platform-desc">Reads your inbox and drafts. One-click to insert the suggested reply into your compose window.</div>
-        <div class="platform-status">Live</div>
-      </div>
-      <div class="platform-card">
-        <div class="platform-icon icon-meet">M</div>
-        <div class="platform-name">Google Meet</div>
-        <div class="platform-desc">Reads live captions. Delivers real-time meeting guidance in a floating sidebar during your call.</div>
-        <div class="platform-status">Live</div>
-      </div>
-      <div class="platform-card">
-        <div class="platform-icon icon-zoom">Z</div>
-        <div class="platform-name">Zoom</div>
-        <div class="platform-desc">Reads Zoom web client captions. Same real-time guidance as Meet, with graceful fallback.</div>
-        <div class="platform-status">Live</div>
-      </div>
+    <p class="sec-sub">Lumen injects directly into the apps you already use — reading content natively, no copy-pasting required.</p>
+    <div class="plat-grid">
+      <div class="plat-card"><div class="plat-icon pi-slack">S</div><div class="plat-name">Slack</div><div class="plat-desc">Reads messages in real time. Injects draft replies directly into the Slack composer.</div><div class="plat-live">Live</div></div>
+      <div class="plat-card"><div class="plat-icon pi-gmail">G</div><div class="plat-name">Gmail</div><div class="plat-desc">Reads full inbox threads. One click to insert a suggested reply into your compose window.</div><div class="plat-live">Live</div></div>
+      <div class="plat-card"><div class="plat-icon pi-meet">M</div><div class="plat-name">Google Meet</div><div class="plat-desc">Reads live captions. Real-time guidance in a floating sidebar during your call.</div><div class="plat-live">Live</div></div>
+      <div class="plat-card"><div class="plat-icon pi-zoom">Z</div><div class="plat-name">Zoom</div><div class="plat-desc">Reads Zoom web client captions. Same real-time guidance as Meet, with graceful fallback.</div><div class="plat-live">Live</div></div>
     </div>
   </div>
 </div>
 
 <!-- MODES -->
-<section id="modes">
+<section>
   <div class="container">
-    <div class="section-label">Two modes</div>
+    <div class="sec-label">Two modes</div>
     <h2>Personal or professional —<br><em>you choose the tone.</em></h2>
-    <p class="section-sub">Flip between modes with a single toggle. Lumen adjusts every response accordingly.</p>
-
+    <p class="sec-sub">One toggle changes everything. Your coach adjusts its approach — every read, every suggestion, every practice session — to match the context you're actually in.</p>
     <div class="modes-grid">
-      <div class="mode-card mode-card-personal">
-        <div class="mode-card-label">Personal mode</div>
+      <div class="mode-card mc-personal">
+        <div class="mc-label">Personal mode</div>
         <h3>Warm and real</h3>
-        <p>Casual, human, emotionally intelligent. Sounds like a thoughtful person talking to a friend or trusted colleague — not stiff or corporate. Contractions, natural rhythm, genuine warmth.</p>
-        <div class="mode-example">"Hey, totally fair — I should've looped you in earlier. Let's sync before the call so we're on the same page."</div>
+        <p>Casual, warm, and real. For the people and moments that don't need a professional layer. Your coach steps back and lets you just be yourself — with a little support when you want it.</p>
+        <div class="mc-example">"Hey, totally fair — I should've looped you in earlier. Let's sync before the call so we're on the same page."</div>
       </div>
-      <div class="mode-card mode-card-business">
-        <div class="mode-card-label">Business mode</div>
+      <div class="mode-card mc-business">
+        <div class="mc-label">Business mode</div>
         <h3>Polished and poised</h3>
-        <p>Professional, composed, and collegial. Aligned with workplace norms. Sounds like a senior person who is both confident and genuinely easy to work with.</p>
-        <div class="mode-example">"Thanks for flagging, Sarah. I appreciate the context and will make sure to align with you before moving forward on decisions like this."</div>
+        <p>Composed, clear, and professional. For the moments where how you say something matters as much as what you say. Your coach helps you navigate workplace dynamics with confidence.</p>
+        <div class="mc-example">"Thank you for flagging this. I appreciate the context and will ensure I align with you before moving forward on decisions of this nature."</div>
       </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- INTEGRATIONS -->
+<section id="integrations">
+  <div class="container">
+    <div class="sec-label">Integrations</div>
+    <h2>Your coach lives<br><em>inside every app.</em></h2>
+    <p class="sec-sub">Lumen works natively inside the tools you already use — no switching tabs, no copy-pasting. More integrations coming soon.</p>
+
+    <div style="margin-top:3.5rem">
+      <div style="font-size:12px;font-weight:500;color:var(--ink-light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1.25rem">Live now</div>
+      <div class="plat-grid" style="background:transparent;padding:0;border-radius:0;margin:0 0 3rem">
+        <div class="feat-card" style="border-left:2px solid #1D9E75;border-radius:0 var(--radius) var(--radius) 0">
+          <div style="font-size:28px;margin-bottom:12px">💬</div>
+          <div class="feat-title">Gmail</div>
+          <div class="feat-text">Reads full inbox threads in real time. Coaches your replies and inserts drafts directly into the compose window.</div>
+          <span class="feat-plan p-free" style="background:#D1FAE5;color:#065F46">Live</span>
+        </div>
+        <div class="feat-card" style="border-left:2px solid #1D9E75;border-radius:0 var(--radius) var(--radius) 0">
+          <div style="font-size:28px;margin-bottom:12px">🔷</div>
+          <div class="feat-title">Slack</div>
+          <div class="feat-text">Reads messages in real time across DMs and channels. Injects coached replies directly into the Slack composer.</div>
+          <span class="feat-plan p-free" style="background:#D1FAE5;color:#065F46">Live</span>
+        </div>
+        <div class="feat-card" style="border-left:2px solid #1D9E75;border-radius:0 var(--radius) var(--radius) 0">
+          <div style="font-size:28px;margin-bottom:12px">🎥</div>
+          <div class="feat-title">Google Meet</div>
+          <div class="feat-text">Reads live captions during calls. Real-time coaching in a floating sidebar — what's happening, and what to say next.</div>
+          <span class="feat-plan p-free" style="background:#D1FAE5;color:#065F46">Live</span>
+        </div>
+        <div class="feat-card" style="border-left:2px solid #1D9E75;border-radius:0 var(--radius) var(--radius) 0">
+          <div style="font-size:28px;margin-bottom:12px">📹</div>
+          <div class="feat-title">Zoom</div>
+          <div class="feat-text">Reads Zoom web client captions. Same real-time coaching as Meet, with graceful fallback if captions aren't enabled.</div>
+          <span class="feat-plan p-free" style="background:#D1FAE5;color:#065F46">Live</span>
+        </div>
+      </div>
+
+      <div style="font-size:12px;font-weight:500;color:var(--ink-light);text-transform:uppercase;letter-spacing:.08em;margin-bottom:1.25rem">Coming soon</div>
+      <div class="feat-grid" style="margin-top:0">
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">📘</div>
+          <div class="feat-title">Microsoft Teams</div>
+          <div class="feat-text">The same coaching experience for enterprise Teams users — the largest untapped market for Lumen.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">📧</div>
+          <div class="feat-title">Outlook</div>
+          <div class="feat-text">Full coaching integration for Outlook — pairs with Teams for complete enterprise coverage.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">💼</div>
+          <div class="feat-title">LinkedIn Messaging</div>
+          <div class="feat-text">Coaching for networking messages, cold outreach, and recruiter conversations — some of the highest-stakes communication there is.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">📝</div>
+          <div class="feat-title">Notion</div>
+          <div class="feat-text">Coaching for async written communication in Notion comments, docs, and pages — where a lot of real workplace communication actually happens.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">🎬</div>
+          <div class="feat-title">Loom</div>
+          <div class="feat-text">Pre-recording coaching before you hit record — talking points, tone check, and a practice run so you feel prepared before the camera is on.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">⭐</div>
+          <div class="feat-title">Performance review platforms</div>
+          <div class="feat-text">Coaching for writing self-reviews, giving peer feedback, and receiving critical feedback — in Lattice, Culture Amp, Workday, and more.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">💬</div>
+          <div class="feat-title">Discord</div>
+          <div class="feat-text">Coaching for community and professional Discord servers — increasingly where real work conversations happen.</div>
+          <span class="feat-plan" style="background:#F5F5F3;color:var(--ink-light)">Coming soon</span>
+        </div>
+        <div class="feat-card" style="opacity:0.7">
+          <div style="font-size:24px;margin-bottom:12px">📅</div>
+          <div class="feat-title">Google Calendar</div>
+          <div class="feat-text">Already powering pre-meeting briefs — surfacing attendee context and talking points before every event on your calendar.</div>
+          <span class="feat-plan" style="background:var(--indigo-light);color:var(--indigo-dark)">In development</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SKILL MODULES -->
+<section id="skills">
+  <div class="container">
+    <div class="sec-label">Skill training</div>
+    <h2>Practice the conversations<br>that actually <em>matter.</em></h2>
+    <p class="sec-sub">Your coach walks you through the conversations most people never actually practice. Each module is a structured coaching session — context and framing, then a realistic practice round, then a debrief on what you did well and what to try differently next time.</p>
+    <div class="skills-grid">
+      <div class="skill-card"><div class="sk-diff d-low">Low stakes</div><div class="sk-title">How to ask someone out</div><div class="sk-desc">Reading signals, phrasing the ask naturally, and responding gracefully whether the answer is yes or no.</div></div>
+      <div class="skill-card"><div class="sk-diff d-med">Medium stakes</div><div class="sk-title">Setting a work boundary</div><div class="sk-desc">Calm, professional language for protecting your time and energy — with a colleague or with your manager.</div></div>
+      <div class="skill-card"><div class="sk-diff d-med">Medium stakes</div><div class="sk-title">Giving difficult feedback</div><div class="sk-desc">Framing, tone, and timing that lands without damaging the relationship or demoralizing the other person.</div></div>
+      <div class="skill-card"><div class="sk-diff d-high">High stakes</div><div class="sk-title">Asking for a raise</div><div class="sk-desc">Building the case, bringing it up for the first time, and responding to "the budget is tight right now."</div></div>
+      <div class="skill-card"><div class="sk-diff d-low">Low stakes</div><div class="sk-title">Navigating small talk</div><div class="sk-desc">Starting conversations at events, keeping them going, and exiting gracefully without it feeling awkward.</div></div>
+      <div class="skill-card"><div class="sk-diff d-med">Medium stakes</div><div class="sk-title">Handling passive aggression</div><div class="sk-desc">De-escalation and clarity for when someone is being indirect — in messages and in meetings.</div></div>
     </div>
   </div>
 </section>
 
 <!-- LINKEDIN -->
-<div class="linkedin-section">
+<div class="li-wrap">
   <div class="container">
-    <div class="linkedin-card">
+    <div class="li-grid">
       <div>
-        <div class="section-label">LinkedIn integration</div>
+        <div class="sec-label">LinkedIn integration</div>
         <h2>Responses shaped around <em>who you are.</em></h2>
-        <p class="section-sub" style="margin-bottom: 2.5rem;">Connect your LinkedIn profile once. Lumen uses your role, industry, and background to personalize every suggestion — so responses feel authentic to you, not generic.</p>
-
-        <div class="li-feature">
-          <div class="li-dot"></div>
-          <div class="li-feature-text">
-            <h4>Role-aware language</h4>
-            <p>Responses adapt to your seniority, industry norms, and the professional relationships you navigate.</p>
-          </div>
-        </div>
-        <div class="li-feature">
-          <div class="li-dot"></div>
-          <div class="li-feature-text">
-            <h4>Stored locally</h4>
-            <p>Your LinkedIn data is stored only in your browser. It never leaves your device except in the AI request.</p>
-          </div>
-        </div>
-        <div class="li-feature">
-          <div class="li-dot"></div>
-          <div class="li-feature-text">
-            <h4>One-time setup</h4>
-            <p>Connect once in the popup. Lumen remembers your context across every session.</p>
-          </div>
-        </div>
+        <p class="sec-sub" style="margin-bottom:2.5rem">Connect LinkedIn once. Your coach uses your role, industry, and background to tailor every suggestion in business mode — so the guidance fits your actual world, not a generic professional template.</p>
+        <div class="li-feat"><div class="li-dot"></div><div class="li-ft"><h4>Role-aware language</h4><p>Coaching adapts to your industry, your seniority, and the specific professional relationships you navigate — so suggestions feel grounded in your context, not someone else's.</p></div></div>
+        <div class="li-feat"><div class="li-dot"></div><div class="li-ft"><h4>Business mode only</h4><p>LinkedIn context is only injected when you're in business mode. Personal mode stays fully casual — no professional veneer.</p></div></div>
+        <div class="li-feat"><div class="li-dot"></div><div class="li-ft"><h4>Stored locally, one-time setup</h4><p>Your LinkedIn data lives only in your browser. Connect once in the side panel and Lumen remembers across every session.</p></div></div>
       </div>
-
-      <div class="li-mockup">
-        <div class="li-profile-row">
-          <div class="li-avatar">SL</div>
-          <div>
-            <div class="li-name">Sloane L.</div>
-            <div class="li-title">EdTech · LGBTQ+ Advocacy · SF Bay Area</div>
-          </div>
-        </div>
-        <div class="li-context-label">Context in every prompt</div>
+      <div class="li-mock">
+        <div class="li-prow"><div class="li-av">SL</div><div><div class="li-nm">Sloane L.</div><div class="li-tl">EdTech · LGBTQ+ Advocacy · SF Bay Area</div></div></div>
+        <div class="li-cl">Context in every business prompt</div>
         <div>
-          <span class="li-context-tag">Special Education</span>
-          <span class="li-context-tag">EdTech</span>
-          <span class="li-context-tag">Customer Success</span>
-          <span class="li-context-tag">Nonprofit Leadership</span>
-          <span class="li-context-tag">SF Bay Area</span>
+          <span class="li-tag">Special Education</span><span class="li-tag">EdTech</span><span class="li-tag">Customer Success</span><span class="li-tag">Nonprofit Leadership</span><span class="li-tag">SF Bay Area</span>
         </div>
-        <div style="margin-top: 16px; font-size: 12px; color: var(--ink-light); line-height: 1.6;">
-          These tags are automatically woven into every Lumen prompt — so responses fit your world.
-        </div>
+        <div style="margin-top:16px;font-size:12px;color:var(--ink-light);line-height:1.6">These tags are woven into every Lumen business prompt — so responses fit your world.</div>
       </div>
     </div>
   </div>
 </div>
 
-<!-- QUOTES -->
-<section>
+<!-- PRICING -->
+<section id="pricing">
   <div class="container">
-    <div class="section-label">Built for</div>
-    <h2>People who think differently<br>and <em>communicate brilliantly.</em></h2>
-
-    <div class="quote-grid">
-      <div class="quote-card">
-        <div class="quote-text">"I always knew what I wanted to say. I just couldn't figure out how to say it in a way that landed. Lumen bridged that gap completely."</div>
-        <div class="quote-author">
-          <div class="quote-avatar qa1">AK</div>
-          <div>
-            <div class="quote-name">Alex K.</div>
-            <div class="quote-role">Software Engineer, ADHD</div>
-          </div>
-        </div>
+    <div class="sec-label">Pricing</div>
+    <h2>Your coach is free<br>to <em>get started.</em></h2>
+    <p class="sec-sub">Start with the core coaching tools at no cost — no limits, no time pressure. Upgrade when you want the full experience.</p>
+    <div class="pricing-grid">
+      <div class="pr-card">
+        <div class="pr-plan">Free</div>
+        <div class="pr-price">$0</div>
+        <div class="pr-period">forever, no limits</div>
+        <ul class="pr-feats">
+          <li>Message decoder — Gmail + Slack</li>
+          <li>Draft from scratch</li>
+          <li>Safe people mode</li>
+          <li>Personal mode</li>
+          <li>Right rail side panel</li>
+          <li>No daily caps</li>
+        </ul>
+        <a href="#beta" class="pr-cta pr-cta-out">Get started free</a>
       </div>
-      <div class="quote-card">
-        <div class="quote-text">"The live meeting mode is genuinely game-changing. I finally feel like I can participate in real time instead of processing everything after the call."</div>
-        <div class="quote-author">
-          <div class="quote-avatar qa2">MR</div>
-          <div>
-            <div class="quote-name">Morgan R.</div>
-            <div class="quote-role">Product Manager, Autistic</div>
-          </div>
-        </div>
+      <div class="pr-card featured">
+        <div class="pr-plan">Pro</div>
+        <div class="pr-price">$9</div>
+        <div class="pr-period">per month</div>
+        <ul class="pr-feats">
+          <li>Everything in Free</li>
+          <li>Business mode + LinkedIn context</li>
+          <li>Tone calibration — learns your voice</li>
+          <li>Full conversation thread history</li>
+          <li>Pre-meeting briefs</li>
+          <li>Live meeting guidance (Meet + Zoom)</li>
+          <li>Post-conversation debrief</li>
+          <li>Contact history across Gmail + Slack</li>
+          <li>AI conversation practice</li>
+          <li>All 6 skill training modules</li>
+          <li class="pr-soon">Personal dashboard — coming soon</li>
+          <li class="pr-soon">Emotional pattern tracking — coming soon</li>
+        </ul>
+        <a href="#beta" class="pr-cta pr-cta-fill">Start Pro free in beta</a>
       </div>
-      <div class="quote-card">
-        <div class="quote-text">"It doesn't make me sound like someone else. It makes me sound like the best version of myself — which is all I ever wanted."</div>
-        <div class="quote-author">
-          <div class="quote-avatar qa3">JT</div>
-          <div>
-            <div class="quote-name">Jamie T.</div>
-            <div class="quote-role">Customer Success, Dyslexic</div>
-          </div>
-        </div>
+      <div class="pr-card">
+        <div class="pr-plan">Team</div>
+        <div class="pr-price">$7</div>
+        <div class="pr-period">per seat / month · 5 seats minimum</div>
+        <ul class="pr-feats">
+          <li>Everything in Pro</li>
+          <li>5+ seats with 20% discount</li>
+          <li>Shared settings and context</li>
+          <li>Team dashboard — coming soon</li>
+          <li>Priority support</li>
+        </ul>
+        <a href="mailto:hello@lumenapp.co" class="pr-cta pr-cta-out">Contact us for team access</a>
       </div>
     </div>
   </div>
 </section>
 
-<!-- CTA -->
-<div class="cta-section">
-  <div style="position: relative;">
-    <div class="section-label" style="color: var(--indigo-mid);">Get started</div>
-    <h2>Communication clarity,<br><em>in context.</em></h2>
-    <p class="section-sub">Add Lumen to Chrome for free. Works with Gmail, Slack, Google Meet, and Zoom — no copy-pasting, no switching tabs.</p>
-    <div class="hero-actions" style="justify-content: center;">
-      <a href="#" class="btn-primary">Add to Chrome — it's free</a>
-      <a href="#how" class="btn-secondary" style="color: rgba(255,255,255,0.7); border-color: rgba(255,255,255,0.2);">Learn more</a>
+<!-- COMING SOON -->
+<div class="cs-wrap">
+  <div class="container">
+    <div class="sec-label">What's next</div>
+    <h2>The deeper version<br>is <em>on the way.</em></h2>
+    <div class="cs-grid">
+      <div class="cs-card"><div class="cs-ico">📊</div><div class="cs-title">Personal dashboard</div><div class="cs-desc">A private view of your communication patterns — which relationships have friction, how your style shifts under pressure, and how you trend over time.</div><div class="cs-tag">Coming soon</div></div>
+      <div class="cs-card"><div class="cs-ico">💡</div><div class="cs-title">Emotional pattern tracking</div><div class="cs-desc">Lumen learns when you tend to misread tone or struggle — and surfaces gentle insights without ever judging you. Stored locally, always private.</div><div class="cs-tag">Coming soon</div></div>
+      <div class="cs-card"><div class="cs-ico">🕐</div><div class="cs-title">Productivity time-of-day</div><div class="cs-desc">Identifies when you communicate best vs. when you're more reactive — and nudges you to wait before sending difficult responses at the wrong moment.</div><div class="cs-tag">Coming soon</div></div>
+      <div class="cs-card"><div class="cs-ico">👥</div><div class="cs-title">Team dashboard</div><div class="cs-desc">Org-level communication health for managers. Anonymized, opt-in only, and built to support people — not monitor them.</div><div class="cs-tag">Team plan</div></div>
     </div>
   </div>
 </div>
 
-<!-- FOOTER -->
+<!-- TESTIMONIALS -->
+<section>
+  <div class="container">
+    <div class="sec-label">Built for</div>
+    <h2>People who think differently<br>and <em>communicate brilliantly.</em></h2>
+    <div class="quote-grid">
+      <div class="q-card"><div class="q-text">"I always knew what I wanted to say. Lumen helps me find the words that actually land — and it gets better at matching my voice the more I use it."</div><div class="q-author"><div class="q-av qa1">AK</div><div><div class="q-name">Alex K.</div><div class="q-role">Software Engineer, ADHD</div></div></div></div>
+      <div class="q-card"><div class="q-text">"The live meeting coaching is genuinely game-changing. I finally feel like I can be present in the moment instead of processing everything two hours after the call."</div><div class="q-author"><div class="q-av qa2">MR</div><div><div class="q-name">Morgan R.</div><div class="q-role">Product Manager, Autistic</div></div></div></div>
+      <div class="q-card"><div class="q-text">"It doesn't put words in my mouth. It helps me find my own words — the ones I actually mean, in a way that people can hear. That's everything."</div><div class="q-author"><div class="q-av qa3">JT</div><div><div class="q-name">Jamie T.</div><div class="q-role">Customer Success, Dyslexic</div></div></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- BETA SIGNUP -->
+<div class="beta-wrap" id="beta">
+  <div class="container">
+    <div class="sec-label">Beta access</div>
+    <h2>Get early access.<br><em>Full coaching suite, free.</em></h2>
+    <p class="sec-sub">Beta users get the full coaching experience — every feature, no limits. Help us shape Lumen before it launches publicly.</p>
+    <form class="beta-form" id="beta-form" onsubmit="submitBeta(event)">
+      <input class="beta-input" type="email" placeholder="your@email.com" required id="beta-email">
+      <button class="beta-btn" type="submit">Request access</button>
+    </form>
+    <div class="beta-ok" id="beta-ok">You're on the list. We'll be in touch. ✓</div>
+  </div>
+</div>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div style="position:relative">
+    <div class="sec-label" style="color:var(--indigo-mid)">Get started</div>
+    <h2>Your coach is<br><em>already there.</em></h2>
+    <p class="sec-sub" style="margin:0 auto 2.5rem">Add Lumen to Chrome and your communication coach is waiting inside every app you already use — Gmail, Slack, Google Meet, Zoom. No copy-pasting, no switching tabs.</p>
+    <div class="hero-actions" style="justify-content:center">
+      <a href="#beta" class="btn-primary">Get early access — it's free</a>
+      <a href="#features" class="btn-secondary" style="color:rgba(255,255,255,0.7);border-color:rgba(255,255,255,0.2)">Explore features</a>
+    </div>
+  </div>
+</div>
+
 <footer>
-  <div class="footer-logo">lu<span>men</span></div>
-  <div class="footer-copy">© 2026 Lumen. Communication clarity for neurodivergent professionals.</div>
-  <div class="footer-links">
+  <div class="f-logo">lu<span>men</span></div>
+  <div class="f-copy">© 2026 Lumen. A communication coach for people who think differently.</div>
+  <div class="f-links">
     <a href="#">Privacy</a>
     <a href="#">Support</a>
-    <a href="#">GitHub</a>
+    <a href="https://github.com/sloane-oxleybarnes/lumen-app">GitHub</a>
   </div>
 </footer>
+
+<script>
+async function submitBeta(e) {
+  e.preventDefault();
+  const email = document.getElementById('beta-email').value;
+  const btn = e.target.querySelector('button');
+  btn.textContent = 'Sending...';
+  btn.disabled = true;
+  try {
+    await fetch('https://lumen-beta.sloane-oxleyhase.workers.dev', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, plan: 'beta' })
+    });
+  } catch(err) {}
+  document.getElementById('beta-form').style.display = 'none';
+  document.getElementById('beta-ok').style.display = 'block';
+}
+</script>
+
+<script>
+// Smooth scroll active nav
+const sections = ['features','integrations','skills','pricing','beta'];
+const navLinks = document.querySelectorAll('.nav-links a[href^="#"]');
+
+function setActive() {
+  let current = '';
+  sections.forEach(id => {
+    const el = document.getElementById(id);
+    if (el && window.scrollY >= el.offsetTop - 120) current = id;
+  });
+  navLinks.forEach(a => {
+    a.style.color = a.getAttribute('href') === '#' + current
+      ? 'var(--ink)'
+      : '';
+    a.style.fontWeight = a.getAttribute('href') === '#' + current && !a.classList.contains('nav-cta')
+      ? '500'
+      : '';
+  });
+}
+window.addEventListener('scroll', setActive, { passive: true });
+setActive();
+</script>
 
 </body>
 </html>
