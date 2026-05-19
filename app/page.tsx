@@ -183,65 +183,100 @@ export default function HomePage() {
           <a href="#beta" className="btn-primary">Join the beta — it&apos;s free</a>
         </div>
 
-        {/* Browser mockup — personal / iMessage context */}
+        {/* Hero visual — phone for personal, browser for professional */}
         <div className="hero-visual">
-          <div className="browser-frame">
-            <div className="browser-chrome">
-              <div className="b-dots">
-                <span className="dot-r" />
-                <span className="dot-y" />
-                <span className="dot-g" />
+          {mode === "personal" ? (
+
+            /* ── PHONE MOCKUP ── */
+            <div className="phone-frame">
+              <div className="phone-notch" />
+              <div className="phone-screen">
+                <div className="ph-header">
+                  <div className="ph-av-wrap">
+                    <div className="ph-avatar">A</div>
+                    <span className="ph-online" />
+                  </div>
+                  <div className="ph-name">Alex</div>
+                  <div className="ph-meta">Hinge match · online now</div>
+                </div>
+                <div className="ph-thread">
+                  <div className="ph-bubble">haha yeah that&apos;s so funny</div>
+                  <div className="ph-bubble">anyway what are you up to this weekend</div>
+                </div>
+                <div className="ph-beckett">
+                  <div className="ph-b-label">What&apos;s happening</div>
+                  <div className="ph-b-text">They&apos;re being casual but leaving the door open — a soft invitation. They want to see if you&apos;ll make a move.</div>
+                  <div className="ph-replies">
+                    <div className="ph-reply">
+                      <span className="ph-reply-tag">Direct</span>
+                      Actually free Saturday — want to grab coffee?
+                    </div>
+                    <div className="ph-reply">
+                      <span className="ph-reply-tag ph-reply-tag-play">Playful</span>
+                      Not much planned yet, might be up for something 👀
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div className="b-url">Messages — Alex (Hinge match)</div>
+              <div className="phone-home-bar" />
             </div>
-            <div className="browser-body">
-              <div className="imsg-pane">
-                <div className="imsg-header">
-                  <div className="imsg-avatar">A</div>
-                  <div>
-                    <div className="imsg-name">Alex</div>
-                    <div className="imsg-meta">Hinge match · 3 days</div>
-                  </div>
+
+          ) : (
+
+            /* ── BROWSER MOCKUP ── */
+            <div className="browser-frame">
+              <div className="browser-chrome">
+                <div className="b-dots">
+                  <span className="dot-r" />
+                  <span className="dot-y" />
+                  <span className="dot-g" />
                 </div>
-                <div className="imsg-thread">
-                  <div className="imsg-bubble them">&ldquo;haha yeah that&apos;s so funny&rdquo;</div>
-                  <div className="imsg-bubble them imsg-bubble-highlight">
-                    &ldquo;anyway what are you up to this weekend&rdquo;
-                  </div>
-                  <div className="imsg-typing">Beckett is reading the room…</div>
-                </div>
+                <div className="b-url">mail.google.com — Inbox</div>
               </div>
-              <div className="b-sidebar">
-                <div className="b-header">
-                  <div className="b-logo"><div className="b-dot" />beckett</div>
-                  <div className="m-pills">
-                    <div className="m-pill on">Personal</div>
-                    <div className="m-pill">Work</div>
+              <div className="browser-body">
+                <div className="email-pane">
+                  <div className="e-from">Sarah Chen · Director of Product</div>
+                  <div className="e-subject">Re: Q3 roadmap alignment</div>
+                  <div className="e-date">Today at 2:14 PM</div>
+                  <div className="e-body">
+                    <p>Per my last email, I wanted to make sure we&apos;re on the same page before the all-hands.</p>
+                    <div className="e-highlight">&ldquo;Let&apos;s make sure decisions like this go through the right channels going forward.&rdquo;</div>
+                    <p>Looking forward to syncing on this.</p>
                   </div>
                 </div>
-                <div className="i-card">
-                  <div className="i-label">What&apos;s really going on</div>
-                  <div className="i-text">They&apos;re keeping it casual but leaving the door open. This is a soft invitation — they want to see if you&apos;ll make a move.</div>
+                <div className="b-sidebar">
+                  <div className="b-header">
+                    <div className="b-logo"><div className="b-dot" />beckett</div>
+                    <div className="m-pills">
+                      <div className="m-pill">Personal</div>
+                      <div className="m-pill on">Work</div>
+                    </div>
+                  </div>
+                  <div className="i-card">
+                    <div className="i-label">What&apos;s really going on</div>
+                    <div className="i-text">Sarah is signaling frustration that you bypassed her — a soft correction, not open conflict.</div>
+                  </div>
+                  <div className="i-card">
+                    <div className="i-label">What she needs</div>
+                    <div className="i-text">Calm acknowledgment that you understand the process and won&apos;t bypass it again.</div>
+                  </div>
+                  <div className="r-section-label">Draft responses</div>
+                  <div className="r-card">
+                    <div className="r-tag t-warm">Warm</div>
+                    <div className="r-text">Appreciate the note, Sarah. Happy to sync before the all-hands — want to make sure we&apos;re fully aligned.</div>
+                    <div className="r-copy"><button>Copy</button></div>
+                  </div>
+                  <div className="r-card">
+                    <div className="r-tag t-direct">Direct</div>
+                    <div className="r-text">Thanks for flagging — I&apos;ll loop you in before moving forward on decisions like this.</div>
+                    <div className="r-copy"><button>Copy</button></div>
+                  </div>
+                  <button className="ins-btn">↗ Insert into Gmail</button>
                 </div>
-                <div className="i-card">
-                  <div className="i-label">What works here</div>
-                  <div className="i-text">Direct but light. A simple suggestion lands better than something too clever.</div>
-                </div>
-                <div className="r-section-label">Draft responses</div>
-                <div className="r-card">
-                  <div className="r-tag t-warm">Direct</div>
-                  <div className="r-text">Actually free Saturday — want to grab coffee?</div>
-                  <div className="r-copy"><button>Copy</button></div>
-                </div>
-                <div className="r-card">
-                  <div className="r-tag t-direct">Playful</div>
-                  <div className="r-text">Not much planned yet, might be up for something fun though 👀</div>
-                  <div className="r-copy"><button>Copy</button></div>
-                </div>
-                <button className="ins-btn">↗ Insert into Messages</button>
               </div>
             </div>
-          </div>
+
+          )}
         </div>
       </section>
 
