@@ -34,7 +34,7 @@ export default function IntegrationsPage() {
             Works where you work
           </h1>
           <p className="text-ink-mid max-w-xl mx-auto text-lg">
-            Lumen runs in the tools you already use — no new apps, no workflow
+            Beckett runs in the tools you already use — no new apps, no workflow
             changes.
           </p>
         </div>

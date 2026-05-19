@@ -16,14 +16,14 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Lumen — Your personal communication coach",
+  title: "Beckett — Your personal communication coach",
   description:
-    "Lumen helps you communicate with more clarity and confidence — in Gmail, Slack, meetings, and beyond.",
+    "Beckett helps you communicate with more clarity and confidence — in Gmail, Slack, meetings, and beyond.",
   openGraph: {
-    title: "Lumen — Your personal communication coach",
+    title: "Beckett — Your personal communication coach",
     description:
-      "Lumen helps you communicate with more clarity and confidence.",
-    siteName: "Lumen",
+      "Beckett helps you communicate with more clarity and confidence.",
+    siteName: "Beckett",
   },
 };
 

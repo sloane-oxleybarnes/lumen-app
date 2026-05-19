@@ -23,7 +23,7 @@ export default function Nav() {
           className="text-xl text-ink"
           style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
         >
-          Lumen
+          Beckett
         </Link>
 
         {/* Desktop nav */}

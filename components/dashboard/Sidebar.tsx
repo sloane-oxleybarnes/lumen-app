@@ -53,7 +53,7 @@ export default function DashboardSidebar({
           className="text-xl text-ink"
           style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
         >
-          Lumen
+          Beckett
         </Link>
       </div>
 

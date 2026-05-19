@@ -52,7 +52,7 @@ const plans = [
     period: "per team",
     description: "For managers who want to support their team's communication.",
     cta: "Contact us",
-    href: "mailto:sloane@meetlumen.ai",
+    href: "mailto:hello@meetbeckett.co",
     highlight: false,
     features: [
       "Everything in Pro for each member",

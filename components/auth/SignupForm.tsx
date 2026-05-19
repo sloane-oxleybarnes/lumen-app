@@ -108,7 +108,7 @@ export default function SignupPage() {
               className="text-2xl text-ink"
               style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
             >
-              Lumen
+              Beckett
             </span>
           </Link>
         </div>

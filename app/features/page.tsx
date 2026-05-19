@@ -27,7 +27,7 @@ const features = [
   {
     title: "Safe people mode",
     description:
-      "Toggle on for messages to close colleagues or friends — Lumen adjusts its suggestions to match.",
+      "Toggle on for messages to close colleagues or friends — Beckett adjusts its suggestions to match.",
     plan: "free",
     icon: "🛡️",
   },
@@ -112,7 +112,7 @@ export default function FeaturesPage() {
             className="text-4xl sm:text-5xl text-ink mb-4"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
           >
-            Everything Lumen can do
+            Everything Beckett can do
           </h1>
           <p className="text-ink-mid max-w-xl mx-auto text-lg">
             12 features built around one goal: helping you communicate with

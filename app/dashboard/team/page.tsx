@@ -126,7 +126,7 @@ export default async function TeamPage() {
         </h2>
         <p className="text-sm text-ink-light">
           Aggregated team insights are coming soon. Data appears here once
-          members have opted into data sharing and used Lumen for at least a
+          members have opted into data sharing and used Beckett for at least a
           week.
         </p>
       </section>

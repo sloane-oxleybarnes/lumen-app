@@ -55,7 +55,7 @@ export default function ProDashboard({
             <p className="text-xs text-ink-light mb-2">{stat}</p>
             <p className="text-2xl font-semibold text-ink-light">—</p>
             <p className="text-xs text-ink-light mt-1">
-              Your insights will appear here once you&apos;ve used Lumen for a
+              Your insights will appear here once you&apos;ve used Beckett for a
               few days.
             </p>
           </div>

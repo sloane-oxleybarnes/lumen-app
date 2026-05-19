@@ -25,10 +25,10 @@ export default function BetaPage() {
             className="text-4xl sm:text-5xl text-ink mb-5"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
           >
-            Join the Lumen beta
+            Join the Beckett beta
           </h1>
           <p className="text-ink-mid text-lg max-w-xl mx-auto leading-relaxed">
-            We&apos;re building Lumen with a small group of early members. Beta
+            We&apos;re building Beckett with a small group of early members. Beta
             access is free and includes everything in Pro — no credit card,
             no commitment.
           </p>

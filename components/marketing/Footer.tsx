@@ -9,7 +9,7 @@ export default function Footer() {
             className="text-lg text-ink"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
           >
-            Lumen
+            Beckett
           </span>
           <div className="flex items-center gap-6 text-sm text-ink-light">
             <Link href="/features" className="hover:text-ink transition-colors">
@@ -26,7 +26,7 @@ export default function Footer() {
             </Link>
           </div>
           <p className="text-sm text-ink-light">
-            &copy; {new Date().getFullYear()} Lumen. All rights reserved.
+            &copy; {new Date().getFullYear()} Beckett. All rights reserved.
           </p>
         </div>
       </div>

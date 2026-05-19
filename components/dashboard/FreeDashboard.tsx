@@ -5,7 +5,7 @@ import UpgradeModal from "./UpgradeModal";
 
 const gettingStarted = [
   {
-    label: "Add Lumen to Chrome",
+    label: "Add Beckett to Chrome",
     done: false,
     href: "https://chrome.google.com/webstore",
     proOnly: false,
@@ -43,7 +43,7 @@ export default function FreeDashboard({
           className="text-3xl text-ink mb-1"
           style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
         >
-          Welcome to Lumen, {name}.
+          Welcome to Beckett, {name}.
         </h1>
         <div className="flex items-center gap-3 mt-3">
           <span className="text-sm text-ink-mid">Your plan:</span>
