@@ -102,6 +102,25 @@ export default function HomePage() {
     { label: "I say yes when I mean no and don't know how to stop", beckett: "Helps you practice setting limits before the conversation happens." },
   ];
 
+  const professionalTriggers = [
+    { label: "I go blank in meetings and lose what I was about to say", beckett: "Helps you prepare talking points so you're never starting from scratch in the room." },
+    { label: "I can't tell if a Slack message is passive-aggressive or just blunt", beckett: "Decodes workplace tone and tells you plainly what's actually behind the message." },
+    { label: "I overthink every email for too long before I can hit send", beckett: "Drafts a response you can adjust rather than writing from a blank page." },
+    { label: "I shut down when I receive critical feedback, even if it's fair", beckett: "Helps you process and respond when you're not still in the moment." },
+  ];
+
+  const personalTestimonials = [
+    { av: "qa1", initials: "SR", name: "Sam R.", role: "Freelance designer", quote: "I've always struggled to read texts — is this person annoyed? Joking? Interested? Beckett just tells me. It sounds small but it changes everything." },
+    { av: "qa2", initials: "JM", name: "Jordan M.", role: "Graduate student", quote: "I used to rehearse conversations in my head for days before having them. With Beckett I can actually practice and show up ready." },
+    { av: "qa3", initials: "CL", name: "Casey L.", role: "Teacher", quote: "Dating felt impossible — I never knew if someone liked me or was just being friendly. Beckett helps me decode what's actually going on." },
+  ];
+
+  const professionalTestimonials = [
+    { av: "qa1", initials: "AK", name: "Alex K.", role: "Software Engineer", quote: "I always knew what I wanted to say in meetings — getting it out clearly was the hard part. Beckett helps me prepare." },
+    { av: "qa2", initials: "MR", name: "Morgan R.", role: "Product Manager", quote: "The live meeting guidance changed everything. I can finally be present instead of replaying everything two hours later." },
+    { av: "qa3", initials: "JT", name: "Jamie T.", role: "Customer Success", quote: "I used to rewrite every work email three times and still wasn't sure it landed. Beckett handles that for me." },
+  ];
+
   const personalApps = [
     { icon: "💬", name: "iMessage / SMS" },
     { icon: "🟢", name: "WhatsApp" },
@@ -142,6 +161,7 @@ export default function HomePage() {
               Professional
             </button>
           </div>
+          <a href="/auth/signin" className="nav-signin">Sign in</a>
           <a href="#beta" className="nav-cta">Join beta</a>
         </div>
       </nav>
@@ -251,7 +271,7 @@ export default function HomePage() {
           <h2>Everyone&apos;s brain has<br /><em>its own patterns.</em></h2>
           <p className="sec-sub">Maybe you overthink every reply. Maybe you miss tone completely. Maybe you go silent when you&apos;re overwhelmed. Beckett doesn&apos;t give you a generic script — it learns what you need and meets you there.</p>
           <div className="trigger-grid">
-            {triggers.map((t) => (
+            {(mode === "personal" ? triggers : professionalTriggers).map((t) => (
               <div key={t.label} className="trigger-card">
                 <div className="tc-quote">&ldquo;{t.label}&rdquo;</div>
                 <div className="tc-response">{t.beckett}</div>
@@ -331,11 +351,7 @@ export default function HomePage() {
           <div className="sec-label">What people say</div>
           <h2>People who think differently<br />and <em>communicate brilliantly.</em></h2>
           <div className="quote-grid">
-            {[
-              { av: "qa1", initials: "AK", name: "Alex K.", role: "Software Engineer", quote: "I always knew what I wanted to say. Beckett helps me find the words that actually land — and it gets better at matching my voice the more I use it." },
-              { av: "qa2", initials: "MR", name: "Morgan R.", role: "Product Manager", quote: "The live meeting coaching is genuinely game-changing. I finally feel like I can be present in the moment instead of processing everything two hours after the call." },
-              { av: "qa3", initials: "JT", name: "Jamie T.", role: "Customer Success", quote: "It doesn't put words in my mouth. It helps me find my own words — the ones I actually mean, in a way that people can hear. That's everything." },
-            ].map((q) => (
+            {(mode === "personal" ? personalTestimonials : professionalTestimonials).map((q) => (
               <div key={q.name} className="q-card">
                 <div className="q-text">&ldquo;{q.quote}&rdquo;</div>
                 <div className="q-author">

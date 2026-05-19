@@ -68,6 +68,14 @@
   white-space: nowrap;
 }
 .lumen-home .nav-cta:hover { background: var(--amber-dark); }
+.lumen-home .nav-signin {
+  font-size: 14px;
+  color: var(--ink-mid);
+  text-decoration: none;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+.lumen-home .nav-signin:hover { color: var(--ink); }
 
 /* Mode toggle in nav */
 .lumen-home .mode-toggle-wrap { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
@@ -146,11 +154,11 @@
 
 .lumen-home h1 {
   font-family: var(--serif);
-  font-size: clamp(2.4rem, 6vw, 4.2rem);
-  line-height: 1.1;
+  font-size: clamp(1.8rem, 4vw, 3rem);
+  line-height: 1.15;
   letter-spacing: -0.025em;
   color: var(--ink);
-  max-width: 800px;
+  max-width: 900px;
   margin-bottom: 1.5rem;
 }
 .lumen-home h1 em { font-style: italic; color: var(--amber); }
