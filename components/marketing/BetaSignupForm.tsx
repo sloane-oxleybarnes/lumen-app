@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { createClient } from "@/lib/supabase";
 
 export default function BetaSignupForm({
   source = "landing_page",
@@ -20,17 +19,13 @@ export default function BetaSignupForm({
     e.preventDefault();
     setStatus("loading");
 
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from("beta_signups")
-        .insert({ email, name: name || null, source, plan: "beta" });
+    const res = await fetch("/api/beta-signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, name, source, plan: "beta" }),
+    });
 
-      if (error) throw error;
-      setStatus("success");
-    } catch {
-      setStatus("error");
-    }
+    setStatus(res.ok ? "success" : "error");
   }
 
   if (status === "success") {

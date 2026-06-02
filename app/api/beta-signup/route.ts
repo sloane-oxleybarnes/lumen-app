@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createOrUpdateHubSpotContact } from "@/lib/hubspot";
 import { addLoopsContact, triggerLoopsEvent } from "@/lib/loops";
+import { Resend } from "resend";
 
 export async function POST(req: NextRequest) {
   const { email, name, source, plan } = await req.json();
@@ -53,6 +54,21 @@ export async function POST(req: NextRequest) {
     plan: plan || "beta",
     source: source || "landing_page",
   });
+
+  // Notify hello@meetbeckett.co
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Beckett <hello@meetbeckett.co>",
+        to: "hello@meetbeckett.co",
+        subject: "New Beckett beta signup",
+        html: `<p><strong>${name || "Someone"}</strong> just signed up for the beta.</p><p>Email: ${email}</p><p>Source: ${source || "landing_page"}</p>`,
+      });
+    } catch (e) {
+      console.error("Resend error:", e);
+    }
+  }
 
   return NextResponse.json({ success: true });
 }

@@ -11,8 +11,16 @@ export async function GET(request: Request) {
 
   if (code) {
     await supabase.auth.exchangeCodeForSession(code)
-  } else if (token_hash && type) {
+    return NextResponse.redirect(`${origin}/dashboard`)
+  }
+
+  if (token_hash && type) {
     await supabase.auth.verifyOtp({ token_hash, type: type as any })
+    // Invite flow — send to set-password before dashboard
+    if (type === 'invite') {
+      return NextResponse.redirect(`${origin}/auth/set-password`)
+    }
+    return NextResponse.redirect(`${origin}/dashboard`)
   }
 
   return NextResponse.redirect(`${origin}/dashboard`)
