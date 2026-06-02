@@ -1,17 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase";
 import { useRouter } from "next/navigation";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const supabase = createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    const supabase = createClient();
 
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {

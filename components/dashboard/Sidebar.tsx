@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
 
 const planBadgeColor: Record<string, string> = {
@@ -21,10 +21,7 @@ export default function DashboardSidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
   const plan = profile?.plan || "free";
 
   async function signOut() {

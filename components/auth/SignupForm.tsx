@@ -1,15 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function SignupPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
   const router = useRouter();
   const searchParams = useSearchParams();
   const planParam = searchParams.get("plan") || "free";

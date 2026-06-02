@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase";
 
 export default function UpgradeModal({
   userEmail,
@@ -10,10 +10,7 @@ export default function UpgradeModal({
   userEmail: string;
   onClose: () => void;
 }) {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
   const [done, setDone] = useState(false);
 
   async function handleIntent() {

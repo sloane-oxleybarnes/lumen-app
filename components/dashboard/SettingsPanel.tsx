@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createBrowserClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
 
 const planBadgeColor: Record<string, string> = {
@@ -12,10 +12,7 @@ const planBadgeColor: Record<string, string> = {
 };
 
 export default function SettingsPage() {
-  const supabase = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  );
+  const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [fullName, setFullName] = useState("");
   const [saving, setSaving] = useState(false);
