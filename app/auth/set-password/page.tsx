@@ -8,25 +8,15 @@ export default function SetPasswordPage() {
   const [confirm, setConfirm] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sessionReady, setSessionReady] = useState(false)
+  const [ready, setReady] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
   useEffect(() => {
-    // Poll for session — the server callback sets it in a cookie
-    // but the client may need a moment to pick it up
-    let attempts = 0
-    const interval = setInterval(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        setSessionReady(true)
-        clearInterval(interval)
-      } else if (++attempts > 10) {
-        setError('Session expired. Please click the link in your email again.')
-        clearInterval(interval)
-      }
-    }, 500)
-    return () => clearInterval(interval)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setReady(true)
+      else setError('Session expired. Please request a new invite.')
+    })
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,15 +29,9 @@ export default function SetPasswordPage() {
     router.push('/dashboard')
   }
 
-  if (!sessionReady && !error) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F3', fontFamily: 'DM Sans, sans-serif', color: '#8A8784' }}>
-      Setting up your account…
-    </div>
-  )
-
-  if (error && !sessionReady) return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F3', fontFamily: 'DM Sans, sans-serif', color: '#c0392b' }}>
-      {error}
+  if (!ready) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#FBF8F3', fontFamily: 'DM Sans, sans-serif', color: error ? '#c0392b' : '#8A8784' }}>
+      {error || 'Setting up your account…'}
     </div>
   )
 
@@ -60,7 +44,7 @@ export default function SetPasswordPage() {
         <form onSubmit={handleSubmit}>
           <input type="password" placeholder="Password (min 8 characters)" value={password} onChange={e => setPassword(e.target.value)} required style={{ width: '100%', padding: '11px 14px', borderRadius: 8, border: '1px solid #ddd', marginBottom: 12, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
           <input type="password" placeholder="Confirm password" value={confirm} onChange={e => setConfirm(e.target.value)} required style={{ width: '100%', padding: '11px 14px', borderRadius: 8, border: '1px solid #ddd', marginBottom: 20, fontSize: 14, outline: 'none', boxSizing: 'border-box' }} />
-          <button type="submit" disabled={loading || !sessionReady} style={{ width: '100%', background: '#BA7517', color: '#fff', border: 'none', borderRadius: 100, padding: '11px', fontSize: 15, fontWeight: 500, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
+          <button type="submit" disabled={loading} style={{ width: '100%', background: '#BA7517', color: '#fff', border: 'none', borderRadius: 100, padding: '11px', fontSize: 15, fontWeight: 500, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Setting password…' : 'Set password and sign in'}
           </button>
         </form>

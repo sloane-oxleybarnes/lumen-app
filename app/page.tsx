@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import "./home.css";
 
 type Mode = "personal" | "professional";
@@ -11,6 +12,16 @@ export default function HomePage() {
   const [betaStatus, setBetaStatus] = useState<"idle" | "loading" | "done">("idle");
   const [activeSection, setActiveSection] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const router = useRouter();
+
+  useEffect(() => {
+    const hash = window.location.hash;
+    if (hash.includes("error=")) {
+      const params = new URLSearchParams(hash.substring(1));
+      const errorDesc = params.get("error_description");
+      if (errorDesc) router.push(`/auth/signin?error=${encodeURIComponent(errorDesc)}`);
+    }
+  }, []);
 
   useEffect(() => {
     const sections = ["features", "triggers", "skills", "beta"];
