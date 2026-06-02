@@ -16,9 +16,13 @@ export async function GET(request: Request) {
   }
 
   if (token_hash && type) {
-    await supabase.auth.verifyOtp({ token_hash, type: type as EmailOtpType })
-    // Invite flow — send to set-password before dashboard
+    const { data, error } = await supabase.auth.verifyOtp({ token_hash, type: type as EmailOtpType })
     if (type === 'invite') {
+      if (!error && data.session) {
+        const url = new URL(`${origin}/auth/set-password`)
+        url.hash = `access_token=${data.session.access_token}&refresh_token=${data.session.refresh_token}&type=invite`
+        return NextResponse.redirect(url.toString())
+      }
       return NextResponse.redirect(`${origin}/auth/set-password`)
     }
     return NextResponse.redirect(`${origin}/dashboard`)

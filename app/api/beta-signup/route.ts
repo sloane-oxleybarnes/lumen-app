@@ -55,10 +55,19 @@ export async function POST(req: NextRequest) {
     source: source || "landing_page",
   });
 
-  // Notify hello@meetbeckett.co
   if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
     try {
-      const resend = new Resend(process.env.RESEND_API_KEY);
+      await resend.emails.send({
+        from: "Beckett <hello@meetbeckett.co>",
+        to: email,
+        subject: "You're on the Beckett waitlist",
+        html: `<p>Thanks for signing up for Beckett. We're reviewing applications and will send you a link to set up your account once you're approved.</p><p>— Sloane</p>`,
+      });
+    } catch (e) {
+      console.error("Resend signup confirmation error:", e);
+    }
+    try {
       await resend.emails.send({
         from: "Beckett <hello@meetbeckett.co>",
         to: "hello@meetbeckett.co",
@@ -66,7 +75,7 @@ export async function POST(req: NextRequest) {
         html: `<p><strong>${name || "Someone"}</strong> just signed up for the beta.</p><p>Email: ${email}</p><p>Source: ${source || "landing_page"}</p>`,
       });
     } catch (e) {
-      console.error("Resend error:", e);
+      console.error("Resend notification error:", e);
     }
   }
 
