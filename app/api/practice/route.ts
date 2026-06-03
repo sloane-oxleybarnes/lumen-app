@@ -32,7 +32,6 @@ async function callAnthropic(system: string | null, messages: { role: string; co
 }
 
 export async function POST(req: NextRequest) {
-  // Auth check
   const supabase = createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -49,13 +48,15 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json() as {
-    action: 'turn' | 'debrief'
+    action: 'turn' | 'debrief' | 'inline_feedback'
     system?: string
     messages?: { role: string; content: string }[]
     personDescription?: string
     situation?: string
     goal?: string
     conversationHistory?: string
+    userMessage?: string
+    context?: string
   }
 
   const { action } = body
@@ -67,27 +68,51 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ text: text.trim() })
   }
 
+  if (action === 'inline_feedback') {
+    const { userMessage, context } = body
+    if (!userMessage) return NextResponse.json({ error: 'userMessage required' }, { status: 400 })
+
+    const system = 'You are a communication coach giving brief, honest in-the-moment feedback.'
+    const user = `Context: ${context || 'a practice conversation'}
+
+The user just said: "${userMessage}"
+
+In one short sentence (max 20 words), note how they came across. Be direct and specific. Return only the sentence — no labels, no preamble.`
+
+    const note = await callAnthropic(system, [{ role: 'user', content: user }], 80)
+    return NextResponse.json({ note: note.trim() })
+  }
+
   if (action === 'debrief') {
     const { personDescription, situation, goal, conversationHistory } = body
     if (!conversationHistory) return NextResponse.json({ error: 'conversationHistory required' }, { status: 400 })
 
-    const system = 'You are Beckett, giving honest feedback after a practice conversation.'
+    const system = 'You are Beckett, giving honest feedback after a practice conversation. Always respond with valid JSON only — no extra text.'
     const user = `You were just playing the role of ${personDescription} in a practice conversation.
 The situation: "${situation}"
 The user's goal: "${goal}"
 
-Here is the conversation that just happened:
+Here is the conversation:
 ${conversationHistory}
 
-Now break character completely. Give the user honest, constructive feedback:
-1. What landed well (1-2 specific moments)
-2. One thing to rephrase (be specific — quote what they said and suggest an alternative)
-3. One alternative approach they could try
+Now break character completely. Return a JSON object with exactly these 4 fields (each 1-2 sentences, honest but constructive):
 
-Keep it under 150 words. Be honest but encouraging.`
+{
+  "other_person_felt": "How the other person likely felt during this conversation",
+  "how_you_came_across": "How the user came across overall",
+  "what_went_well": "One or two specific things that worked",
+  "things_to_work_on": "The main thing to improve next time"
+}
 
-    const result = await callAnthropic(system, [{ role: 'user', content: user }], 800)
-    return NextResponse.json({ result: result.trim() })
+Return only valid JSON. No markdown, no extra text.`
+
+    const result = await callAnthropic(system, [{ role: 'user', content: user }], 600)
+    try {
+      const parsed = JSON.parse(result.trim()) as Record<string, string>
+      return NextResponse.json(parsed)
+    } catch {
+      return NextResponse.json({ error: 'Failed to parse feedback. Please try again.' }, { status: 500 })
+    }
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })

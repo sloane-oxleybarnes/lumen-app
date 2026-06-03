@@ -4,6 +4,47 @@ import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
 
+function ConnectRow({
+  icon,
+  name,
+  description,
+  onConnect,
+  extensionOnly,
+}: {
+  icon: string;
+  name: string;
+  description: string;
+  onConnect?: () => void;
+  extensionOnly?: boolean;
+}) {
+  const [notice, setNotice] = useState<string | null>(null);
+
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <div className="flex items-start gap-3">
+        <span className="text-lg mt-0.5">{icon}</span>
+        <div>
+          <p className="text-sm text-ink font-medium">{name}</p>
+          <p className="text-xs text-ink-light">{description}</p>
+          {notice && <p className="text-xs text-ink-mid mt-1">{notice}</p>}
+        </div>
+      </div>
+      <button
+        onClick={() => {
+          if (extensionOnly) {
+            setNotice("Connect via the Beckett extension. Dashboard OAuth coming soon.");
+          } else {
+            onConnect?.();
+          }
+        }}
+        className="shrink-0 text-xs border border-border rounded-pill px-4 py-1.5 text-ink hover:bg-bg transition-colors"
+      >
+        Connect
+      </button>
+    </div>
+  );
+}
+
 const planBadgeColor: Record<string, string> = {
   free: "bg-ink-light/20 text-ink-mid",
   beta: "bg-primary-light text-primary",
@@ -162,25 +203,45 @@ export default function SettingsPage() {
       {/* Connected accounts */}
       <section className="bg-white rounded-card border border-border p-6 mb-5">
         <h2
-          className="text-lg text-ink mb-4"
+          className="text-lg text-ink mb-1"
           style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
         >
           Connected accounts
         </h2>
-        <div className="space-y-3">
-          {[
-            { name: "Gmail", icon: "📧", status: "not connected" },
-            { name: "Slack", icon: "💬", status: "not connected" },
-            { name: "LinkedIn", icon: "💼", status: "not connected" },
-          ].map((acc) => (
-            <div key={acc.name} className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span>{acc.icon}</span>
-                <span className="text-sm text-ink">{acc.name}</span>
-              </div>
-              <span className="text-xs text-ink-light">{acc.status}</span>
-            </div>
-          ))}
+        <p className="text-sm text-ink-mid mb-5">
+          Connect your accounts to unlock email context, calendar briefs, and message history.
+        </p>
+        <div className="space-y-4">
+          {/* Google / Gmail */}
+          <ConnectRow
+            icon="📧"
+            name="Google (Gmail + Calendar)"
+            description="Email context and upcoming meetings"
+            onConnect={async () => {
+              await supabase.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                  scopes: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly",
+                  redirectTo: `${window.location.origin}/dashboard/settings`,
+                  queryParams: { access_type: "offline", prompt: "consent" },
+                },
+              });
+            }}
+          />
+          {/* Slack */}
+          <ConnectRow
+            icon="💬"
+            name="Slack"
+            description="Message history and contact context"
+            extensionOnly
+          />
+          {/* LinkedIn */}
+          <ConnectRow
+            icon="💼"
+            name="LinkedIn"
+            description="Professional context for contacts"
+            extensionOnly
+          />
         </div>
       </section>
 

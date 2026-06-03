@@ -1,5 +1,6 @@
 'use client'
-import { useState, useRef, useEffect, use } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { SKILL_MODULES, type Scenario } from '@/lib/skills'
 
@@ -14,8 +15,8 @@ Their goal: "${goal}"
 Stay in character. Respond realistically — including natural resistance, questions, or reactions. Difficulty level: ${scenario.difficulty}. Be appropriately challenging for that level.`
 }
 
-export default function SkillModulePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params)
+export default function SkillModulePage() {
+  const { id } = useParams() as { id: string }
   const skillModule = SKILL_MODULES.find(m => m.id === id)
 
   const [phase, setPhase] = useState<Phase>('frame')
@@ -229,8 +230,10 @@ export default function SkillModulePage({ params }: { params: Promise<{ id: stri
 
   // ── Debrief ────────────────────────────────────────────────────────────────
 
-  const parts = debrief.split(/\n(?=\d+\.)/).map(s => s.replace(/^\d+\.\s*/, '').trim())
-  const [wentWell = '', rephrase = '', alternative = ''] = parts
+  type DebriefData = { other_person_felt: string; how_you_came_across: string; what_went_well: string; things_to_work_on: string }
+  let debriefData: DebriefData | null = null
+  try { debriefData = debrief ? JSON.parse(debrief) as DebriefData : null } catch { /* raw text fallback */ }
+
   const hasHarder = scenarioIndex < skillModule.scenarios.length - 1
 
   return (
@@ -242,24 +245,24 @@ export default function SkillModulePage({ params }: { params: Promise<{ id: stri
 
       {loading && <p className="text-ink-mid text-sm">Generating feedback…</p>}
 
-      {!loading && debrief && (
+      {!loading && debriefData && (
         <div className="space-y-4">
           <div className="bg-white border border-border rounded-card p-5">
-            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">What landed well</p>
-            <p className="text-sm text-ink leading-relaxed">{wentWell || debrief}</p>
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">How they likely felt</p>
+            <p className="text-sm text-ink leading-relaxed">{debriefData.other_person_felt}</p>
           </div>
-          {rephrase && (
-            <div className="bg-white border border-border rounded-card p-5">
-              <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">One thing to rephrase</p>
-              <p className="text-sm text-ink leading-relaxed">{rephrase}</p>
-            </div>
-          )}
-          {alternative && (
-            <div className="bg-white border border-border rounded-card p-5">
-              <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Alternative approach</p>
-              <p className="text-sm text-ink leading-relaxed">{alternative}</p>
-            </div>
-          )}
+          <div className="bg-white border border-border rounded-card p-5">
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">How you came across</p>
+            <p className="text-sm text-ink leading-relaxed">{debriefData.how_you_came_across}</p>
+          </div>
+          <div className="bg-white border border-border rounded-card p-5">
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">What went well</p>
+            <p className="text-sm text-ink leading-relaxed">{debriefData.what_went_well}</p>
+          </div>
+          <div className="bg-white border border-border rounded-card p-5">
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Things to work on</p>
+            <p className="text-sm text-ink leading-relaxed">{debriefData.things_to_work_on}</p>
+          </div>
 
           <div className="flex flex-col gap-3 pt-2">
             {hasHarder && (
@@ -280,7 +283,7 @@ export default function SkillModulePage({ params }: { params: Promise<{ id: stri
               href="/dashboard/skills"
               className="w-full border border-border rounded-pill py-3 text-sm font-medium text-ink text-center hover:bg-primary-light transition-colors"
             >
-              ← Back to skill skillModules
+              ← Back to skills
             </Link>
           </div>
         </div>
