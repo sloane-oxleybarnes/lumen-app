@@ -30,8 +30,14 @@ export default function DashboardSidebar({
     router.refresh();
   }
 
+  const isPro = plan === "pro" || plan === "beta";
+
   const navItems = [
     { href: "/dashboard", label: "Overview", icon: "◈" },
+    ...(isPro ? [
+      { href: "/dashboard/practice", label: "Practice", icon: "💬" },
+      { href: "/dashboard/skills", label: "Skills", icon: "✦" },
+    ] : []),
     { href: "/dashboard/settings", label: "Settings", icon: "⚙" },
     ...(plan === "team" && profile?.role === "admin"
       ? [{ href: "/dashboard/team", label: "Team", icon: "👥" }]
