@@ -125,7 +125,7 @@ As Beckett, write 2-3 sentences of honest, compassionate analysis of why the con
 
   // ── Mini-conversation (consequence preview for guided practice) ─────────
   if (action === 'mini_convo') {
-    const { wrongAnswer, scenario, correctAnswer, explanation, matchName } = body
+    const { wrongAnswer, scenario, explanation, matchName } = body
 
     const prompt = `Generate a short realistic dating app conversation (3-4 exchanges) showing what would happen if someone sent a bad message.
 

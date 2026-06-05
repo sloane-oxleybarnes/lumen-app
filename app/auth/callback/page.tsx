@@ -74,6 +74,7 @@ export default function AuthCallbackPage() {
     }
 
     router.push('/auth/signin')
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   return (

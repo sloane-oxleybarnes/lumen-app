@@ -17,6 +17,7 @@ export default function SetPasswordPage() {
       if (session) setReady(true)
       else setError('This link has expired. Please request a new one.')
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
