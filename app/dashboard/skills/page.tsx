@@ -1,6 +1,10 @@
 import Link from 'next/link'
 import { SKILL_MODULES, RECOMMENDED_IDS, type SubCategory, type SkillModule } from '@/lib/skills'
 
+const COURSE_OVERRIDES: Record<string, string> = {
+  'ask-someone-out-text': '/dashboard/courses/ask-someone-out',
+}
+
 const difficultyLabel: Record<string, string> = {
   foundations: 'Foundations',
   intermediate: 'Intermediate',
@@ -27,7 +31,7 @@ function ModuleCard({ mod, recommended }: { mod: SkillModule; recommended?: bool
 
   return (
     <Link
-      href={`/dashboard/skills/${mod.id}`}
+      href={COURSE_OVERRIDES[mod.id] || `/dashboard/skills/${mod.id}`}
       className="group bg-white border border-border rounded-card p-5 hover:border-primary transition-colors flex items-start justify-between gap-4"
     >
       <div className="flex-1 min-w-0">
