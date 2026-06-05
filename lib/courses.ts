@@ -3,6 +3,7 @@
 export type AccordionSlide = {
   type: 'accordion'
   title: string
+  description?: string
   sections: { heading: string; bullets: string[] }[]
 }
 
@@ -17,16 +18,18 @@ export type ReadThroughSlide = {
 export type FlipCardsSlide = {
   type: 'flip-cards'
   title: string
+  description?: string
   cards: { front: string; back: string[] }[]
 }
 
 export type MatchingPair = {
-  left: { name: string; description: string }
+  left: { name: string; description: string; mismatchNote?: string }
   right: { name: string; description: string }
 }
 export type MatchingSlide = {
   type: 'matching'
   title: string
+  description?: string
   instruction: string
   pairs: MatchingPair[]
 }
@@ -34,8 +37,21 @@ export type MatchingSlide = {
 export type InteractiveReadSlide = {
   type: 'interactive-read'
   title: string
+  description?: string
   sections: { heading: string; bullets: string[]; examples?: string[] }[]
-  draftPrompt: string
+  draftPrompt?: string
+  draftContext?: string
+  comparison?: {
+    scenario: string
+    good: { label: string; message: string; note: string }
+    bad: { label: string; message: string; note: string }
+  }
+}
+
+export type DraftPracticeSlide = {
+  type: 'draft-practice'
+  title: string
+  prompt: string
   draftContext: string
 }
 
@@ -76,6 +92,7 @@ export type CourseSlide =
   | FlipCardsSlide
   | MatchingSlide
   | InteractiveReadSlide
+  | DraftPracticeSlide
   | SideBySideSlide
   | SortingSlide
   | MultipleChoiceSlide
@@ -93,6 +110,7 @@ export type Course = {
   description: string
   estimatedMinutes: number
   confidenceQuestion: string
+  confidenceIntro: string
   reflectiveQuestion: string
   slides: CourseSlide[]
   openPractice: OpenPracticeConfig
@@ -108,6 +126,7 @@ const askSomeoneOut: Course = {
   description: 'How to move from chatting to suggesting a date — with confidence, clear communication, and without overthinking it.',
   estimatedMinutes: 30,
   confidenceQuestion: 'How confident do you feel right now about asking someone out?',
+  confidenceIntro: 'In this course, you\'ll explore what makes dating feel hard, how to recognise real compatibility, and how to ask someone out in a way that feels natural — not scripted.',
   reflectiveQuestion: 'What is one thing you will do the next time you ask someone out?',
   reviewWrongAnswers: true,
   reviewConversationTurns: 4,
@@ -125,10 +144,31 @@ If the person is vague, pushy, inappropriate, or makes you uncomfortable, become
 Never break character. You are Jamie — you do not know you are in a practice scenario.`,
   },
   slides: [
-    // ── Slide 1: Accordion ─────────────────────────────────────────────────
+    // ── Slide 1: Read-through — Your Strengths ────────────────────────────
+    {
+      type: 'read-through',
+      title: 'Your Strengths',
+      intro: 'Before we get into the harder material — here is what neurodivergent people genuinely bring to relationships.',
+      bullets: [
+        'Intense loyalty — when you commit to someone, you mean it.',
+        'Deep honesty — you tend to say what you mean, which builds real trust over time.',
+        'Unusual sensitivity to patterns — you often notice things about people that others miss entirely.',
+        'Creativity and depth — conversations with you rarely stay on the surface.',
+        'Focused passion — when you care about something or someone, that care is real and genuine.',
+      ],
+      stats: [
+        'About 75% of autistic adults strongly desire romance and deep connection, yet only around 5% are married compared to 50% of the general population — that gap reflects a tool mismatch, not a desire mismatch.',
+        'Adults with ADHD score higher on the Passionate Love Scale than neurotypical controls — the desire and intensity of romantic feeling is actually greater, not less. Wanting love deeply is not the problem.',
+        'Research from the University of Minnesota found that many people with Down syndrome experience sexual feelings, crushes, and a desire to date and have serious long-term relationships, regardless of cognitive disability.',
+        'Partners of people with dyslexia frequently describe them as quirky, exciting, and different — the same traits that make communication harder often make connection deeper.',
+      ],
+    },
+
+    // ── Slide 2: Accordion — Why Can Dating Be So Hard ────────────────────
     {
       type: 'accordion',
-      title: 'What Makes This Difficult',
+      title: 'Why Can Dating Be So Hard',
+      description: 'Dating involves a lot of unspoken rules, ambiguous signals, and social pressure. Here\'s what makes it especially tricky.',
       sections: [
         {
           heading: 'Differences in Social and Emotional Perception',
@@ -214,30 +254,11 @@ Never break character. You are Jamie — you do not know you are in a practice s
       ],
     },
 
-    // ── Slide 2: Read-through — Your Strengths ────────────────────────────
-    {
-      type: 'read-through',
-      title: 'Your Strengths',
-      intro: 'Before we get into the harder material — here is what neurodivergent people genuinely bring to relationships.',
-      bullets: [
-        'Intense loyalty — when you commit to someone, you mean it.',
-        'Deep honesty — you tend to say what you mean, which builds real trust over time.',
-        'Unusual sensitivity to patterns — you often notice things about people that others miss entirely.',
-        'Creativity and depth — conversations with you rarely stay on the surface.',
-        'Focused passion — when you care about something or someone, that care is real and genuine.',
-      ],
-      stats: [
-        'About 75% of autistic adults strongly desire romance and deep connection, yet only around 5% are married compared to 50% of the general population — that gap reflects a tool mismatch, not a desire mismatch.',
-        'Adults with ADHD score higher on the Passionate Love Scale than neurotypical controls — the desire and intensity of romantic feeling is actually greater, not less. Wanting love deeply is not the problem.',
-        'Research from the University of Minnesota found that many people with Down syndrome experience sexual feelings, crushes, and a desire to date and have serious long-term relationships, regardless of cognitive disability.',
-        'Partners of people with dyslexia frequently describe them as quirky, exciting, and different — the same traits that make communication harder often make connection deeper.',
-      ],
-    },
-
-    // ── Slide 3: Flip cards — Who Should You Ask Out ──────────────────────
+    // ── Slide 3: Flip cards — Is This Someone I Want to Date ─────────────
     {
       type: 'flip-cards',
-      title: 'Who Should You Ask Out',
+      title: 'Is This Someone I Want to Date',
+      description: 'Before you think about how to ask, it helps to check whether this is actually someone worth pursuing.',
       cards: [
         {
           front: 'Compatibility',
@@ -272,6 +293,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
           left: {
             name: 'Maya, 28',
             description: 'Remote data analyst. Needs structure during the day but keeps evenings entirely open. Deeply introverted — recharges alone, communicates better over text, and takes time to warm up. Into pottery, foreign films, and solo walks. Wants something serious eventually but is not in a rush. Finds social pressure exhausting.',
+            mismatchNote: 'Maya needs someone comfortable with silence and space — not someone who brings a lot of social energy.',
           },
           right: {
             name: 'Alex, 29',
@@ -282,6 +304,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
           left: {
             name: 'Jordan, 31',
             description: 'Works in hospitality — chaotic hours, lots of social energy at work, needs quiet at home. Recently out of a long relationship, not looking to rush. Very direct communicator. Days off: hiking, farmers markets, working on a novel. Emotionally self-aware. Needs someone who can handle uneven availability.',
+            mismatchNote: 'Jordan needs someone emotionally ready and able to handle an uneven schedule — that\'s a specific combination.',
           },
           right: {
             name: 'Sam, 32',
@@ -292,6 +315,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
           left: {
             name: 'Dani, 26',
             description: 'First-generation college graduate in nonprofit fundraising. Close to her family and wants to stay in the same city long-term. Communicates openly and wants the same back — hates vagueness. Values stability but wants real depth. Spends free time cooking, in her church community, and mentoring high schoolers.',
+            mismatchNote: 'Dani needs someone direct, family-close, and committed to staying local — all three matter to her.',
           },
           right: {
             name: 'Priya, 27',
@@ -302,6 +326,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
           left: {
             name: 'Ezra, 34',
             description: 'Software engineer, works from home, introverted. Gets deeply absorbed in interests: competitive chess, sourdough, philosophy podcasts. Communicates well in writing, less so in person. Not looking for someone high-maintenance or event-heavy. Wants a partner who has their own full inner world.',
+            mismatchNote: 'Ezra needs a partner with their own inner world who is genuinely comfortable with quiet — not someone spontaneous or social-heavy.',
           },
           right: {
             name: 'Leo, 35',
@@ -311,10 +336,11 @@ Never break character. You are Jamie — you do not know you are in a practice s
       ],
     },
 
-    // ── Slide 5: Interactive read — How Do You Ask ────────────────────────
+    // ── Slide 5: Interactive read — What Do I Say / How Do I Act ─────────
     {
       type: 'interactive-read',
-      title: 'How Do You Ask',
+      title: 'What Do I Say / How Do I Act',
+      description: 'The exact words matter less than how you come across. Here\'s what actually works.',
       sections: [
         {
           heading: 'Be Confident',
@@ -354,25 +380,27 @@ Never break character. You are Jamie — you do not know you are in a practice s
           ],
         },
       ],
-      draftPrompt: 'You\'ve been chatting with someone for a week. Write the message you\'d send to ask them out.',
-      draftContext: 'The user is practicing asking someone out on a dating app after one week of chatting. In one sentence (max 20 words), give honest specific feedback on their message — focus on tone, clarity, and whether it gives the person something to say yes to.',
+      comparison: {
+        scenario: 'You\'ve been chatting for five days and want to suggest meeting up.',
+        good: {
+          label: 'This works',
+          message: 'I\'ve been enjoying this — would you want to grab coffee this Saturday? There\'s a quiet spot near the park I like.',
+          note: 'Specific, warm, low-pressure. Gives them a real thing to say yes or no to.',
+        },
+        bad: {
+          label: 'This doesn\'t',
+          message: 'We should hang out sometime lol, let me know if you\'re ever free!',
+          note: 'Vague, no date, no place, puts all the effort on them. Easy to ignore.',
+        },
+      },
     },
 
-    // ── Slide 6: Side-by-side ─────────────────────────────────────────────
+    // ── Slide 6: Draft practice ───────────────────────────────────────────
     {
-      type: 'side-by-side',
-      title: 'Spot the Difference',
-      scenario: 'You\'ve been chatting for five days and want to suggest meeting up.',
-      good: {
-        label: 'This works',
-        message: 'I\'ve been enjoying this — would you want to grab coffee this Saturday? There\'s a quiet spot near the park I like.',
-        note: 'Specific, warm, low-pressure. Gives them a real thing to say yes or no to.',
-      },
-      bad: {
-        label: 'This doesn\'t',
-        message: 'We should hang out sometime lol, let me know if you\'re ever free!',
-        note: 'Vague, no date, no place, puts all the effort on them. Easy to ignore.',
-      },
+      type: 'draft-practice',
+      title: 'Try It Yourself',
+      prompt: 'You\'ve been chatting with someone for a week. Write the message you\'d send to ask them out.',
+      draftContext: 'The user is practicing asking someone out on a dating app after one week of chatting. In one sentence (max 20 words), give honest specific feedback on their message — focus on tone, clarity, and whether it gives the person something to say yes to.',
     },
 
     // ── Slide 7: Sorting ──────────────────────────────────────────────────
@@ -515,7 +543,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
       ],
     },
 
-    // ── Slide 11: Checklist — Presenting Yourself ─────────────────────────
+    // ── Slide 11: Checklist — Before You Go ──────────────────────────────
     {
       type: 'checklist',
       title: 'Before You Go',

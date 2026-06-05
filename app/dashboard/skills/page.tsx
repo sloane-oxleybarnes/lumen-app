@@ -1,11 +1,18 @@
+'use client'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { createClient } from '@/lib/supabase'
 import { SKILL_MODULES, type SubCategory, type SkillModule } from '@/lib/skills'
 
 const COURSE_OVERRIDES: Record<string, string> = {
   'ask-someone-out-text': '/dashboard/courses/ask-someone-out',
 }
 
-// Only modules with a COURSE_OVERRIDES entry are fully built
+// course_id values in course_completions (keyed by skill module id)
+const COURSE_IDS: Record<string, string> = {
+  'ask-someone-out-text': 'ask-someone-out',
+}
+
 const LIVE_IDS = new Set(Object.keys(COURSE_OVERRIDES))
 
 const SUBCATEGORY_SECTIONS: { sub: SubCategory; label: string }[] = [
@@ -18,13 +25,14 @@ const SUBCATEGORY_SECTIONS: { sub: SubCategory; label: string }[] = [
   { sub: 'professional-manager-boss', label: 'Professional — Manager and Boss' },
 ]
 
-function ModuleCard({ mod }: { mod: SkillModule }) {
+function ModuleCard({ mod, completedCourseIds }: { mod: SkillModule; completedCourseIds: Set<string> }) {
   const isLive = LIVE_IDS.has(mod.id)
   const href = COURSE_OVERRIDES[mod.id] || `/dashboard/skills/${mod.id}`
+  const courseId = COURSE_IDS[mod.id]
+  const isCompleted = courseId ? completedCourseIds.has(courseId) : false
 
   const inner = (
     <div className="relative bg-white border border-border rounded-card p-5 flex items-start justify-between gap-4 transition-colors group-hover:border-primary">
-      {/* Coming soon overlay */}
       {!isLive && (
         <div className="absolute inset-0 rounded-card bg-white/70 flex items-center justify-end pr-5 z-10">
           <span className="text-xs text-ink-light font-medium">Coming soon</span>
@@ -34,7 +42,10 @@ function ModuleCard({ mod }: { mod: SkillModule }) {
         <div className="flex items-center gap-2 mb-1 flex-wrap">
           <h2 className="text-base font-medium text-ink">{mod.title}</h2>
           {isLive && (
-            <span className="text-xs bg-primary-light text-primary rounded-pill px-2 py-0.5">Full course</span>
+            <span className="text-xs bg-primary-light text-primary rounded-pill px-2 py-0.5">Foundational</span>
+          )}
+          {isCompleted && (
+            <span className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-pill px-2 py-0.5">✓ Completed</span>
           )}
         </div>
         <p className="text-sm text-ink-mid leading-relaxed">{mod.description}</p>
@@ -49,6 +60,20 @@ function ModuleCard({ mod }: { mod: SkillModule }) {
 }
 
 export default function SkillsPage() {
+  const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set())
+  const supabase = createClient()
+
+  useEffect(() => {
+    async function loadCompletions() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase.from('course_completions').select('course_id').eq('user_id', user.id)
+      if (data) setCompletedCourseIds(new Set(data.map((r: { course_id: string }) => r.course_id)))
+    }
+    loadCompletions()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <div className="max-w-2xl">
       <h1 className="text-3xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
@@ -66,7 +91,7 @@ export default function SkillsPage() {
             <h2 className="text-xs font-medium text-ink-light uppercase tracking-wide mb-4">{label}</h2>
             <div className="grid gap-4">
               {modules.map(mod => (
-                <ModuleCard key={mod.id} mod={mod} />
+                <ModuleCard key={mod.id} mod={mod} completedCourseIds={completedCourseIds} />
               ))}
             </div>
           </section>

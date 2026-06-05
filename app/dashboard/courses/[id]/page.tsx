@@ -5,11 +5,11 @@ import { createClient } from '@/lib/supabase'
 import { getCourse } from '@/lib/courses'
 import type {
   AccordionSlide, ReadThroughSlide, FlipCardsSlide,
-  MatchingSlide, InteractiveReadSlide, SideBySideSlide,
-  SortingSlide, MultipleChoiceSlide, ChecklistSlide,
+  MatchingSlide, InteractiveReadSlide, DraftPracticeSlide,
+  SideBySideSlide, SortingSlide, MultipleChoiceSlide, ChecklistSlide,
 } from '@/lib/courses'
 
-type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion'
+type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion' | 'review'
 type Message = { role: 'user' | 'assistant'; content: string }
 type WrongAnswer = {
   slideIndex: number
@@ -43,8 +43,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const supabase = createClient()
   const maybeCourse = getCourse(params.id)
 
-  // ── Auth + plan ──────────────────────────────────────────────────────────
+  // ── Auth + plan + completion check ──────────────────────────────────────
   const [planError, setPlanError] = useState<string | null>(null)
+  const [isCompleted, setIsCompleted] = useState(false)
+  const [completedAt, setCompletedAt] = useState<string | null>(null)
   useEffect(() => {
     async function checkAccess() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -52,6 +54,15 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       const { data: profile } = await supabase.from('profiles').select('plan').eq('id', user.id).single()
       if (profile?.plan !== 'pro' && profile?.plan !== 'beta') {
         setPlanError('Courses require a Pro or Beta plan.')
+        return
+      }
+      if (maybeCourse) {
+        const { data: completion } = await supabase.from('course_completions')
+          .select('completed_at').eq('user_id', user.id).eq('course_id', maybeCourse.id).maybeSingle()
+        if (completion) {
+          setIsCompleted(true)
+          setCompletedAt(completion.completed_at)
+        }
       }
     }
     checkAccess()
@@ -61,13 +72,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Phase + navigation ───────────────────────────────────────────────────
   const [phase, setPhase] = useState<Phase>('confidence-start')
   const [currentSlideIndex, setCurrentSlideIndex] = useState(0)
+  const [reviewSlideIndex, setReviewSlideIndex] = useState(0)
 
   // ── Confidence ───────────────────────────────────────────────────────────
   const [preConfidence, setPreConfidence] = useState<number | null>(null)
   const [postConfidence, setPostConfidence] = useState<number | null>(null)
   const [reflectiveAnswer, setReflectiveAnswer] = useState('')
 
-  // ── Wrong answers (collected across sorting + multiple choice) ───────────
+  // ── Wrong answers ────────────────────────────────────────────────────────
   const [wrongAnswers, setWrongAnswers] = useState<WrongAnswer[]>([])
   const [currentWAIndex, setCurrentWAIndex] = useState(0)
   const [miniConvo, setMiniConvo] = useState<Message[] | null>(null)
@@ -87,7 +99,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [matchChecked, setMatchChecked] = useState(false)
   const [matchErrors, setMatchErrors] = useState<Set<number>>(new Set())
 
-  // ── Interactive read ─────────────────────────────────────────────────────
+  // ── Interactive read / Draft practice ────────────────────────────────────
   const [draftInput, setDraftInput] = useState('')
   const [draftFeedback, setDraftFeedback] = useState<string | null>(null)
   const [draftLoading, setDraftLoading] = useState(false)
@@ -144,6 +156,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         setMatchErrors(new Set())
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, currentSlideIndex, maybeCourse])
 
   if (!maybeCourse) {
@@ -163,7 +176,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const course = maybeCourse
 
   // ── Progress ───────────────────────────────────────────────────────────────
-  const TOTAL_STEPS = course.slides.length + 6 // slides + 6 phases
+  const TOTAL_STEPS = course.slides.length + 6
   function currentStep(): number {
     if (phase === 'confidence-start') return 1
     if (phase === 'slides') return 2 + currentSlideIndex
@@ -173,7 +186,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     if (phase === 'confidence-end') return 5 + course.slides.length
     return TOTAL_STEPS
   }
-  const progress = Math.round((currentStep() / TOTAL_STEPS) * 100)
+  const progress = phase === 'review'
+    ? Math.round(((reviewSlideIndex + 1) / course.slides.length) * 100)
+    : Math.round((currentStep() / TOTAL_STEPS) * 100)
 
   // ── Slide state reset ──────────────────────────────────────────────────────
   function resetSlideState() {
@@ -197,6 +212,26 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setCheckedItems(new Set())
   }
 
+  // ── Back button ────────────────────────────────────────────────────────────
+  function goBack() {
+    if (currentSlideIndex > 0) {
+      resetSlideState()
+      setCurrentSlideIndex(i => i - 1)
+    }
+  }
+
+  function BackButton({ idx }: { idx: number }) {
+    return (
+      <button
+        onClick={goBack}
+        disabled={idx === 0}
+        className="flex items-center gap-1 text-xs text-ink-light hover:text-ink transition-colors disabled:opacity-30 disabled:cursor-not-allowed mb-6"
+      >
+        ← Back
+      </button>
+    )
+  }
+
   // ── Advance slide ──────────────────────────────────────────────────────────
   function advanceSlide() {
     resetSlideState()
@@ -213,9 +248,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     }
   }
 
-
-  // ── Record wrong answer (dedup by slideIndex + itemIndex) ──────────────────
-  function recordWrong(wa: Omit<WrongAnswer, 'slideIndex'> & { slideIndex: number }) {
+  // ── Record wrong answer ────────────────────────────────────────────────────
+  function recordWrong(wa: WrongAnswer) {
     setWrongAnswers(prev => {
       const exists = prev.some(x => x.slideIndex === wa.slideIndex && x.itemIndex === wa.itemIndex)
       return exists ? prev : [...prev, wa]
@@ -241,7 +275,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     })
   }
 
-  // ── Multiple choice select ─────────────────────────────────────────────────
+  // ── Multiple choice ────────────────────────────────────────────────────────
   function handleMCSelect(optIdx: number) {
     const slide = course.slides[currentSlideIndex] as MultipleChoiceSlide
     const round = slide.rounds[mcRound]
@@ -267,12 +301,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setMcShowFeedback(false)
       setMcIsWrong(false)
     } else {
-      setMcRound(slide.rounds.length) // signals completion
+      setMcRound(slide.rounds.length)
     }
   }
 
   // ── Matching ───────────────────────────────────────────────────────────────
   function clickLeft(leftIdx: number) {
+    if (matchChecked) return
     const existing = matchConns.find(c => c.left === leftIdx)
     if (existing) { setMatchConns(prev => prev.filter(c => c.left !== leftIdx)); return }
     if (pendingLeft === leftIdx) { setPendingLeft(null); return }
@@ -280,6 +315,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function clickRight(rightVisualIdx: number) {
+    if (matchChecked) return
     if (pendingLeft === null) {
       const existing = matchConns.find(c => c.right === rightVisualIdx)
       if (existing) setMatchConns(prev => prev.filter(c => c.right !== rightVisualIdx))
@@ -299,9 +335,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     })
     setMatchChecked(true)
     setMatchErrors(errors)
-    if (errors.size > 0) {
-      setMatchConns(prev => prev.filter(c => !errors.has(c.left)))
-    }
+  }
+
+  function tryAgainMatching() {
+    setMatchConns(prev => prev.filter(c => !matchErrors.has(c.left)))
+    setMatchChecked(false)
+    setMatchErrors(new Set())
   }
 
   function getLeftColor(leftIdx: number): (typeof PAIR_COLORS)[0] | null {
@@ -312,14 +351,15 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function getRightColor(rightVisualIdx: number): (typeof PAIR_COLORS)[0] | null {
     const conn = matchConns.find(c => c.right === rightVisualIdx)
     if (!conn) return null
+    if (matchErrors.has(conn.left)) return null
     return PAIR_COLORS[conn.left % PAIR_COLORS.length]
   }
 
   // ── Draft feedback ─────────────────────────────────────────────────────────
-  async function getDraftFeedback(slide: InteractiveReadSlide) {
+  async function getDraftFeedback(ctx: string) {
     if (!draftInput.trim() || draftLoading) return
     setDraftLoading(true)
-    const data = await callAPI({ action: 'draft_feedback', userMessage: draftInput, draftContext: slide.draftContext }) as { note?: string }
+    const data = await callAPI({ action: 'draft_feedback', userMessage: draftInput, draftContext: ctx }) as { note?: string }
     setDraftLoading(false)
     if (data.note) setDraftFeedback(data.note)
   }
@@ -330,8 +370,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const data = await callAPI({
       action: 'mini_convo',
       wrongAnswer: wa.userAnswer, scenario: wa.scenario,
-      correctAnswer: wa.correctAnswer, explanation: wa.explanation,
-      matchName: course.openPractice.matchName,
+      explanation: wa.explanation, matchName: course.openPractice.matchName,
     }) as { messages?: Message[] }
     setMiniConvoLoading(false)
     if (data.messages?.length) setMiniConvo(data.messages)
@@ -356,9 +395,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setPracticeLoading(true)
 
     const data = await callAPI({
-      action: 'turn',
-      system: course.openPractice.systemPrompt,
-      messages: next,
+      action: 'turn', system: course.openPractice.systemPrompt, messages: next,
     }) as { text?: string }
     setPracticeLoading(false)
 
@@ -366,12 +403,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       const withAI = [...next, { role: 'assistant' as const, content: data.text }]
       setPracticeMessages(withAI)
 
-      // Ghost check every 2 user sends after 4 total messages
       if (withAI.length >= 4 && withAI.filter(m => m.role === 'user').length % 2 === 0) {
         callAPI({
-          action: 'check_ghost',
-          messages: withAI,
-          matchName: course.openPractice.matchName,
+          action: 'check_ghost', messages: withAI, matchName: course.openPractice.matchName,
         }).then((d: { ghost?: boolean; hardIntervention?: string | null }) => {
           if (d.hardIntervention) {
             setHardIntervention(d.hardIntervention)
@@ -413,15 +447,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
     await supabase.from('course_completions').upsert({
-      user_id: user.id,
-      course_id: course.id,
-      pre_confidence: preConfidence,
-      post_confidence: postConfidence,
+      user_id: user.id, course_id: course.id,
+      pre_confidence: preConfidence, post_confidence: postConfidence,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'user_id,course_id' })
   }
 
-  // ── Shared UI ──────────────────────────────────────────────────────────────
+  // ── Shared UI helpers ──────────────────────────────────────────────────────
   function NextButton({ disabled = false, onClick, label = 'Next →' }: { disabled?: boolean; onClick?: () => void; label?: string }) {
     return (
       <button
@@ -434,26 +466,70 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     )
   }
 
-  function SlideTitle({ title }: { title: string }) {
+  function SlideTitle({ title, description }: { title: string; description?: string }) {
     return (
-      <h1 className="text-2xl text-ink mb-6" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
-        {title}
-      </h1>
+      <div className="mb-6">
+        <h1 className="text-2xl text-ink" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+          {title}
+        </h1>
+        {description && <p className="text-sm text-ink-mid mt-2 leading-relaxed">{description}</p>}
+      </div>
+    )
+  }
+
+  function SideBySideComparison({ comparison }: { comparison: NonNullable<InteractiveReadSlide['comparison']> }) {
+    return (
+      <div className="mt-8 pt-8 border-t border-border">
+        <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-3">Spot the difference</p>
+        <p className="text-sm text-ink-mid mb-4 leading-relaxed">{comparison.scenario}</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="border-2 border-green-300 bg-green-50 rounded-xl p-4">
+            <p className="text-xs font-medium text-green-700 uppercase tracking-wide mb-3">{comparison.good.label}</p>
+            <div className="bg-white rounded-xl px-4 py-3 mb-3">
+              <p className="text-sm text-ink leading-relaxed">{comparison.good.message}</p>
+            </div>
+            <p className="text-xs text-green-700 leading-relaxed">{comparison.good.note}</p>
+          </div>
+          <div className="border-2 border-red-200 bg-red-50 rounded-xl p-4">
+            <p className="text-xs font-medium text-red-600 uppercase tracking-wide mb-3">{comparison.bad.label}</p>
+            <div className="bg-white rounded-xl px-4 py-3 mb-3">
+              <p className="text-sm text-ink leading-relaxed">{comparison.bad.message}</p>
+            </div>
+            <p className="text-xs text-red-600 leading-relaxed">{comparison.bad.note}</p>
+          </div>
+        </div>
+      </div>
     )
   }
 
   // ── Confidence screen ──────────────────────────────────────────────────────
-  function renderConfidence(question: string, value: number | null, onSelect: (v: number) => void, onNext: () => void, showPrev?: number) {
+  function renderConfidenceStart() {
     return (
       <div className="max-w-lg mx-auto">
-        <p className="text-sm text-ink-mid mb-6">{question}</p>
-        <div className="flex gap-3 mb-8">
+        {isCompleted && (
+          <div className="mb-8 p-4 bg-primary/5 border border-primary/20 rounded-card">
+            <p className="text-sm text-ink font-medium mb-1">You&apos;ve completed this course</p>
+            <p className="text-xs text-ink-mid mb-3">
+              Completed {completedAt ? new Date(completedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}.
+            </p>
+            <button
+              onClick={() => { setReviewSlideIndex(0); setPhase('review') }}
+              className="text-xs text-primary border border-primary rounded-pill px-3 py-1.5 hover:bg-primary-light transition-colors"
+            >
+              Review slides →
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-ink-light uppercase tracking-wide mb-4">Before you start</p>
+        <p className="text-sm text-ink-mid mb-8 leading-relaxed">{course.confidenceIntro}</p>
+        <p className="text-sm text-ink-mid mb-6">{course.confidenceQuestion}</p>
+        <div className="flex gap-3 mb-4">
           {[1, 2, 3, 4, 5].map(n => (
             <button
               key={n}
-              onClick={() => onSelect(n)}
+              onClick={() => setPreConfidence(n)}
               className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors ${
-                value === n ? 'bg-primary text-white border-primary' : 'bg-white border-border text-ink-mid hover:border-primary hover:text-ink'
+                preConfidence === n ? 'bg-primary text-white border-primary' : 'bg-white border-border text-ink-mid hover:border-primary hover:text-ink'
               }`}
             >
               {n}
@@ -464,24 +540,69 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           <span>Not at all</span>
           <span>Very confident</span>
         </div>
-        {showPrev && (
-          <p className="text-xs text-ink-light mb-6 text-center">
-            You started at {showPrev} out of 5
-            {value && value > showPrev ? ` — up ${value - showPrev} ${value - showPrev === 1 ? 'point' : 'points'}` : ''}
-          </p>
-        )}
-        <NextButton disabled={!value} onClick={onNext} label={showPrev ? 'Continue →' : 'Start the course →'} />
+        <NextButton disabled={!preConfidence} onClick={() => setPhase('slides')} label="Start the course →" />
       </div>
     )
   }
 
-  // ── Renders by slide type ──────────────────────────────────────────────────
+  function renderConfidenceEnd() {
+    return (
+      <div className="max-w-lg mx-auto">
+        <p className="text-sm text-ink-mid mb-6">{course.confidenceQuestion}</p>
+        <div className="flex gap-3 mb-4">
+          {[1, 2, 3, 4, 5].map(n => (
+            <button
+              key={n}
+              onClick={() => setPostConfidence(n)}
+              className={`flex-1 py-3 rounded-xl text-sm font-medium border transition-colors ${
+                postConfidence === n ? 'bg-primary text-white border-primary' : 'bg-white border-border text-ink-mid hover:border-primary hover:text-ink'
+              }`}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+        <div className="flex justify-between text-xs text-ink-light mb-6">
+          <span>Not at all</span>
+          <span>Very confident</span>
+        </div>
+        {preConfidence && postConfidence && (
+          <p className="text-xs text-ink-light mb-6 text-center">
+            You started at {preConfidence} out of 5
+            {postConfidence > preConfidence ? ` — up ${postConfidence - preConfidence} ${postConfidence - preConfidence === 1 ? 'point' : 'points'}` : ''}
+          </p>
+        )}
+        {postConfidence && (
+          <div className="mt-4">
+            <p className="text-sm font-medium text-ink mb-3">{course.reflectiveQuestion}</p>
+            <textarea
+              value={reflectiveAnswer}
+              onChange={e => setReflectiveAnswer(e.target.value)}
+              rows={3}
+              placeholder="Take a moment to reflect…"
+              className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-4"
+            />
+            <button
+              onClick={() => { saveCompletion(); setPhase('completion') }}
+              disabled={!reflectiveAnswer.trim()}
+              className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
+            >
+              Finish course →
+            </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // ── Slide renderers ────────────────────────────────────────────────────────
 
   function renderAccordion(slide: AccordionSlide) {
     const allChecked = checkedSections.size === slide.sections.length
     return (
       <div>
-        <SlideTitle title={slide.title} />
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} description={slide.description} />
         <div className="space-y-2 mb-6">
           {slide.sections.map((sec, i) => {
             const isOpen = expandedSections.has(i)
@@ -533,6 +654,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function renderReadThrough(slide: ReadThroughSlide) {
     return (
       <div>
+        <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
         {slide.intro && <p className="text-sm text-ink-mid mb-6 leading-relaxed">{slide.intro}</p>}
         {slide.bullets && (
@@ -563,7 +685,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const allFlipped = flippedCards.size === slide.cards.length
     return (
       <div>
-        <SlideTitle title={slide.title} />
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} description={slide.description} />
         <p className="text-xs text-ink-light mb-5">Tap each card to flip it.</p>
         <div className="grid gap-4 mb-6">
           {slide.cards.map((card, i) => {
@@ -607,10 +730,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const allConnected = matchConns.length === slide.pairs.length
     const canCheck = allConnected && !matchChecked
     const allCorrect = matchChecked && matchErrors.size === 0 && allConnected
+    const hasErrors = matchChecked && matchErrors.size > 0
 
     return (
       <div>
-        <SlideTitle title={slide.title} />
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} description={slide.description} />
         <p className="text-xs text-ink-light mb-5">{slide.instruction}</p>
 
         <div className="grid grid-cols-2 gap-3 mb-4">
@@ -635,7 +760,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                   <p className="font-medium text-ink text-xs mb-1">{pair.left.name}</p>
                   <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.left.description}</p>
                   {color && !hasError && (
-                    <span className={`inline-block mt-1.5 w-3 h-3 rounded-full ${color.bg.replace('bg-', 'bg-').replace('100', '400')}`} />
+                    <span className={`inline-block mt-1.5 w-3 h-3 rounded-full ${color.bg.replace('100', '400')}`} />
                   )}
                 </button>
               )
@@ -650,47 +775,57 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               const color = getRightColor(visualIdx)
               const conn = matchConns.find(c => c.right === visualIdx)
               const hasError = conn ? matchErrors.has(conn.left) : false
+              const wrongLeftPair = hasError && conn ? slide.pairs[conn.left] : null
               return (
-                <button
-                  key={visualIdx}
-                  onClick={() => clickRight(visualIdx)}
-                  className={`w-full text-left rounded-xl p-3 border-2 transition-all text-sm ${
-                    hasError ? 'border-red-400 bg-red-50' :
-                    color ? `${color.bg} ${color.border}` :
-                    'border-border bg-white hover:border-primary'
-                  }`}
-                >
-                  <p className="font-medium text-ink text-xs mb-1">{pair.right.name}</p>
-                  <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.right.description}</p>
-                  {color && !hasError && (
-                    <span className={`inline-block mt-1.5 w-3 h-3 rounded-full ${color.bg.replace('bg-', 'bg-').replace('100', '400')}`} />
+                <div key={visualIdx} className="space-y-1">
+                  <button
+                    onClick={() => clickRight(visualIdx)}
+                    className={`w-full text-left rounded-xl p-3 border-2 transition-all text-sm ${
+                      hasError ? 'border-red-400 bg-red-50' :
+                      color ? `${color.bg} ${color.border}` :
+                      'border-border bg-white hover:border-primary'
+                    }`}
+                  >
+                    <p className="font-medium text-ink text-xs mb-1">{pair.right.name}</p>
+                    <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.right.description}</p>
+                    {color && !hasError && (
+                      <span className={`inline-block mt-1.5 w-3 h-3 rounded-full ${color.bg.replace('100', '400')}`} />
+                    )}
+                  </button>
+                  {hasError && wrongLeftPair?.left.mismatchNote && (
+                    <p className="text-xs text-red-600 leading-relaxed px-1">{wrongLeftPair.left.mismatchNote}</p>
                   )}
-                </button>
+                </div>
               )
             })}
           </div>
         </div>
 
-        {pendingLeft !== null && (
+        {pendingLeft !== null && !matchChecked && (
           <p className="text-xs text-primary text-center mb-3">
             {slide.pairs[pendingLeft].left.name} selected — now tap their match →
           </p>
         )}
-        {matchChecked && matchErrors.size > 0 && (
-          <p className="text-xs text-red-600 text-center mb-3">
-            {matchErrors.size} {matchErrors.size === 1 ? 'match' : 'matches'} incorrect. Those have been removed — try again.
-          </p>
-        )}
 
-        {!allCorrect && (
-          <button
-            onClick={checkMatching}
-            disabled={!canCheck}
-            className="w-full border border-primary text-primary rounded-pill py-2.5 text-sm font-medium hover:bg-primary-light transition-colors disabled:opacity-40 mb-3"
-          >
-            Check my answers
-          </button>
-        )}
+        <div className="space-y-2 mb-2">
+          {!allCorrect && (
+            <button
+              onClick={checkMatching}
+              disabled={!canCheck}
+              className="w-full border border-primary text-primary rounded-pill py-2.5 text-sm font-medium hover:bg-primary-light transition-colors disabled:opacity-40"
+            >
+              Check answers
+            </button>
+          )}
+          {hasErrors && (
+            <button
+              onClick={tryAgainMatching}
+              className="w-full border border-border text-ink-mid rounded-pill py-2.5 text-sm font-medium hover:border-primary hover:text-ink transition-colors"
+            >
+              Try again
+            </button>
+          )}
+        </div>
         <NextButton disabled={!allCorrect} />
       </div>
     )
@@ -699,7 +834,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function renderInteractiveRead(slide: InteractiveReadSlide) {
     return (
       <div>
-        <SlideTitle title={slide.title} />
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} description={slide.description} />
         <div className="space-y-8 mb-8">
           {slide.sections.map((sec, i) => (
             <div key={i}>
@@ -713,30 +849,70 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 ))}
               </ul>
               {sec.examples && (
-                <div className="space-y-2">
-                  {sec.examples.map((ex, k) => (
-                    <div key={k} className="bg-bg border border-border rounded-card px-4 py-2.5">
-                      <p className="text-sm text-ink-mid italic">{ex}</p>
-                    </div>
-                  ))}
+                <div>
+                  <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Examples</p>
+                  <div className="space-y-2">
+                    {sec.examples.map((ex, k) => (
+                      <div key={k} className="bg-bg border border-border rounded-card px-4 py-2.5">
+                        <p className="text-sm text-ink-mid italic">{ex}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
           ))}
         </div>
 
-        <div className="border border-border rounded-xl p-4 mb-2 bg-white">
-          <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-3">Try it yourself</p>
-          <p className="text-sm text-ink mb-3">{slide.draftPrompt}</p>
+        {slide.comparison && <SideBySideComparison comparison={slide.comparison} />}
+
+        {slide.draftPrompt && slide.draftContext && (
+          <div className="border border-border rounded-xl p-4 mt-8 mb-2 bg-white">
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-3">Try it yourself</p>
+            <p className="text-sm text-ink mb-3">{slide.draftPrompt}</p>
+            <textarea
+              value={draftInput}
+              onChange={e => { setDraftInput(e.target.value); setDraftFeedback(null) }}
+              rows={3}
+              placeholder="Write your message here…"
+              className="w-full border border-border rounded-sm px-3 py-2 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
+            />
+            <button
+              onClick={() => getDraftFeedback(slide.draftContext!)}
+              disabled={!draftInput.trim() || draftLoading}
+              className="text-xs text-primary border border-primary rounded-pill px-3 py-1.5 hover:bg-primary-light transition-colors disabled:opacity-40"
+            >
+              {draftLoading ? '…' : 'Get Beckett\'s feedback'}
+            </button>
+            {draftFeedback && (
+              <div className="mt-3 bg-primary/5 border border-primary/20 rounded-card p-3">
+                <p className="text-xs text-ink-mid"><span className="text-ink font-medium">Beckett:</span> {draftFeedback}</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        <NextButton />
+      </div>
+    )
+  }
+
+  function renderDraftPractice(slide: DraftPracticeSlide) {
+    return (
+      <div>
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} />
+        <div className="border border-border rounded-xl p-6 bg-white">
+          <p className="text-sm text-ink mb-4 leading-relaxed">{slide.prompt}</p>
           <textarea
             value={draftInput}
             onChange={e => { setDraftInput(e.target.value); setDraftFeedback(null) }}
-            rows={3}
+            rows={4}
             placeholder="Write your message here…"
-            className="w-full border border-border rounded-sm px-3 py-2 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
+            className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-3"
           />
           <button
-            onClick={() => getDraftFeedback(slide)}
+            onClick={() => getDraftFeedback(slide.draftContext)}
             disabled={!draftInput.trim() || draftLoading}
             className="text-xs text-primary border border-primary rounded-pill px-3 py-1.5 hover:bg-primary-light transition-colors disabled:opacity-40"
           >
@@ -748,7 +924,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
-
         <NextButton />
       </div>
     )
@@ -757,6 +932,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function renderSideBySide(slide: SideBySideSlide) {
     return (
       <div>
+        <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
         <p className="text-sm text-ink-mid mb-6 leading-relaxed">{slide.scenario}</p>
         <div className="grid grid-cols-2 gap-4 mb-8">
@@ -785,6 +961,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const allCorrect = sortingChecked && sortingErrors.size === 0 && allSorted
     return (
       <div>
+        <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
         <p className="text-sm text-ink-mid mb-5">{slide.instruction}</p>
         <div className="space-y-3 mb-6">
@@ -821,9 +998,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     </button>
                   ))}
                 </div>
-                {hasError && (
-                  <p className="text-xs text-red-600 mt-2">{item.explanation}</p>
-                )}
+                {hasError && <p className="text-xs text-red-600 mt-2">{item.explanation}</p>}
                 {sortingChecked && !hasError && assigned === item.correct && (
                   <p className="text-xs text-green-700 mt-2">✓ {item.explanation}</p>
                 )}
@@ -831,7 +1006,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             )
           })}
         </div>
-
         {!allCorrect && (
           <button
             onClick={checkSorting}
@@ -851,6 +1025,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     if (allDone) {
       return (
         <div>
+          <BackButton idx={currentSlideIndex} />
           <SlideTitle title={slide.title} />
           <div className="text-center py-12">
             <p className="text-3xl mb-3">✓</p>
@@ -863,6 +1038,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const round = slide.rounds[mcRound]
     return (
       <div>
+        <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
         <div className="mb-2 flex gap-1">
           {slide.rounds.map((_, i) => (
@@ -925,6 +1101,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const allChecked = checkedItems.size === slide.items.length
     return (
       <div>
+        <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
         <p className="text-xs text-ink-light mb-5">Tap each item to check it off.</p>
         <div className="space-y-2 mb-6">
@@ -961,11 +1138,282 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       case 'flip-cards': return renderFlipCards(slide)
       case 'matching': return renderMatching(slide)
       case 'interactive-read': return renderInteractiveRead(slide)
+      case 'draft-practice': return renderDraftPractice(slide)
       case 'side-by-side': return renderSideBySide(slide)
       case 'sorting': return renderSorting(slide)
       case 'multiple-choice': return renderMultipleChoice(slide)
       case 'checklist': return renderChecklist(slide)
     }
+  }
+
+  // ── Review mode (read-only slide browser) ─────────────────────────────────
+  function renderSlideReview() {
+    const slide = course.slides[reviewSlideIndex]
+    const isFirst = reviewSlideIndex === 0
+    const isLast = reviewSlideIndex === course.slides.length - 1
+
+    let content: React.ReactNode = null
+
+    switch (slide.type) {
+      case 'accordion': {
+        const s = slide as AccordionSlide
+        content = (
+          <div className="space-y-3">
+            {s.description && <p className="text-sm text-ink-mid mb-4 leading-relaxed">{s.description}</p>}
+            {s.sections.map((sec, i) => (
+              <div key={i} className="border border-primary/30 bg-primary/5 rounded-xl px-4 py-3">
+                <p className="text-sm font-semibold text-ink mb-2">✓ {sec.heading}</p>
+                <ul className="space-y-1">
+                  {sec.bullets.map((b, j) => (
+                    <li key={j} className="text-sm text-ink-mid leading-relaxed flex gap-2">
+                      <span className="text-ink-light shrink-0">·</span><span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )
+        break
+      }
+      case 'read-through': {
+        const s = slide as ReadThroughSlide
+        content = (
+          <div>
+            {s.intro && <p className="text-sm text-ink-mid mb-6 leading-relaxed">{s.intro}</p>}
+            {s.bullets && (
+              <ul className="space-y-3 mb-6">
+                {s.bullets.map((b, i) => (
+                  <li key={i} className="flex gap-3 text-sm text-ink leading-relaxed">
+                    <span className="text-primary mt-1 shrink-0">·</span><span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {s.stats && (
+              <div className="space-y-3">
+                {s.stats.map((st, i) => (
+                  <div key={i} className="bg-bg border border-border rounded-card p-4">
+                    <p className="text-sm text-ink leading-relaxed">{st}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )
+        break
+      }
+      case 'flip-cards': {
+        const s = slide as FlipCardsSlide
+        content = (
+          <div>
+            {s.description && <p className="text-sm text-ink-mid mb-4 leading-relaxed">{s.description}</p>}
+            <div className="grid gap-4">
+              {s.cards.map((card, i) => (
+                <div key={i} className="border-2 border-primary bg-primary/5 rounded-xl p-6">
+                  <p className="text-xs font-medium text-primary uppercase tracking-wide mb-3">{card.front}</p>
+                  <ul className="space-y-2">
+                    {card.back.map((b, j) => (
+                      <li key={j} className="text-sm text-ink leading-relaxed flex gap-2">
+                        <span className="text-primary shrink-0 mt-0.5">·</span><span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+        break
+      }
+      case 'matching': {
+        const s = slide as MatchingSlide
+        content = (
+          <div>
+            {s.description && <p className="text-sm text-ink-mid mb-4 leading-relaxed">{s.description}</p>}
+            <div className="space-y-3">
+              {s.pairs.map((pair, i) => (
+                <div key={i} className={`border-2 rounded-xl p-4 ${Object.values(PAIR_COLORS)[i % PAIR_COLORS.length].bg} ${Object.values(PAIR_COLORS)[i % PAIR_COLORS.length].border}`}>
+                  <div className="flex gap-4">
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-ink-light uppercase mb-1">Person</p>
+                      <p className="text-xs font-semibold text-ink">{pair.left.name}</p>
+                    </div>
+                    <div className="text-ink-light text-lg flex items-center">↔</div>
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-ink-light uppercase mb-1">Match</p>
+                      <p className="text-xs font-semibold text-ink">{pair.right.name}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )
+        break
+      }
+      case 'interactive-read': {
+        const s = slide as InteractiveReadSlide
+        content = (
+          <div>
+            {s.description && <p className="text-sm text-ink-mid mb-6 leading-relaxed">{s.description}</p>}
+            <div className="space-y-8">
+              {s.sections.map((sec, i) => (
+                <div key={i}>
+                  <h2 className="text-base font-semibold text-ink mb-3">{sec.heading}</h2>
+                  <ul className="space-y-2 mb-4">
+                    {sec.bullets.map((b, j) => (
+                      <li key={j} className="text-sm text-ink leading-relaxed flex gap-2">
+                        <span className="text-primary mt-1 shrink-0">·</span><span>{b}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {sec.examples && (
+                    <div>
+                      <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Examples</p>
+                      <div className="space-y-2">
+                        {sec.examples.map((ex, k) => (
+                          <div key={k} className="bg-bg border border-border rounded-card px-4 py-2.5">
+                            <p className="text-sm text-ink-mid italic">{ex}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {s.comparison && <SideBySideComparison comparison={s.comparison} />}
+            </div>
+          </div>
+        )
+        break
+      }
+      case 'draft-practice': {
+        const s = slide as DraftPracticeSlide
+        content = (
+          <div className="border border-border rounded-xl p-6 bg-bg">
+            <p className="text-sm text-ink-mid leading-relaxed">{s.prompt}</p>
+            <p className="text-xs text-ink-light mt-4">Practice mode — interactive in the full course.</p>
+          </div>
+        )
+        break
+      }
+      case 'side-by-side': {
+        const s = slide as SideBySideSlide
+        content = (
+          <div>
+            <p className="text-sm text-ink-mid mb-6 leading-relaxed">{s.scenario}</p>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="border-2 border-green-300 bg-green-50 rounded-xl p-4">
+                <p className="text-xs font-medium text-green-700 uppercase tracking-wide mb-3">{s.good.label}</p>
+                <div className="bg-white rounded-xl px-4 py-3 mb-3">
+                  <p className="text-sm text-ink leading-relaxed">{s.good.message}</p>
+                </div>
+                <p className="text-xs text-green-700 leading-relaxed">{s.good.note}</p>
+              </div>
+              <div className="border-2 border-red-200 bg-red-50 rounded-xl p-4">
+                <p className="text-xs font-medium text-red-600 uppercase tracking-wide mb-3">{s.bad.label}</p>
+                <div className="bg-white rounded-xl px-4 py-3 mb-3">
+                  <p className="text-sm text-ink leading-relaxed">{s.bad.message}</p>
+                </div>
+                <p className="text-xs text-red-600 leading-relaxed">{s.bad.note}</p>
+              </div>
+            </div>
+          </div>
+        )
+        break
+      }
+      case 'sorting': {
+        const s = slide as SortingSlide
+        content = (
+          <div className="space-y-3">
+            {s.items.map((item, i) => (
+              <div key={i} className={`border-2 rounded-xl p-4 ${item.correct === 'Good ask' ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+                <p className="text-sm text-ink mb-1 leading-relaxed">{item.message}</p>
+                <span className={`text-xs font-medium ${item.correct === 'Good ask' ? 'text-green-700' : 'text-amber-700'}`}>{item.correct}</span>
+                <p className="text-xs text-ink-mid mt-1">{item.explanation}</p>
+              </div>
+            ))}
+          </div>
+        )
+        break
+      }
+      case 'multiple-choice': {
+        const s = slide as MultipleChoiceSlide
+        content = (
+          <div className="space-y-6">
+            {s.rounds.map((round, i) => {
+              const correct = round.options.find(o => o.correct)
+              return (
+                <div key={i} className="border border-border rounded-xl p-4">
+                  <p className="text-xs font-medium text-ink-light uppercase mb-2">Round {i + 1}</p>
+                  <p className="text-sm text-ink mb-3 leading-relaxed">{round.scenario}</p>
+                  {correct && (
+                    <div className="border border-green-300 bg-green-50 rounded-xl px-4 py-2.5">
+                      <p className="text-sm text-ink">{correct.text}</p>
+                      <p className="text-xs text-green-700 mt-1">{correct.explanation}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )
+        break
+      }
+      case 'checklist': {
+        const s = slide as ChecklistSlide
+        content = (
+          <div className="space-y-2">
+            {s.items.map((item, i) => (
+              <div key={i} className="flex items-center gap-3 px-4 py-3 border-2 border-primary/40 bg-primary/5 rounded-xl">
+                <div className="w-5 h-5 rounded border-2 bg-primary border-primary flex items-center justify-center shrink-0">
+                  <span className="text-white text-xs">✓</span>
+                </div>
+                <span className="text-sm text-ink-mid line-through">{item}</span>
+              </div>
+            ))}
+          </div>
+        )
+        break
+      }
+    }
+
+    return (
+      <div className="max-w-lg mx-auto">
+        <div className="mb-6">
+          <p className="text-xs text-ink-light mb-1">Slide {reviewSlideIndex + 1} of {course.slides.length}</p>
+          <h1 className="text-2xl text-ink" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+            {slide.title}
+          </h1>
+        </div>
+        {content}
+        <div className="flex gap-3 mt-8">
+          <button
+            onClick={() => setReviewSlideIndex(i => Math.max(0, i - 1))}
+            disabled={isFirst}
+            className="flex-1 border border-border rounded-pill py-3 text-sm font-medium text-ink-mid hover:border-primary hover:text-ink transition-colors disabled:opacity-30"
+          >
+            ← Previous
+          </button>
+          {isLast ? (
+            <button
+              onClick={() => setPhase('confidence-start')}
+              className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+            >
+              Done reviewing
+            </button>
+          ) : (
+            <button
+              onClick={() => setReviewSlideIndex(i => i + 1)}
+              className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+            >
+              Next →
+            </button>
+          )}
+        </div>
+      </div>
+    )
   }
 
   // ── Guided practice ────────────────────────────────────────────────────────
@@ -986,12 +1434,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <div className="bg-white border border-border rounded-card p-5 mb-4">
           <p className="text-xs text-ink-light uppercase mb-2 tracking-wide">The question</p>
           <p className="text-sm text-ink mb-4 leading-relaxed">{wa.scenario}</p>
-
           <div className="bg-red-50 border border-red-200 rounded-card p-3 mb-3">
             <p className="text-xs font-medium text-red-600 mb-1">You chose</p>
             <p className="text-sm text-ink">{wa.userAnswer}</p>
           </div>
-
           <div className="bg-green-50 border border-green-200 rounded-card p-3">
             <p className="text-xs font-medium text-green-700 mb-1">Better approach</p>
             <p className="text-sm text-ink mb-1">{wa.correctAnswer}</p>
@@ -1007,10 +1453,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           >
             {miniConvoLoading ? '…' : 'See how this plays out'}
           </button>
-          <button
-            onClick={advanceWA}
-            className="flex-1 bg-primary text-white rounded-pill py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
-          >
+          <button onClick={advanceWA} className="flex-1 bg-primary text-white rounded-pill py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors">
             Got it →
           </button>
         </div>
@@ -1029,10 +1472,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 </div>
               ))}
             </div>
-            <button
-              onClick={advanceWA}
-              className="mt-4 w-full bg-primary text-white rounded-pill py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
-            >
+            <button onClick={advanceWA} className="mt-4 w-full bg-primary text-white rounded-pill py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors">
               Got it →
             </button>
           </div>
@@ -1048,7 +1488,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
     return (
       <div className="max-w-lg mx-auto flex flex-col" style={{ height: 'calc(100vh - 160px)' }}>
-        {/* iMessage-style header */}
         <div className="flex items-center gap-3 pb-3 mb-3 border-b border-border shrink-0">
           <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm shrink-0">
             {matchName[0]}
@@ -1066,7 +1505,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </button>
         </div>
 
-        {/* Messages */}
         <div className="flex-1 overflow-y-auto space-y-2 mb-3">
           {practiceMessages.length === 0 && (
             <p className="text-xs text-ink-light text-center py-8">You matched 4 days ago. Say something.</p>
@@ -1077,19 +1515,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               <div key={i}>
                 <div className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-xs rounded-2xl px-4 py-2.5 text-sm leading-relaxed ${
-                    m.role === 'user'
-                      ? 'bg-blue-500 text-white rounded-br-sm'
-                      : 'bg-gray-200 text-gray-900 rounded-bl-sm'
+                    m.role === 'user' ? 'bg-blue-500 text-white rounded-br-sm' : 'bg-gray-200 text-gray-900 rounded-bl-sm'
                   }`}>
                     {m.content}
                   </div>
                 </div>
-                {m.role === 'user' && isLast && !ghosted && (
-                  <div className="flex justify-end mt-0.5">
-                    <p className="text-xs text-ink-light pr-1">Delivered</p>
-                  </div>
-                )}
-                {m.role === 'user' && isLast && ghosted && !showGhostOverlay && (
+                {m.role === 'user' && isLast && (
                   <div className="flex justify-end mt-0.5">
                     <p className="text-xs text-ink-light pr-1">Delivered</p>
                   </div>
@@ -1108,51 +1539,34 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               </div>
             </div>
           )}
-
-          {/* Ghost overlay */}
           {showGhostOverlay && (
             <div className="text-center py-4 space-y-3">
               <p className="text-sm text-ink-light italic">Your match stopped responding.</p>
               <div className="bg-white border border-border rounded-card p-4 text-left">
                 <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Beckett</p>
-                {ghostAnalysis
-                  ? <p className="text-sm text-ink leading-relaxed">{ghostAnalysis}</p>
-                  : <p className="text-xs text-ink-light">Analyzing…</p>
-                }
+                {ghostAnalysis ? <p className="text-sm text-ink leading-relaxed">{ghostAnalysis}</p> : <p className="text-xs text-ink-light">Analyzing…</p>}
               </div>
               {ghostAnalysis && (
-                <button
-                  onClick={endPracticeAndDebrief}
-                  className="bg-primary text-white rounded-pill px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
-                >
+                <button onClick={endPracticeAndDebrief} className="bg-primary text-white rounded-pill px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors">
                   Get your full debrief →
                 </button>
               )}
             </div>
           )}
-
-          {/* Hard intervention overlay */}
           {hardIntervention && (
             <div className="bg-red-50 border border-red-200 rounded-card p-4 text-center space-y-3">
               <p className="text-xs font-medium text-red-600 uppercase">Beckett stepped in</p>
               <p className="text-sm text-ink leading-relaxed">{hardIntervention}</p>
-              <button
-                onClick={endPracticeAndDebrief}
-                className="bg-primary text-white rounded-pill px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors"
-              >
-                End session
-              </button>
+              <button onClick={endPracticeAndDebrief} className="bg-primary text-white rounded-pill px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors">End session</button>
             </div>
           )}
           <div ref={bottomRef} />
         </div>
 
-        {/* Input */}
         {!ghosted && !hardIntervention && (
           <div className="flex gap-2 shrink-0">
             <input
-              type="text"
-              value={practiceInput}
+              type="text" value={practiceInput}
               onChange={e => setPracticeInput(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') sendPracticeMessage() }}
               placeholder={`Message ${matchName}…`}
@@ -1175,17 +1589,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Debrief ────────────────────────────────────────────────────────────────
   function renderDebrief() {
     if (debriefLoading || !debrief) {
-      return (
-        <div className="max-w-lg mx-auto text-center py-16">
-          <p className="text-ink-mid text-sm">Generating your feedback…</p>
-        </div>
-      )
+      return <div className="max-w-lg mx-auto text-center py-16"><p className="text-ink-mid text-sm">Generating your feedback…</p></div>
     }
     return (
       <div className="max-w-lg mx-auto">
-        <h1 className="text-2xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
-          How did it go?
-        </h1>
+        <h1 className="text-2xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>How did it go?</h1>
         <p className="text-ink-mid text-sm mb-8">Honest feedback from Beckett.</p>
         <div className="space-y-4 mb-8">
           {[
@@ -1200,61 +1608,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             </div>
           ))}
         </div>
-        <button
-          onClick={() => setPhase('confidence-end')}
-          className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
-        >
+        <button onClick={() => setPhase('confidence-end')} className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors">
           Continue →
         </button>
-      </div>
-    )
-  }
-
-  // ── Confidence end ─────────────────────────────────────────────────────────
-  function renderConfidenceEnd() {
-    if (postConfidence !== null && reflectiveAnswer) {
-      return (
-        <div className="max-w-lg mx-auto">
-          <button
-            onClick={() => {
-              saveCompletion()
-              setPhase('completion')
-            }}
-            className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
-          >
-            Finish course →
-          </button>
-        </div>
-      )
-    }
-    return (
-      <div className="max-w-lg mx-auto">
-        {renderConfidence(
-          course.confidenceQuestion,
-          postConfidence,
-          setPostConfidence,
-          () => {}, // no-op — handled by reflective question
-          preConfidence || undefined,
-        )}
-        {postConfidence && (
-          <div className="mt-8">
-            <p className="text-sm font-medium text-ink mb-3">{course.reflectiveQuestion}</p>
-            <textarea
-              value={reflectiveAnswer}
-              onChange={e => setReflectiveAnswer(e.target.value)}
-              rows={3}
-              placeholder="Take a moment to reflect…"
-              className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-4"
-            />
-            <button
-              onClick={() => { saveCompletion(); setPhase('completion') }}
-              disabled={!reflectiveAnswer.trim()}
-              className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
-            >
-              Finish course →
-            </button>
-          </div>
-        )}
       </div>
     )
   }
@@ -1264,30 +1620,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const gain = preConfidence && postConfidence ? postConfidence - preConfidence : null
     return (
       <div className="max-w-lg mx-auto text-center py-12">
-        <h1 className="text-3xl text-ink mb-4" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
-          Course complete
-        </h1>
+        <h1 className="text-3xl text-ink mb-4" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>Course complete</h1>
         {gain !== null && gain > 0 && (
-          <p className="text-ink-mid text-sm mb-4">
-            Your confidence went from {preConfidence} to {postConfidence} out of 5.
-          </p>
+          <p className="text-ink-mid text-sm mb-4">Your confidence went from {preConfidence} to {postConfidence} out of 5.</p>
         )}
-        <p className="text-ink-mid text-sm mb-10 leading-relaxed">
-          You&apos;ve got the tools. The only thing left is to use them.
-        </p>
+        <p className="text-ink-mid text-sm mb-10 leading-relaxed">You&apos;ve got the tools. The only thing left is to use them.</p>
         <div className="flex gap-3 justify-center">
-          <a
-            href="/dashboard/skills"
-            className="border border-border rounded-pill px-5 py-3 text-sm font-medium text-ink hover:bg-primary-light transition-colors"
-          >
-            Back to skills
-          </a>
-          <a
-            href="/dashboard/practice"
-            className="bg-primary text-white rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
-          >
-            Practice more
-          </a>
+          <a href="/dashboard/skills" className="border border-border rounded-pill px-5 py-3 text-sm font-medium text-ink hover:bg-primary-light transition-colors">Back to skills</a>
+          <a href="/dashboard/practice" className="bg-primary text-white rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-dark transition-colors">Practice more</a>
         </div>
       </div>
     )
@@ -1296,29 +1636,36 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Main render ────────────────────────────────────────────────────────────
   return (
     <div className="flex flex-col">
-      <div className="max-w-2xl mx-auto w-full px-4 py-8 pb-20">
-        {phase === 'confidence-start' && renderConfidence(
-          course.confidenceQuestion,
-          preConfidence,
-          setPreConfidence,
-          () => setPhase('slides'),
-        )}
+      {/* Sticky course title header */}
+      <div className="sticky top-0 z-20 bg-white border-b border-border px-4 py-3">
+        <div className="max-w-3xl mx-auto">
+          <p className="text-sm font-medium text-ink truncate">{course.title}</p>
+        </div>
+      </div>
+
+      {/* Review mode banner */}
+      {phase === 'review' && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
+          <p className="text-xs text-amber-700">Reviewing completed course — read-only</p>
+        </div>
+      )}
+
+      <div className="max-w-3xl mx-auto w-full px-4 py-8 pb-20">
+        {phase === 'confidence-start' && renderConfidenceStart()}
         {phase === 'slides' && renderSlide()}
         {phase === 'guided-practice' && renderGuidedPractice()}
         {phase === 'open-practice' && renderOpenPractice()}
         {phase === 'debrief' && renderDebrief()}
         {phase === 'confidence-end' && renderConfidenceEnd()}
         {phase === 'completion' && renderCompletion()}
+        {phase === 'review' && renderSlideReview()}
       </div>
 
       {/* Progress bar */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-border px-4 py-3 z-10">
-        <div className="max-w-2xl mx-auto">
+        <div className="max-w-3xl mx-auto">
           <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-primary rounded-full transition-all duration-500"
-              style={{ width: `${progress}%` }}
-            />
+            <div className="h-full bg-primary rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
           </div>
         </div>
       </div>
