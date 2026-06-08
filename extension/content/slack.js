@@ -67,7 +67,7 @@
 
     // Strategy 2: c-message_kit containers with carry-forward
     const kitContainers = document.querySelectorAll(
-      '.c-message_kit__message_container, .c-message_kit__message'
+      '.c-message_kit__message_container, .c-message_kit__message, [data-qa="virtual-list-item"]'
     );
     if (kitContainers.length) {
       let lastSender = 'Unknown';
@@ -78,7 +78,7 @@
         );
         if (senderEl?.innerText?.trim()) lastSender = senderEl.innerText.trim();
 
-        const texts = [...container.querySelectorAll('.p-rich_text_section, .c-message_kit__text')]
+        const texts = [...container.querySelectorAll('.p-rich_text_section, .c-message_kit__text, [data-qa="message-text"]')]
           .map(el => el.innerText?.trim()).filter(Boolean);
         if (texts.length) {
           conversation.push({
@@ -102,6 +102,35 @@
         const msgRoot = el.closest('[data-qa="message-container"], .c-message_kit__message_container, .c-message_kit__message');
         const senderEl = msgRoot?.querySelector('[data-qa="message_sender_name"], .c-message_kit__sender');
         if (senderEl?.innerText?.trim()) lastSender = senderEl.innerText.trim();
+        conversation.push({
+          sender: lastSender,
+          text,
+          isCurrentUser: lastSender === currentUserName,
+        });
+      });
+    }
+
+    // Strategy 4: Slack frequently changes internal class names; as a last
+    // resort, read visible message-like rows and filter out obvious chrome.
+    const rowEls = [...document.querySelectorAll('[role="listitem"], [data-qa*="message"]')]
+      .filter(el => {
+        const text = el.innerText?.trim() || '';
+        if (text.length < 2) return false;
+        if (text.length > 2000) return false;
+        if (/^(reply|react|more actions|save|share)$/i.test(text)) return false;
+        return true;
+      });
+
+    if (rowEls.length) {
+      let lastSender = 'Unknown';
+      rowEls.slice(-40).forEach(el => {
+        const senderEl = el.querySelector('[data-qa="message_sender_name"], .c-message_kit__sender, button[data-qa*="user"]');
+        if (senderEl?.innerText?.trim()) lastSender = senderEl.innerText.trim();
+
+        const textEl = el.querySelector('.p-rich_text_section, .c-message_kit__text, [data-qa="message-text"]');
+        const text = (textEl?.innerText || el.innerText || '').trim();
+        if (!text) return;
+
         conversation.push({
           sender: lastSender,
           text,

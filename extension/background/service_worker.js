@@ -194,12 +194,9 @@ async function handleGetCurrentContext(sendResponse) {
       return;
     }
 
-    // Ask the content script directly
-    chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_CONTEXT' }, res => {
-      const ctx = res?.context || null;
-      if (ctx) tabContexts[tab.id] = { ...ctx, tabId: tab.id };
-      sendResponse({ context: ctx });
-    });
+    const ctx = await extractContextFromTab(tab);
+    if (ctx) tabContexts[tab.id] = { ...ctx, tabId: tab.id };
+    sendResponse({ context: ctx });
   } catch (e) {
     sendResponse({ context: null });
   }
@@ -210,11 +207,7 @@ async function handleTriggerAnalyze(payload, sendResponse) {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab) { sendResponse({ error: 'No active tab found.' }); return; }
 
-    const ctx = await new Promise(resolve => {
-      chrome.tabs.sendMessage(tab.id, { type: 'EXTRACT_CONTEXT' }, res => {
-        resolve(res?.context || tabContexts[tab.id] || null);
-      });
-    });
+    const ctx = await extractContextFromTab(tab) || tabContexts[tab.id] || null;
 
     if (!ctx) { sendResponse({ error: 'Could not read the page. Try opening a message first.' }); return; }
 
@@ -282,6 +275,43 @@ async function handleTriggerAnalyze(payload, sendResponse) {
   } catch (e) {
     sendResponse({ error: e.message });
   }
+}
+
+async function extractContextFromTab(tab) {
+  if (!tab?.id) return null;
+
+  let ctx = await sendExtractMessage(tab.id);
+  if (ctx) return ctx;
+
+  const script = getContentScriptForUrl(tab.url || '');
+  if (!script) return null;
+
+  try {
+    await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: [script] });
+    await new Promise(resolve => setTimeout(resolve, 250));
+    ctx = await sendExtractMessage(tab.id);
+    return ctx;
+  } catch (_) {
+    return null;
+  }
+}
+
+function sendExtractMessage(tabId) {
+  return new Promise(resolve => {
+    chrome.tabs.sendMessage(tabId, { type: 'EXTRACT_CONTEXT' }, res => {
+      if (chrome.runtime.lastError) {
+        resolve(null);
+        return;
+      }
+      resolve(res?.context || null);
+    });
+  });
+}
+
+function getContentScriptForUrl(url) {
+  if (url.includes('mail.google.com')) return 'content/gmail.js';
+  if (url.includes('app.slack.com')) return 'content/slack.js';
+  return null;
 }
 
 async function handleMeeting(payload, tabId, sendResponse) {
