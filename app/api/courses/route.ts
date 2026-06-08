@@ -1,37 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-async function callAnthropic(system: string | null, messages: { role: string; content: string }[], maxTokens: number) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('Anthropic API key not configured.')
-
-  const body: Record<string, unknown> = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: maxTokens,
-    messages,
-  }
-  if (system) body.system = system
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(err?.error?.message || `Anthropic error ${res.status}`)
-  }
-
-  const data = await res.json() as { content: { text?: string }[] }
-  return data.content.map((b) => b.text || '').join('')
-}
+import { callAnthropic } from '@/lib/anthropic'
+import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 
 export async function POST(req: NextRequest) {
+  try {
   const supabase = createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -62,6 +35,17 @@ export async function POST(req: NextRequest) {
   }
 
   const { action } = body
+  const callMeteredAnthropic = async (
+    system: string | null,
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    maxTokens: number
+  ) => {
+    await recordAiUsage(session.user.id, {
+      source: 'dashboard',
+      action: `course_${action}`,
+    })
+    return callAnthropic(system, messages, maxTokens)
+  }
 
   // ── Dating app turn ────────────────────────────────────────────────────
   if (action === 'turn') {
@@ -72,7 +56,7 @@ export async function POST(req: NextRequest) {
       ? 'Keep your reply to 1-2 sentences — short and natural, like a real text message.'
       : 'Keep your reply to 1-2 sentences maximum. Real people text briefly.'
     const fullSystem = system ? `${system}\n\n${lengthNote}` : lengthNote
-    const text = await callAnthropic(fullSystem, messages, 150)
+    const text = await callMeteredAnthropic(fullSystem, messages as { role: 'user' | 'assistant'; content: string }[], 150)
     return NextResponse.json({ text: text.trim().replace(/^[""“”]|[""“”]$/g, '') })
   }
 
@@ -93,7 +77,7 @@ Return hardIntervention if the user said something harassing, explicitly sexual,
 
 Return ONLY valid JSON: { "ghost": boolean, "hardIntervention": null | "brief 1-sentence Beckett note about what happened (max 25 words)" }`
 
-    const result = await callAnthropic(
+    const result = await callMeteredAnthropic(
       'You assess dating app conversations. Return only valid JSON.',
       [{ role: 'user', content: prompt }],
       100
@@ -115,7 +99,7 @@ ${conversationHistory || 'No conversation provided'}
 
 As Beckett, write 2-3 sentences of honest, compassionate analysis of why the conversation went the way it did. Focus on what patterns led here and what to try differently. Do not sugarcoat but do not be harsh. Return only the sentences.`
 
-    const note = await callAnthropic(
+    const note = await callMeteredAnthropic(
       'You are Beckett, a communication coach. Be honest and constructive.',
       [{ role: 'user', content: prompt }],
       150
@@ -137,7 +121,7 @@ Format: alternate between [User] and [${matchName || 'Jamie'}]. Start with the u
 
 Return ONLY valid JSON: { "messages": [{ "role": "user" | "assistant", "content": "..." }] }`
 
-    const result = await callAnthropic(
+    const result = await callMeteredAnthropic(
       'You generate realistic dating app conversation previews. Return only valid JSON.',
       [{ role: 'user', content: prompt }],
       400
@@ -156,7 +140,7 @@ Return ONLY valid JSON: { "messages": [{ "role": "user" | "assistant", "content"
     if (!userMessage) return NextResponse.json({ error: 'userMessage required' }, { status: 400 })
 
     const context = draftContext || 'The user is practicing asking someone out on a dating app.'
-    const note = await callAnthropic(
+    const note = await callMeteredAnthropic(
       `You are Beckett, a communication coach. ${context}`,
       [{ role: 'user', content: `The user wrote: "${userMessage}"\n\nIn one sentence (max 20 words), give honest specific feedback on this message. Return only the sentence.` }],
       80
@@ -186,7 +170,7 @@ Break character completely. Return a JSON object with exactly these 4 fields (ea
 
 Return only valid JSON. No markdown, no extra text.`
 
-    const result = await callAnthropic(system, [{ role: 'user', content: user }], 500)
+    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 500)
     try {
       return NextResponse.json(JSON.parse(result.trim()))
     } catch {
@@ -195,4 +179,15 @@ Return only valid JSON. No markdown, no extra text.`
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  } catch (error) {
+    if (error instanceof AiUsageLimitError) {
+      return NextResponse.json(
+        { error: error.message, limit: error.limit, remaining: error.remaining },
+        { status: error.status }
+      )
+    }
+
+    const message = error instanceof Error ? error.message : 'Course request failed.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

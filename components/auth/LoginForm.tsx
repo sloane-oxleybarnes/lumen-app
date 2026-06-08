@@ -2,16 +2,19 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
 export default function LoginPage() {
   const supabase = createClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const next = searchParams.get("next");
+  const safeNext = next?.startsWith("/") ? next : null;
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -33,7 +36,25 @@ export default function LoginPage() {
       setError(error.message);
       setLoading(false);
     } else {
-      router.push("/dashboard");
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      let nextPath = safeNext || "/auth/profile-setup";
+
+      if (userId) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("first_login_complete")
+          .eq("id", userId)
+          .single();
+
+        if (!profile?.first_login_complete) {
+          nextPath = "/auth/profile-setup";
+        } else if (!safeNext) {
+          nextPath = "/dashboard";
+        }
+      }
+
+      router.push(nextPath);
       router.refresh();
     }
   }
@@ -42,7 +63,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
-        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
+        redirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback${safeNext ? `?next=${encodeURIComponent(safeNext)}` : ""}`,
       },
     });
   }

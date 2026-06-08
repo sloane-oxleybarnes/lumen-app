@@ -1,4 +1,5 @@
 import { createBrowserClient } from '@supabase/ssr'
+import type { CoachingTone } from './onboarding'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -11,6 +12,20 @@ export type Profile = {
   id: string;
   email: string;
   full_name: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  display_name?: string | null;
+  strengths?: string[] | null;
+  workplace_triggers?: string[] | null;
+  communication_preferences?: string[] | null;
+  coaching_tone?: CoachingTone | null;
+  neurodivergent_context?: string[] | null;
+  neurodivergent_context_other?: string | null;
+  first_login_complete?: boolean;
+  onboarding_completed_at?: string | null;
+  deletion_requested_at?: string | null;
+  deletion_status?: string | null;
+  deletion_notes?: string | null;
   plan: "free" | "pro" | "team" | "beta";
   role: "member" | "admin";
   team_id: string | null;

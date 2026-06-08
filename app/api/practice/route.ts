@@ -1,35 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
-
-async function callAnthropic(system: string | null, messages: { role: string; content: string }[], maxTokens: number) {
-  const apiKey = process.env.ANTHROPIC_API_KEY
-  if (!apiKey) throw new Error('Anthropic API key not configured.')
-
-  const body: Record<string, unknown> = {
-    model: 'claude-sonnet-4-6',
-    max_tokens: maxTokens,
-    messages,
-  }
-  if (system) body.system = system
-
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify(body),
-  })
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({})) as { error?: { message?: string } }
-    throw new Error(err?.error?.message || `Anthropic error ${res.status}`)
-  }
-
-  const data = await res.json() as { content: { text?: string }[] }
-  return data.content.map((b) => b.text || '').join('')
-}
+import { callAnthropic } from '@/lib/anthropic'
+import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 
 function modeInstruction(mode?: string) {
   if (mode === 'professional') {
@@ -45,6 +17,7 @@ function lengthInstruction(messageCount: number) {
 }
 
 export async function POST(req: NextRequest) {
+  try {
   const supabase = createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -77,6 +50,18 @@ export async function POST(req: NextRequest) {
   }
 
   const { action, mode } = body
+  const callMeteredAnthropic = async (
+    system: string | null,
+    messages: { role: 'user' | 'assistant'; content: string }[],
+    maxTokens: number
+  ) => {
+    await recordAiUsage(session.user.id, {
+      source: 'dashboard',
+      action: `practice_${action}`,
+      metadata: { mode: mode || null },
+    })
+    return callAnthropic(system, messages, maxTokens)
+  }
 
   if (action === 'turn') {
     const { system, messages, messageCount = 0 } = body
@@ -87,7 +72,7 @@ export async function POST(req: NextRequest) {
     const fullSystem = system
       ? (instructions ? `${system}\n\n${instructions}` : system)
       : instructions || null
-    const text = await callAnthropic(fullSystem, messages, 300)
+    const text = await callMeteredAnthropic(fullSystem, messages as { role: 'user' | 'assistant'; content: string }[], 300)
     return NextResponse.json({ text: text.trim() })
   }
 
@@ -105,7 +90,7 @@ The user just said: "${userMessage}"
 
 In one short sentence (max 20 words), note how they came across. Be direct and specific. Return only the sentence — no labels, no preamble.`
 
-    const note = await callAnthropic(system, [{ role: 'user', content: user }], 80)
+    const note = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 80)
     return NextResponse.json({ note: note.trim() })
   }
 
@@ -121,7 +106,7 @@ ${conversationHistory ? `Conversation so far:\n${conversationHistory}\n\n` : ''}
 
 In one sentence (max 20 words), note how this message would likely land — focus on tone and effectiveness, not grammar. Return only the sentence.`
 
-    const note = await callAnthropic(system, [{ role: 'user', content: user }], 80)
+    const note = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 80)
     return NextResponse.json({ note: note.trim() })
   }
 
@@ -137,7 +122,7 @@ What they want to achieve: ${goal || 'not specified'}
 Analyze whether this conversation would be more effective in person or over text. Return ONLY valid JSON:
 { "format": "in-person" | "text", "reason": "1-2 sentence explanation" }`
 
-    const result = await callAnthropic(
+    const result = await callMeteredAnthropic(
       'You analyze communication scenarios and return JSON recommendations. Return only valid JSON.',
       [{ role: 'user', content: user }],
       120
@@ -169,7 +154,7 @@ Rules:
 - Vary the approaches (direct, soft, clarifying)
 - Return ONLY valid JSON: { "prompts": ["...", "...", "..."] }`
 
-    const result = await callAnthropic(
+    const result = await callMeteredAnthropic(
       'You generate short conversation suggestions. Return only valid JSON.',
       [{ role: 'user', content: user }],
       150
@@ -203,7 +188,7 @@ Return ONLY valid JSON — one of these three forms:
 { "intervene": true, "severity": "warning", "message": "brief supportive note from Beckett, max 20 words" }
 { "intervene": true, "severity": "end", "message": "brief note from Beckett suggesting to wrap up, max 20 words" }`
 
-    const result = await callAnthropic(
+    const result = await callMeteredAnthropic(
       'You monitor practice conversations and return JSON. Return only valid JSON.',
       [{ role: 'user', content: user }],
       100
@@ -240,7 +225,7 @@ Now break character completely. Return a JSON object with exactly these 4 fields
 
 Return only valid JSON. No markdown, no extra text.`
 
-    const result = await callAnthropic(system, [{ role: 'user', content: user }], 600)
+    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 600)
     try {
       const parsed = JSON.parse(result.trim()) as Record<string, string>
       return NextResponse.json(parsed)
@@ -250,4 +235,15 @@ Return only valid JSON. No markdown, no extra text.`
   }
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
+  } catch (error) {
+    if (error instanceof AiUsageLimitError) {
+      return NextResponse.json(
+        { error: error.message, limit: error.limit, remaining: error.remaining },
+        { status: error.status }
+      )
+    }
+
+    const message = error instanceof Error ? error.message : 'Practice request failed.'
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }

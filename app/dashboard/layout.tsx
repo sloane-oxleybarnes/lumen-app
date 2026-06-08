@@ -22,6 +22,10 @@ export default async function DashboardLayout({
     .eq("id", session.user.id)
     .single();
 
+  if (!profile?.first_login_complete) {
+    redirect("/auth/profile-setup");
+  }
+
   return (
     <div className="min-h-screen bg-bg flex">
       <DashboardSidebar profile={profile} userEmail={session.user.email || ""} />

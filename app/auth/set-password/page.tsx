@@ -27,7 +27,7 @@ export default function SetPasswordPage() {
     setLoading(true)
     const { error } = await supabase.auth.updateUser({ password })
     if (error) { setError(error.message); setLoading(false); return }
-    router.push('/dashboard')
+    router.push('/auth/profile-setup')
   }
 
   if (!ready) return (

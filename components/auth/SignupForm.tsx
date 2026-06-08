@@ -83,7 +83,7 @@ export default function SignupPage() {
       }),
     }).catch(() => {});
 
-    router.push("/dashboard");
+    router.push("/auth/profile-setup");
     router.refresh();
   }
 
