@@ -38,8 +38,25 @@
     );
   }
 
-  function extractConversation() {
+  function normalizeName(value) {
+    return (value || '').toLowerCase().replace(/^@/, '').replace(/\s+/g, ' ').trim();
+  }
+
+  function senderMatchesCurrentUser(sender, aliases) {
+    const normalizedSender = normalizeName(sender);
+    if (!normalizedSender || normalizedSender === 'unknown') return false;
+    return aliases.some(alias => {
+      const normalizedAlias = normalizeName(alias);
+      if (!normalizedAlias) return false;
+      return normalizedSender === normalizedAlias ||
+        normalizedSender.includes(normalizedAlias) ||
+        normalizedAlias.includes(normalizedSender);
+    });
+  }
+
+  function extractConversation(currentUserAliases = []) {
     const { name: currentUserName } = getCurrentSlackUser();
+    const aliases = [currentUserName, ...currentUserAliases].filter(Boolean);
     let conversation = [];
 
     // Strategy 1: data-qa message containers with sender carry-forward
@@ -58,7 +75,7 @@
           conversation.push({
             sender: lastSender,
             text: texts.join('\n'),
-            isCurrentUser: lastSender === currentUserName,
+            isCurrentUser: senderMatchesCurrentUser(lastSender, aliases),
           });
         }
       });
@@ -84,7 +101,7 @@
           conversation.push({
             sender: lastSender,
             text: texts.join('\n'),
-            isCurrentUser: lastSender === currentUserName,
+            isCurrentUser: senderMatchesCurrentUser(lastSender, aliases),
           });
         }
       });
@@ -105,7 +122,7 @@
         conversation.push({
           sender: lastSender,
           text,
-          isCurrentUser: lastSender === currentUserName,
+          isCurrentUser: senderMatchesCurrentUser(lastSender, aliases),
         });
       });
     }
@@ -134,7 +151,7 @@
         conversation.push({
           sender: lastSender,
           text,
-          isCurrentUser: lastSender === currentUserName,
+          isCurrentUser: senderMatchesCurrentUser(lastSender, aliases),
         });
       });
     }
@@ -144,7 +161,11 @@
 
   async function buildContext() {
     const { name: currentUserName, id: currentUserId } = getCurrentSlackUser();
-    const conversation = extractConversation();
+    const { slackUserName, beckettUserName, beckettUserEmail } = await chrome.storage.local.get([
+      'slackUserName', 'beckettUserName', 'beckettUserEmail',
+    ]);
+    const currentUserAliases = [slackUserName, beckettUserName, beckettUserEmail?.split('@')[0]].filter(Boolean);
+    const conversation = extractConversation(currentUserAliases);
     if (!conversation.length) return null;
 
     const incoming = [...conversation].reverse().find(m => !m.isCurrentUser);
@@ -168,7 +189,9 @@
       channelType: getChannelType(),
       channelName: getChannelName(),
       isSafePerson,
-      currentUserName: currentUserName !== 'the user' ? currentUserName : null,
+      currentUserName: currentUserName !== 'the user'
+        ? currentUserName
+        : (slackUserName || beckettUserName || null),
     };
   }
 

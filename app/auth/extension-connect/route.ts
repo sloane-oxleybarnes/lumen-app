@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const { data: profile, error } = await supabaseAdmin
     .from('profiles')
-    .select('id, plan, extension_token')
+    .select('id, email, full_name, first_name, display_name, plan, extension_token')
     .eq('id', session.user.id)
     .single()
 
@@ -54,5 +54,9 @@ export async function GET(req: NextRequest) {
   const target = new URL(redirectUri)
   target.searchParams.set('token', token as string)
   target.searchParams.set('plan', profile.plan || 'beta')
+  if (profile.display_name || profile.first_name || profile.full_name) {
+    target.searchParams.set('name', profile.display_name || profile.first_name || profile.full_name)
+  }
+  if (profile.email) target.searchParams.set('email', profile.email)
   return NextResponse.redirect(target)
 }

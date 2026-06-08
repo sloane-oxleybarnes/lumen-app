@@ -211,8 +211,8 @@ async function handleTriggerAnalyze(payload, sendResponse) {
 
     if (!ctx) { sendResponse({ error: 'Could not read the page. Try opening a message first.' }); return; }
 
-    const { linkedInProfile, lumenMode, plan, voice_samples, currentUserEmail, slackUserName } = await chrome.storage.local.get([
-      'linkedInProfile', 'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName',
+    const { linkedInProfile, lumenMode, plan, voice_samples, currentUserEmail, slackUserName, beckettUserName, beckettUserEmail } = await chrome.storage.local.get([
+      'linkedInProfile', 'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName', 'beckettUserName', 'beckettUserEmail',
     ]);
     const mode = payload.mode || lumenMode || 'business';
     const isPro = plan === 'pro' || plan === 'beta';
@@ -247,10 +247,10 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       }
     }
 
-    // Resolve user identity: LinkedIn name is most reliable, then Slack name from context/storage, then email
+    // Resolve user identity so Beckett can speak to the user directly.
     const currentUser = {
-      name: linkedInProfile?.name || ctx.currentUserName || slackUserName || null,
-      email: currentUserEmail || null,
+      name: ctx.currentUserName || slackUserName || beckettUserName || linkedInProfile?.name || null,
+      email: currentUserEmail || beckettUserEmail || null,
     };
 
     const prompt = buildMessagePrompt({
@@ -702,12 +702,18 @@ async function connectBeckett() {
   const params = new URL(responseUrl).searchParams;
   const token = params.get('token');
   if (!token) throw new Error('Beckett connection cancelled.');
+  const name = params.get('name');
+  const email = params.get('email');
 
   await chrome.storage.local.set({
     beckettToken: token,
     plan: params.get('plan') || 'beta',
     lumenMode: 'business',
+    ...(name && { beckettUserName: name }),
+    ...(email && { beckettUserEmail: email }),
   });
+
+  await syncBeckettProfile(token);
 
   return { ok: true, plan: params.get('plan') || 'beta' };
 }
@@ -726,9 +732,17 @@ async function getSettings() {
   const keys = [
     'plan', 'lumenMode', 'linkedInProfile',
     'safe_people', 'betaEmail', 'voice_samples',
-    'slackToken', 'slackUserId', 'currentUserEmail', 'beckettToken',
+    'slackToken', 'slackUserId', 'currentUserEmail', 'beckettToken', 'beckettUserName', 'beckettUserEmail',
   ];
   const data = await chrome.storage.local.get(keys);
+  if (data.beckettToken && (!data.beckettUserName || !data.beckettUserEmail)) {
+    const profile = await syncBeckettProfile(data.beckettToken).catch(() => null);
+    if (profile) {
+      data.beckettUserName = profile.name || data.beckettUserName;
+      data.beckettUserEmail = profile.email || data.beckettUserEmail;
+      if (profile.plan) data.plan = profile.plan;
+    }
+  }
   const samples = data.voice_samples || [];
   return {
     apiKey: '',
@@ -744,7 +758,23 @@ async function getSettings() {
     slackConnected: !!data.slackToken,
     gmailUserEmail: data.currentUserEmail || '',
     beckettToken: data.beckettToken || null,
+    beckettUserName: data.beckettUserName || '',
+    beckettUserEmail: data.beckettUserEmail || '',
   };
+}
+
+async function syncBeckettProfile(token) {
+  const res = await fetch(`${BECKETT_API}/extension/me`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) return null;
+  const profile = await res.json();
+  await chrome.storage.local.set({
+    ...(profile.name && { beckettUserName: profile.name }),
+    ...(profile.email && { beckettUserEmail: profile.email }),
+    ...(profile.plan && { plan: profile.plan }),
+  });
+  return profile;
 }
 
 async function saveSafePerson(person) {

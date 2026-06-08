@@ -672,8 +672,6 @@ chrome.runtime.onMessage.addListener((message) => {
       } else {
         renderAuthState();
       }
-      $('results').hidden = true;
-      $('meetingResults').hidden = true;
       // Auto-analyze on Slack when a new incoming message is detected
       if (state.beckettToken && message.context?.autoAnalyze && message.context?.platform === 'slack') {
         $('analyzeBtn').click();
