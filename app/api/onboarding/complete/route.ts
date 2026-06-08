@@ -9,12 +9,12 @@ type OnboardingBody = {
   first_name: string;
   last_name: string;
   display_name: string;
-  strengths: string[];
-  workplace_triggers: string[];
-  communication_preferences: string[];
-  coaching_tone: CoachingTone;
-  neurodivergent_context: string[];
-  neurodivergent_context_other: string | null;
+  strengths?: string[];
+  workplace_triggers?: string[];
+  communication_preferences?: string[];
+  coaching_tone?: CoachingTone;
+  neurodivergent_context?: string[];
+  neurodivergent_context_other?: string | null;
 };
 
 export async function POST(req: NextRequest) {
@@ -38,12 +38,12 @@ export async function POST(req: NextRequest) {
       first_name: body.first_name,
       last_name: body.last_name,
       display_name: body.display_name,
-      strengths: body.strengths,
-      workplace_triggers: body.workplace_triggers,
-      communication_preferences: body.communication_preferences,
-      coaching_tone: body.coaching_tone,
-      neurodivergent_context: body.neurodivergent_context,
-      neurodivergent_context_other: body.neurodivergent_context_other,
+      strengths: body.strengths || [],
+      workplace_triggers: body.workplace_triggers || [],
+      communication_preferences: body.communication_preferences || [],
+      coaching_tone: body.coaching_tone || "direct_kind",
+      neurodivergent_context: body.neurodivergent_context || [],
+      neurodivergent_context_other: body.neurodivergent_context_other || null,
       first_login_complete: true,
       onboarding_completed_at: now,
       updated_at: now,
@@ -57,4 +57,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ ok: true });
 }
-
