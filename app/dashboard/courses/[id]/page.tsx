@@ -132,6 +132,15 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [debrief, setDebrief] = useState<DebriefData | null>(null)
   const [debriefLoading, setDebriefLoading] = useState(false)
 
+  // ── Course feedback ──────────────────────────────────────────────────────
+  const [courseFeedbackRating, setCourseFeedbackRating] = useState<'yes' | 'no' | null>(null)
+  const [courseFeedbackUseful, setCourseFeedbackUseful] = useState('')
+  const [courseFeedbackOff, setCourseFeedbackOff] = useState('')
+  const [courseFeedbackWouldUse, setCourseFeedbackWouldUse] = useState('')
+  const [courseFeedbackSubmitting, setCourseFeedbackSubmitting] = useState(false)
+  const [courseFeedbackSubmitted, setCourseFeedbackSubmitted] = useState(false)
+  const [courseFeedbackError, setCourseFeedbackError] = useState<string | null>(null)
+
   const bottomRef = useRef<HTMLDivElement>(null)
   const completionSaved = useRef(false)
 
@@ -451,6 +460,36 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       pre_confidence: preConfidence, post_confidence: postConfidence,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'user_id,course_id' })
+  }
+
+  async function submitCourseFeedback() {
+    if (!courseFeedbackRating || courseFeedbackSubmitting) return
+    setCourseFeedbackSubmitting(true)
+    setCourseFeedbackError(null)
+
+    const res = await fetch('/api/courses/feedback', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        courseId: course.id,
+        courseTitle: course.title,
+        rating: courseFeedbackRating,
+        useful: courseFeedbackUseful,
+        off: courseFeedbackOff,
+        wouldUse: courseFeedbackWouldUse,
+        preConfidence,
+        postConfidence,
+      }),
+    })
+
+    setCourseFeedbackSubmitting(false)
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({})) as { error?: string }
+      setCourseFeedbackError(data.error || 'Could not save feedback. Please try again.')
+      return
+    }
+
+    setCourseFeedbackSubmitted(true)
   }
 
   // ── Shared UI helpers ──────────────────────────────────────────────────────
@@ -1645,12 +1684,81 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function renderCompletion() {
     const gain = preConfidence && postConfidence ? postConfidence - preConfidence : null
     return (
-      <div className="max-w-lg mx-auto text-center py-12">
+      <div className="max-w-lg mx-auto py-12">
+        <div className="text-center">
         <h1 className="text-3xl text-ink mb-4" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>Course complete</h1>
         {gain !== null && gain > 0 && (
           <p className="text-ink-mid text-sm mb-4">Your confidence went from {preConfidence} to {postConfidence} out of 5.</p>
         )}
-        <p className="text-ink-mid text-sm mb-10 leading-relaxed">You&apos;ve got the tools. The only thing left is to use them.</p>
+        <p className="text-ink-mid text-sm mb-8 leading-relaxed">You&apos;ve got the tools. The only thing left is to use them.</p>
+        </div>
+
+        <div className="bg-white border border-border rounded-card p-5 mb-8 text-left">
+          {courseFeedbackSubmitted ? (
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">Thanks — this helps us make Beckett better.</p>
+              <p className="text-sm text-ink-mid leading-relaxed">We&apos;ll use this to tune the course before more beta users go through it.</p>
+            </div>
+          ) : (
+            <div>
+              <p className="text-sm font-medium text-ink mb-2">How was this course?</p>
+              <p className="text-sm text-ink-mid mb-4 leading-relaxed">A quick note helps Beckett learn which coaching moments are actually useful.</p>
+
+              <div className="grid grid-cols-2 gap-3 mb-4">
+                {[
+                  { value: 'yes', label: 'Useful' },
+                  { value: 'no', label: 'Needs work' },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => setCourseFeedbackRating(option.value as 'yes' | 'no')}
+                    className={`rounded-sm border px-4 py-2.5 text-sm font-medium transition-colors ${
+                      courseFeedbackRating === option.value
+                        ? 'border-primary bg-primary-light text-primary'
+                        : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                    }`}
+                  >
+                    {option.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="space-y-3">
+                <CourseFeedbackTextarea
+                  label="What felt most useful?"
+                  value={courseFeedbackUseful}
+                  onChange={setCourseFeedbackUseful}
+                  placeholder="A section, prompt, example, or practice moment."
+                />
+                <CourseFeedbackTextarea
+                  label="Where did Beckett feel too much, too vague, or off?"
+                  value={courseFeedbackOff}
+                  onChange={setCourseFeedbackOff}
+                  placeholder="Anything that felt confusing, intense, generic, or wrong."
+                />
+                <CourseFeedbackTextarea
+                  label="Would you use this before the real situation?"
+                  value={courseFeedbackWouldUse}
+                  onChange={setCourseFeedbackWouldUse}
+                  placeholder="Yes, no, maybe — and why."
+                />
+              </div>
+
+              {courseFeedbackError && <p className="text-xs text-red-600 mt-3">{courseFeedbackError}</p>}
+
+              <button
+                type="button"
+                onClick={submitCourseFeedback}
+                disabled={!courseFeedbackRating || courseFeedbackSubmitting}
+                className="mt-4 w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
+              >
+                {courseFeedbackSubmitting ? 'Saving…' : 'Send course feedback'}
+              </button>
+            </div>
+          )}
+        </div>
+
         <div className="flex gap-3 justify-center">
           <a href="/dashboard/skills" className="border border-border rounded-pill px-5 py-3 text-sm font-medium text-ink hover:bg-primary-light transition-colors">Back to skills</a>
           <a href="/dashboard/practice" className="bg-primary text-white rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-dark transition-colors">Practice more</a>
@@ -1703,5 +1811,30 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         </div>
       </div>
     </div>
+  )
+}
+
+function CourseFeedbackTextarea({
+  label,
+  value,
+  onChange,
+  placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <label className="block">
+      <span className="block text-xs font-medium text-ink-light uppercase tracking-wide mb-1">{label}</span>
+      <textarea
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        rows={2}
+        placeholder={placeholder}
+        className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+      />
+    </label>
   )
 }
