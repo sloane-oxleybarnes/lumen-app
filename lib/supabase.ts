@@ -21,6 +21,8 @@ export type Profile = {
   coaching_tone?: CoachingTone | null;
   neurodivergent_context?: string[] | null;
   neurodivergent_context_other?: string | null;
+  proactive_coaching_preference?: "wait_until_asked" | "quiet_prompt" | "direct_interrupt";
+  pattern_model_enabled?: boolean;
   first_login_complete?: boolean;
   onboarding_completed_at?: string | null;
   deletion_requested_at?: string | null;
