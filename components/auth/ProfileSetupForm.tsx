@@ -123,7 +123,7 @@ export default function ProfileSetupForm() {
     return true;
   }, [coachingTone, displayName, firstName, lastName, preferences.length, step, strengths.length, triggers.length]);
 
-  async function finish() {
+  async function completeOnboarding(destination: "dashboard" | "gmail" | "slack" = "dashboard") {
     setSaving(true);
     setError("");
     const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
@@ -162,13 +162,30 @@ export default function ProfileSetupForm() {
       },
     });
 
+    if (destination === "gmail") {
+      await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          scopes: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly",
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/settings")}&integration=google`,
+          queryParams: { access_type: "offline", prompt: "consent" },
+        },
+      });
+      return;
+    }
+
+    if (destination === "slack") {
+      window.location.href = "/api/slack/connect";
+      return;
+    }
+
     router.push("/dashboard");
     router.refresh();
   }
 
   function next() {
     if (!canContinue) return;
-    if (step === steps.length - 1) finish();
+    if (step === steps.length - 1) completeOnboarding();
     else setStep((current) => current + 1);
   }
 
@@ -332,45 +349,81 @@ export default function ProfileSetupForm() {
 
           {step === 5 && (
             <div>
-              <h2 className="text-xl text-ink mb-2 font-serif">Next: connect the extension</h2>
+              <h2 className="text-xl text-ink mb-2 font-serif">Connect your work tools</h2>
               <p className="text-sm text-ink-mid mb-5">
-                The Beckett extension is where Gmail and Slack coaching happens. Install it now, or continue and connect it from your dashboard.
+                Beckett works best when your coach is connected to the places your work conversations happen.
               </p>
-              <div className="rounded-sm border border-primary/20 bg-primary-light p-4">
-                <p className="text-sm font-medium text-ink">Your beta access includes:</p>
-                <ul className="mt-3 space-y-2 text-sm text-ink-mid">
-                  <li>Gmail and Slack message analysis</li>
-                  <li>Drafting help from Beckett</li>
-                  <li>Professional mode by default, with Personal available when you need it</li>
-                  <li>Interactive workplace courses</li>
-                </ul>
+              <div className="space-y-3">
+                <div className="rounded-sm border border-border bg-bg/60 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-ink">1. Install Beckett for Chrome</p>
+                      <p className="mt-1 text-xs text-ink-mid">
+                        After installing, open the extension and choose Log in with Beckett.
+                      </p>
+                    </div>
+                    {chromeExtensionUrl ? (
+                      <a
+                        href={chromeExtensionUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 rounded-pill bg-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-primary-dark"
+                      >
+                        Open
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        disabled
+                        className="shrink-0 rounded-pill bg-ink-light/20 px-4 py-2 text-xs font-medium text-ink-mid"
+                      >
+                        Soon
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-sm border border-border bg-bg/60 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-ink">2. Connect Gmail</p>
+                      <p className="mt-1 text-xs text-ink-mid">
+                        Lets Beckett read full email threads when you ask for coaching.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => completeOnboarding("gmail")}
+                      disabled={saving}
+                      className="shrink-0 rounded-pill border border-border px-4 py-2 text-xs font-medium text-ink transition-colors hover:border-primary-mid disabled:opacity-50"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-sm border border-border bg-bg/60 p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-ink">3. Connect Slack</p>
+                      <p className="mt-1 text-xs text-ink-mid">
+                        Lets Beckett understand Slack DMs, channels, and recent context.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => completeOnboarding("slack")}
+                      disabled={saving}
+                      className="shrink-0 rounded-pill border border-border px-4 py-2 text-xs font-medium text-ink transition-colors hover:border-primary-mid disabled:opacity-50"
+                    >
+                      Connect
+                    </button>
+                  </div>
+                </div>
               </div>
-              <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-                {chromeExtensionUrl ? (
-                  <a
-                    href={chromeExtensionUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center justify-center rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-                  >
-                    Open Chrome Web Store
-                  </a>
-                ) : (
-                  <button
-                    type="button"
-                    disabled
-                    className="inline-flex items-center justify-center rounded-pill bg-ink-light/20 px-5 py-2.5 text-sm font-medium text-ink-mid"
-                  >
-                    Chrome Web Store link coming soon
-                  </button>
-                )}
-                <a
-                  href="/dashboard/settings"
-                  className="inline-flex items-center justify-center rounded-pill border border-border px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:border-primary-mid"
-                >
-                  Connect later
-                </a>
-              </div>
+              <p className="mt-4 text-xs text-ink-light">
+                You can skip any of these for now. Beckett will keep nudging you from Settings until setup is complete.
+              </p>
             </div>
           )}
 
