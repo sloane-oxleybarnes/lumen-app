@@ -3,6 +3,22 @@
 (function () {
   let lastMessageId = null;
 
+  async function safeStorageGet(keys, fallback = {}) {
+    try {
+      if (!chrome?.storage?.local) return fallback;
+      return await chrome.storage.local.get(keys);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  async function safeStorageSet(values) {
+    try {
+      if (!chrome?.storage?.local) return;
+      await chrome.storage.local.set(values);
+    } catch (_) {}
+  }
+
   // ── DOM extraction ─────────────────────────────────────────
 
   function getCurrentSlackUser() {
@@ -161,7 +177,7 @@
 
   async function buildContext() {
     const { name: currentUserName, id: currentUserId } = getCurrentSlackUser();
-    const { slackUserName, beckettUserName, beckettUserEmail } = await chrome.storage.local.get([
+    const { slackUserName, beckettUserName, beckettUserEmail } = await safeStorageGet([
       'slackUserName', 'beckettUserName', 'beckettUserEmail',
     ]);
     const currentUserAliases = [slackUserName, beckettUserName, beckettUserEmail?.split('@')[0]].filter(Boolean);
@@ -176,8 +192,8 @@
 
     // Cache the resolved Slack user name for the service worker to use
     if (currentUserName && currentUserName !== 'the user') {
-      chrome.storage.local.get('slackUserName').then(({ slackUserName }) => {
-        if (!slackUserName) chrome.storage.local.set({ slackUserName: currentUserName });
+      safeStorageGet('slackUserName').then(({ slackUserName }) => {
+        if (!slackUserName) safeStorageSet({ slackUserName: currentUserName });
       });
     }
 
@@ -198,7 +214,7 @@
   }
 
   async function checkSafePerson(senderName) {
-    const { safe_people = [] } = await chrome.storage.local.get('safe_people');
+    const { safe_people = [] } = await safeStorageGet('safe_people', { safe_people: [] });
     return safe_people.some(p =>
       p.name && senderName.toLowerCase().includes(p.name.toLowerCase())
     );
