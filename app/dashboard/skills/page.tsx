@@ -2,61 +2,121 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
-import { SKILL_MODULES, type SubCategory, type SkillModule } from '@/lib/skills'
 
-const COURSE_OVERRIDES: Record<string, string> = {
-  'ask-someone-out-text': '/dashboard/courses/ask-someone-out',
+type SkillCard = {
+  id: string
+  title: string
+  description: string
+  href: string
+  status: 'live' | 'planned'
+  estimatedMinutes: number
+  courseId?: string
+  illustration: 'date' | 'colleague' | 'no'
 }
 
-// course_id values in course_completions (keyed by skill module id)
-const COURSE_IDS: Record<string, string> = {
-  'ask-someone-out-text': 'ask-someone-out',
-}
-
-const LIVE_IDS = new Set(Object.keys(COURSE_OVERRIDES))
-
-const SUBCATEGORY_SECTIONS: { sub: SubCategory; label: string }[] = [
-  { sub: 'personal-dating', label: 'Personal — Dating' },
-  { sub: 'personal-general', label: 'Personal — General Communication' },
-  { sub: 'personal-family-friends', label: 'Personal — Family and Friends' },
-  { sub: 'personal-self-advocacy', label: 'Personal — Self-Advocacy' },
-  { sub: 'professional-colleague', label: 'Professional — Colleague' },
-  { sub: 'professional-general', label: 'Professional — General Communication' },
-  { sub: 'professional-manager-boss', label: 'Professional — Manager and Boss' },
+const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
+  {
+    label: 'Personal Preview',
+    description: 'A small look at where Beckett will go beyond work later.',
+    cards: [
+      {
+        id: 'ask-someone-out-text',
+        title: 'Asking someone out on a dating app',
+        description: 'Move from chatting to a clear, low-pressure ask with Beckett coaching you through the wording and practice.',
+        href: '/dashboard/courses/ask-someone-out',
+        status: 'live',
+        estimatedMinutes: 30,
+        courseId: 'ask-someone-out',
+        illustration: 'date',
+      },
+    ],
+  },
+  {
+    label: 'Professional Colleague',
+    description: 'Foundational workplace courses we are building for beta.',
+    cards: [
+      {
+        id: 'introducing-new-colleague',
+        title: 'Introducing yourself to a new colleague',
+        description: 'Start a new working relationship clearly without scripting yourself into stiffness.',
+        href: '/dashboard/skills/introducing-new-colleague',
+        status: 'planned',
+        estimatedMinutes: 30,
+        illustration: 'colleague',
+      },
+      {
+        id: 'declining-meeting-professionally',
+        title: 'Saying no at work',
+        description: 'Decline a meeting or request directly, kindly, and without the guilt spiral.',
+        href: '/dashboard/skills/declining-meeting-professionally',
+        status: 'planned',
+        estimatedMinutes: 30,
+        illustration: 'no',
+      },
+    ],
+  },
 ]
 
-function ModuleCard({ mod, completedCourseIds }: { mod: SkillModule; completedCourseIds: Set<string> }) {
-  const isLive = LIVE_IDS.has(mod.id)
-  const href = COURSE_OVERRIDES[mod.id] || `/dashboard/skills/${mod.id}`
-  const courseId = COURSE_IDS[mod.id]
-  const isCompleted = courseId ? completedCourseIds.has(courseId) : false
-
-  const inner = (
-    <div className="relative bg-white border border-border rounded-card p-5 flex items-start justify-between gap-4 transition-colors group-hover:border-primary">
-      {!isLive && (
-        <div className="absolute inset-0 rounded-card bg-white/70 flex items-center justify-end pr-5 z-10">
-          <span className="text-xs text-ink-light font-medium">Coming soon</span>
+function LineIllustration({ type }: { type: SkillCard['illustration'] }) {
+  return (
+    <div className="h-24 w-28 shrink-0 rounded-sm border border-border bg-bg/80 p-4" aria-hidden="true">
+      {type === 'date' && (
+        <div className="relative h-full">
+          <div className="absolute left-0 top-1 h-7 w-16 rounded-full border border-primary/60" />
+          <div className="absolute right-0 top-8 h-7 w-16 rounded-full border border-ink-light/50" />
+          <div className="absolute bottom-0 left-5 h-5 w-5 rounded-full border border-primary" />
+          <div className="absolute bottom-0 left-12 h-5 w-5 rounded-full border border-primary" />
         </div>
       )}
-      <div className={`flex-1 min-w-0 ${!isLive ? 'opacity-40' : ''}`}>
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <h2 className="text-base font-medium text-ink">{mod.title}</h2>
-          {isLive && (
-            <span className="text-xs bg-primary-light text-primary rounded-pill px-2 py-0.5">Foundational</span>
+      {type === 'colleague' && (
+        <div className="relative h-full">
+          <div className="absolute left-2 top-3 h-8 w-8 rounded-full border border-primary" />
+          <div className="absolute right-2 top-3 h-8 w-8 rounded-full border border-primary" />
+          <div className="absolute left-0 bottom-4 h-px w-full bg-border" />
+          <div className="absolute left-5 bottom-1 h-5 w-12 rounded-t-full border border-ink-light/50" />
+        </div>
+      )}
+      {type === 'no' && (
+        <div className="relative h-full">
+          <div className="absolute left-1 top-2 h-14 w-20 rounded-sm border border-primary/70" />
+          <div className="absolute left-4 top-6 h-px w-14 bg-primary/70" />
+          <div className="absolute left-4 top-9 h-px w-10 bg-primary/70" />
+          <div className="absolute bottom-1 right-1 h-8 w-8 rounded-full border border-ink-light/60" />
+          <div className="absolute bottom-5 right-3 h-px w-4 rotate-45 bg-ink-light/70" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SkillModuleCard({ card, completedCourseIds }: { card: SkillCard; completedCourseIds: Set<string> }) {
+  const isCompleted = card.courseId ? completedCourseIds.has(card.courseId) : false
+  const isLive = card.status === 'live'
+
+  const inner = (
+    <div className="flex gap-5 rounded-card border border-border bg-white p-5 transition-colors group-hover:border-primary">
+      <LineIllustration type={card.illustration} />
+      <div className="min-w-0 flex-1">
+        <div className="mb-2 flex flex-wrap items-center gap-2">
+          <h2 className="text-base font-medium text-ink">{card.title}</h2>
+          {isLive ? (
+            <span className="rounded-pill bg-primary-light px-2 py-0.5 text-xs text-primary">Live</span>
+          ) : (
+            <span className="rounded-pill bg-bg px-2 py-0.5 text-xs text-ink-light">Coming soon</span>
           )}
           {isCompleted && (
-            <span className="text-xs bg-green-50 text-green-700 border border-green-200 rounded-pill px-2 py-0.5">✓ Completed</span>
+            <span className="rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">Completed</span>
           )}
         </div>
-        <p className="text-sm text-ink-mid leading-relaxed">{mod.description}</p>
-        <p className="text-xs text-ink-light mt-1">{mod.estimatedMinutes} min</p>
+        <p className="text-sm leading-relaxed text-ink-mid">{card.description}</p>
+        <p className="mt-3 text-xs text-ink-light">{card.estimatedMinutes} min</p>
       </div>
-      <span className={`text-lg mt-0.5 shrink-0 transition-colors ${isLive ? 'text-ink-light group-hover:text-primary' : 'text-ink-light/30'}`}>→</span>
+      <span className={`mt-1 text-lg ${isLive ? 'text-ink-light group-hover:text-primary' : 'text-ink-light/40'}`}>→</span>
     </div>
   )
 
-  if (!isLive) return <div className="cursor-default">{inner}</div>
-  return <Link href={href} className="group block">{inner}</Link>
+  if (!isLive) return <div className="cursor-default opacity-85">{inner}</div>
+  return <Link href={card.href} className="group block">{inner}</Link>
 }
 
 export default function SkillsPage() {
@@ -75,28 +135,27 @@ export default function SkillsPage() {
   }, [])
 
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-3xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
-        Skill modules
+    <div className="max-w-3xl">
+      <h1 className="mb-2 text-3xl text-ink" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+        Skills and courses
       </h1>
-      <p className="text-ink-mid text-sm mb-10">
-        Structured lessons for real conversations. Each module walks you through the skill, lets you practice with Beckett, and gives you feedback.
+      <p className="mb-10 text-sm text-ink-mid">
+        Beckett coaches you through real situations, then gives you space to practice before you try it live.
       </p>
 
-      {SUBCATEGORY_SECTIONS.map(({ sub, label }) => {
-        const modules = SKILL_MODULES.filter(m => m.subCategories.includes(sub))
-        if (!modules.length) return null
-        return (
-          <section key={sub} className="mb-10">
-            <h2 className="text-xs font-medium text-ink-light uppercase tracking-wide mb-4">{label}</h2>
-            <div className="grid gap-4">
-              {modules.map(mod => (
-                <ModuleCard key={mod.id} mod={mod} completedCourseIds={completedCourseIds} />
-              ))}
-            </div>
-          </section>
-        )
-      })}
+      {SECTIONS.map(section => (
+        <section key={section.label} className="mb-10">
+          <div className="mb-4">
+            <h2 className="text-xs font-medium uppercase tracking-wide text-ink-light">{section.label}</h2>
+            <p className="mt-1 text-sm text-ink-mid">{section.description}</p>
+          </div>
+          <div className="grid gap-4">
+            {section.cards.slice(0, 2).map(card => (
+              <SkillModuleCard key={card.id} card={card} completedCourseIds={completedCourseIds} />
+            ))}
+          </div>
+        </section>
+      ))}
     </div>
   )
 }

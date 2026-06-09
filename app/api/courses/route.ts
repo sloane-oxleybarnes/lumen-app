@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     maxTokens: number
   ) => {
     await recordAiUsage(session.user.id, {
-      source: 'dashboard',
+      source: 'course',
       action: `course_${action}`,
     })
     return callAnthropic(system, messages, maxTokens)

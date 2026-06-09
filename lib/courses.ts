@@ -4,7 +4,7 @@ export type AccordionSlide = {
   type: 'accordion'
   title: string
   description?: string
-  sections: { heading: string; bullets: string[] }[]
+  sections: { heading: string; bullets: string[]; optional?: boolean }[]
 }
 
 export type ReadThroughSlide = {
@@ -123,10 +123,10 @@ export type Course = {
 const askSomeoneOut: Course = {
   id: 'ask-someone-out',
   title: 'Asking Someone Out on a Dating App',
-  description: 'How to move from chatting to suggesting a date — with confidence, clear communication, and without overthinking it.',
+  description: 'A Personal Preview course where Beckett coaches you from chatting to suggesting a date — with confidence, clear communication, and less overthinking.',
   estimatedMinutes: 30,
   confidenceQuestion: 'How confident do you feel right now about asking someone out?',
-  confidenceIntro: 'In this course, you\'ll explore what makes dating feel hard, how to recognise real compatibility, and how to ask someone out in a way that feels natural — not scripted.',
+  confidenceIntro: 'In this Personal Preview course, Beckett will help you explore what makes dating feel hard, recognise real compatibility, and ask someone out in a way that feels natural — not scripted.',
   reflectiveQuestion: 'What is one thing you will do the next time you ask someone out?',
   reviewWrongAnswers: true,
   reviewConversationTurns: 4,
@@ -139,7 +139,7 @@ Keep messages short and realistic, the way people actually text on dating apps. 
 
 If the conversation is genuine and warm, stay engaged and show growing interest. If they ask you out clearly and respectfully, agree.
 
-If the person is vague, pushy, inappropriate, or makes you uncomfortable, become progressively less engaged — shorter responses, more noncommittal. If it continues to go poorly, your responses should trail off and eventually stop entirely (ghost them). Be realistic — real people ghost rather than explain.
+If the person is vague, pushy, inappropriate, or makes you uncomfortable, become progressively less engaged — shorter responses, more noncommittal. If it continues to go poorly, your responses should trail off and eventually stop entirely. This is a safety boundary in the practice, not a punishment.
 
 Never break character. You are Jamie — you do not know you are in a practice scenario.`,
   },
@@ -148,7 +148,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
     {
       type: 'read-through',
       title: 'Your Strengths',
-      intro: 'Before we get into the harder material — here is what neurodivergent people genuinely bring to relationships.',
+      intro: 'Before Beckett coaches you through the harder material, start here: there are real strengths in how you connect.',
       bullets: [
         'Intense loyalty — when you commit to someone, you mean it.',
         'Deep honesty — you tend to say what you mean, which builds real trust over time.',
@@ -156,99 +156,80 @@ Never break character. You are Jamie — you do not know you are in a practice s
         'Creativity and depth — conversations with you rarely stay on the surface.',
         'Focused passion — when you care about something or someone, that care is real and genuine.',
       ],
-      stats: [
-        'About 75% of autistic adults strongly desire romance and deep connection, yet only around 5% are married compared to 50% of the general population — that gap reflects a tool mismatch, not a desire mismatch.',
-        'Adults with ADHD score higher on the Passionate Love Scale than neurotypical controls — the desire and intensity of romantic feeling is actually greater, not less. Wanting love deeply is not the problem.',
-        'Research from the University of Minnesota found that many people with Down syndrome experience sexual feelings, crushes, and a desire to date and have serious long-term relationships, regardless of cognitive disability.',
-        'Partners of people with dyslexia frequently describe them as quirky, exciting, and different — the same traits that make communication harder often make connection deeper.',
-      ],
     },
 
     // ── Slide 2: Accordion — Why Can Dating Be So Hard ────────────────────
     {
       type: 'accordion',
       title: 'Why Can Dating Be So Hard',
-      description: 'Dating involves a lot of unspoken rules, ambiguous signals, and social pressure. Here\'s what makes it especially tricky.',
+      description: 'Dating involves unspoken rules, ambiguous signals, and social pressure. Beckett will focus on patterns that often show up for ADHD, autism, dyslexia, and related sensory or social processing differences.',
       sections: [
         {
-          heading: 'Differences in Social and Emotional Perception',
+          heading: 'Reading Signals',
           bullets: [
-            'Neurodivergent people often process social signals differently than neurotypical people.',
-            'It can be difficult to pick up on subtle cues like sarcasm, flirtation, or implied interest.',
-            'Strong emotional responses can be hard to manage or express in the moment.',
-            'Intentions are frequently misread, and sometimes reading the other person\'s intentions can be difficult.',
-            'Highly sensitive people may pick up on emotional undercurrents that feel overwhelming on a first date.',
-            'Gifted or highly perceptive people may find standard getting-to-know-you conversations unbearably surface level.',
+            'Flirting, sarcasm, slow replies, and vague enthusiasm can be hard to decode over text.',
+            'Beckett helps you slow down, look at the evidence, and avoid jumping straight to rejection or certainty.',
+            'The goal is not to read minds — it is to make a grounded next move.',
           ],
         },
         {
-          heading: 'Anxiety and Sensory Sensitivities',
+          heading: 'Anxiety and Sensory Load',
           bullets: [
-            'Social environments like busy bars or restaurants can quickly cause sensory overload.',
-            'Loud noises, bright lights, and crowded spaces make it hard to focus on the person in front of you.',
-            'The cognitive load of managing sensory input leaves less mental space for genuine connection.',
-            'Anxiety around rejection can be intense enough to prevent taking the first step entirely.',
-            'Choosing quieter, more controlled settings is not high maintenance — it is setting yourself up to actually be present.',
+            'Rejection anxiety can make a simple ask feel much bigger than it is.',
+            'Busy bars, loud restaurants, and bright spaces can use up the energy you need for connection.',
+            'Beckett will nudge you toward lower-pressure plans where you can actually be present.',
           ],
         },
         {
-          heading: 'Difficulty with Nonverbal Cues',
+          heading: 'Pacing New Interest',
           bullets: [
-            'Eye contact, facial expressions, and tone of voice are central to dating but can be hard to read or express.',
-            'A lack of eye contact is often misread as disinterest when it is simply a comfort preference.',
-            'ADHD can create impulsive responses that come across differently than intended.',
-            'Misunderstandings from missing nonverbal cues can create insecurity on both sides.',
-            'Over text, none of these cues exist at all — making digital communication both easier and harder at the same time.',
+            'It is common to get excited and want to move quickly when a connection feels rare or promising.',
+            'That enthusiasm is not wrong; it just needs pacing so the other person does not feel overwhelmed.',
+            'Beckett coaches you toward clear interest without turning one message into the whole relationship.',
           ],
         },
         {
-          heading: 'Hyperfixation on a New Person or Relationship',
+          heading: 'Masking and Over-Editing',
           bullets: [
-            'It is common to become intensely focused on someone new — replaying conversations and overanalyzing every message.',
-            'ADHD hyperfocus can mean thinking about a new person constantly to the point of forgetting to eat or sleep.',
-            'On the flip side, ADHD can also cause forgetting to reply for days, which sends a confusing signal.',
-            'This intensity reflects genuine enthusiasm but can feel overwhelming to the other person if not paced.',
-            'Awareness of this pattern helps you manage it rather than letting it drive the relationship.',
+            'You may feel pressure to perform a smoother, more socially expected version of yourself.',
+            'A little preparation can help; constant masking usually drains you and makes dating feel less safe.',
+            'Beckett helps you sound clear and considerate without erasing yourself.',
           ],
         },
         {
-          heading: 'Masking',
+          heading: 'Learn more: Nonverbal Cues',
+          optional: true,
           bullets: [
-            'Many neurodivergent people suppress natural behaviors and perform a version of themselves they believe is more socially acceptable.',
-            'In dating this is exhausting, unsustainable, and ultimately counterproductive.',
-            'Masking prevents the other person from knowing who you actually are.',
-            'The right person will not need you to perform — they will want to know the real version of you.',
-            'Dating requires a lot of energy even without masking — adding it increases burnout significantly.',
+            'Eye contact, facial expressions, and tone can be difficult to read or perform consistently.',
+            'Over text, those cues disappear entirely, which can make things both simpler and more confusing.',
+            'Clear words matter because they reduce the amount everyone has to infer.',
           ],
         },
         {
-          heading: 'Black and White Thinking',
+          heading: 'Learn more: All-or-Nothing Interpretations',
+          optional: true,
           bullets: [
-            'Ambiguous messages are easy to read as total rejection or total enthusiasm when reality is almost always in between.',
-            'A slow response does not mean they are not interested — people get busy, distracted, and overwhelmed.',
-            'Enthusiasm early on does not guarantee they are ready for something serious.',
-            'Sitting with uncertainty is genuinely hard but is a normal part of early dating for everyone.',
-            'Practicing tolerating ambiguity is one of the most useful skills in dating as a neurodivergent person.',
+            'A slow reply does not always mean rejection.',
+            'A warm reply does not always mean commitment.',
+            'Beckett can help you hold uncertainty without turning it into a crisis.',
           ],
         },
         {
-          heading: 'Challenges with Unspoken Rules',
+          heading: 'Learn more: Unspoken Rules',
+          optional: true,
           bullets: [
-            'Dating has unspoken norms around flirting, timing, and pacing that are rarely explained and often assumed.',
-            'These rules can feel foreign, illogical, or inconsistent — because for many people, they are.',
-            'It is common to question whether you are doing things in the right order or at the right pace.',
-            'The standard dating playbook was not written with neurodivergent people in mind.',
-            'There is no single correct way to date — naming what you need helps create space for a connection that actually works for you.',
+            'Dating norms around timing, flirting, and pacing are often assumed instead of explained.',
+            'Some of those rules are inconsistent because different people want different things.',
+            'This course gives you useful patterns, not a script you have to obey.',
           ],
         },
         {
-          heading: 'When You Are Also Managing Disclosure',
+          heading: 'Learn more: Sharing Context About Yourself',
+          optional: true,
           bullets: [
-            'One of the most anxiety-producing parts of dating for neurodivergent people is deciding when and how to share that you are neurodivergent.',
-            'Disclose too early and risk rejection before the person really knows you.',
-            'Wait too long and they may feel misled when certain traits become more visible.',
-            'There is no perfect answer — but knowing this is a common and real source of stress means you are not alone in navigating it.',
-            'The right person will respond to disclosure with curiosity and respect, not judgment.',
+            'You get to choose when and how much to share about how your brain works.',
+            'You do not owe a diagnosis to someone you just matched with.',
+            'A good early goal is simply to communicate needs clearly enough that dating feels sustainable.',
           ],
         },
       ],
@@ -340,7 +321,7 @@ Never break character. You are Jamie — you do not know you are in a practice s
     {
       type: 'interactive-read',
       title: 'What Do I Say / How Do I Act',
-      description: 'The exact words matter less than how you come across. Here\'s what actually works.',
+      description: 'The exact words matter less than the signal you send. Beckett will coach you toward clear, warm, low-pressure asks.',
       sections: [
         {
           heading: 'Be Confident',
@@ -353,6 +334,18 @@ Never break character. You are Jamie — you do not know you are in a practice s
             '"I\'ve really been enjoying talking to you — would you want to meet up sometime this week?"',
             '"I know this might be a bit forward but I\'d love to grab coffee if you\'re open to it."',
             '"I\'ll be honest, I\'m a little nervous typing this — but I\'d love to meet you in person."',
+          ],
+        },
+        {
+          heading: 'Ask Clearly and Respect the Answer',
+          bullets: [
+            'A good ask gives the other person enough information to choose: what, when, and roughly where.',
+            'Consent matters in tone too — no pressure, no guilt, no trying to talk them out of hesitation.',
+            'If they say no, seem unsure, or stop responding, Beckett will coach you to step back instead of chasing.',
+          ],
+          examples: [
+            '"Would you want to grab coffee Saturday afternoon? No pressure if you\'re not feeling it."',
+            '"Totally okay if not, but I\'d like to take you on a date if you\'re interested."',
           ],
         },
         {
@@ -403,7 +396,40 @@ Never break character. You are Jamie — you do not know you are in a practice s
       draftContext: 'The user is practicing asking someone out on a dating app after one week of chatting. In one sentence (max 20 words), give honest specific feedback on their message — focus on tone, clarity, and whether it gives the person something to say yes to.',
     },
 
-    // ── Slide 7: Sorting ──────────────────────────────────────────────────
+    // ── Slide 7: Flip cards — What Tends to Go Wrong ──────────────────────
+    {
+      type: 'flip-cards',
+      title: 'What Tends to Go Wrong',
+      cards: [
+        {
+          front: 'Being Too Vague',
+          back: [
+            'A better ask is specific and clear: "Would you want to get coffee Saturday afternoon?" — not "Are you free sometime?"',
+            'Vague asks put the other person in an awkward position — they cannot say yes to something undefined.',
+            'Being direct is not pushy — it shows confidence and makes the other person\'s decision easier.',
+          ],
+        },
+        {
+          front: 'Oversharing or Moving Too Fast',
+          back: [
+            'Pacing is important even when your feelings are genuine and intense.',
+            'Sharing too much too soon can feel overwhelming rather than intimate.',
+            'Let depth build naturally across multiple conversations rather than front-loading everything at once.',
+            'Save heavy personal history for when trust has been established over time.',
+          ],
+        },
+        {
+          front: 'Picking a Bad Location',
+          back: [
+            'High stimulus environments make it hard to focus and can trigger sensory overload for you or them.',
+            'Good first date locations: a quiet coffee shop, a walk in a park, a low-key museum, a bookstore, a farmers market — somewhere you can actually hear each other.',
+            'The goal is a setting where both people can relax and be present.',
+          ],
+        },
+      ],
+    },
+
+    // ── Slide 8: Sorting ──────────────────────────────────────────────────
     {
       type: 'sorting',
       title: 'Sort These Asks',
@@ -449,39 +475,6 @@ Never break character. You are Jamie — you do not know you are in a practice s
           message: '"I really like talking to you and would hate for this to just fade — can we please meet up?"',
           correct: 'Not quite right',
           explanation: 'Fear-of-loss framing comes across as anxious and puts quiet pressure on them.',
-        },
-      ],
-    },
-
-    // ── Slide 8: Flip cards — What Tends to Go Wrong ──────────────────────
-    {
-      type: 'flip-cards',
-      title: 'What Tends to Go Wrong',
-      cards: [
-        {
-          front: 'Being Too Vague',
-          back: [
-            'A better ask is specific and clear: "Would you want to get coffee Saturday afternoon?" — not "Are you free sometime?"',
-            'Vague asks put the other person in an awkward position — they cannot say yes to something undefined.',
-            'Being direct is not pushy — it shows confidence and makes the other person\'s decision easier.',
-          ],
-        },
-        {
-          front: 'Oversharing or Moving Too Fast',
-          back: [
-            'Pacing is important even when your feelings are genuine and intense.',
-            'Sharing too much too soon can feel overwhelming rather than intimate.',
-            'Let depth build naturally across multiple conversations rather than front-loading everything at once.',
-            'Save heavy personal history for when trust has been established over time.',
-          ],
-        },
-        {
-          front: 'Picking a Bad Location',
-          back: [
-            'High stimulus environments make it hard to focus and can trigger sensory overload for you or them.',
-            'Good first date locations: a quiet coffee shop, a walk in a park, a low-key museum, a bookstore, a farmers market — somewhere you can actually hear each other.',
-            'The goal is a setting where both people can relax and be present.',
-          ],
         },
       ],
     },
@@ -548,15 +541,12 @@ Never break character. You are Jamie — you do not know you are in a practice s
       type: 'checklist',
       title: 'Before You Go',
       items: [
-        'Clothes are clean and free of visible stains or wrinkles',
-        'Hair is washed and tidy',
-        'Deodorant applied',
-        'Perfume or cologne applied lightly — a little goes a long way, especially in an enclosed space',
-        'Outfit fits the location and occasion',
-        'Nails are clean and trimmed',
-        'Teeth brushed before leaving',
-        'Phone charged so you are not anxious about it dying',
-        'Date location chosen with your own sensory needs in mind — you will be more present somewhere that does not overwhelm you',
+        'Reduce avoidable stress: choose clothes that feel comfortable, clean, and right for the location',
+        'Do the basics that help you feel settled — deodorant, teeth brushed, phone charged',
+        'Choose a public place where you can hear, regulate, and leave easily if you need to',
+        'Tell someone you trust where you are going and have your own way home',
+        'Confirm the time and place before leaving so you are not managing uncertainty on the way there',
+        'Pick a location with your own sensory needs in mind — you will be more present somewhere that does not overwhelm you',
       ],
     },
   ],

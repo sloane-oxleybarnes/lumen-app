@@ -598,7 +598,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Slide renderers ────────────────────────────────────────────────────────
 
   function renderAccordion(slide: AccordionSlide) {
-    const allChecked = checkedSections.size === slide.sections.length
+    const allChecked = slide.sections.every((sec, i) => sec.optional || checkedSections.has(i))
     return (
       <div>
         <BackButton idx={currentSlideIndex} />
@@ -616,6 +616,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                   <span className="text-sm font-medium text-ink flex items-center gap-2">
                     {isChecked && <span className="text-primary text-base">✓</span>}
                     {sec.heading}
+                    {sec.optional && <span className="text-xs text-ink-light font-normal">Optional</span>}
                   </span>
                   <span className="text-ink-light text-sm">{isOpen ? '▲' : '▼'}</span>
                 </button>
@@ -644,7 +645,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           })}
         </div>
         {!allChecked && (
-          <p className="text-xs text-ink-light text-center mb-2">Open and check each section to continue.</p>
+          <p className="text-xs text-ink-light text-center mb-2">Open and check the required coaching sections to continue.</p>
         )}
         <NextButton disabled={!allChecked} />
       </div>
@@ -973,8 +974,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 key={i}
                 className={`border-2 rounded-xl p-4 transition-colors ${
                   hasError ? 'border-red-300 bg-red-50' :
-                  assigned === 'Good ask' ? 'border-green-300 bg-green-50' :
-                  assigned ? 'border-amber-300 bg-amber-50' :
+                  sortingChecked && assigned === 'Good ask' ? 'border-green-300 bg-green-50' :
+                  sortingChecked && assigned ? 'border-amber-300 bg-amber-50' :
                   'border-border bg-white'
                 }`}
               >
@@ -990,7 +991,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                       }}
                       className={`text-xs rounded-pill px-3 py-1 border transition-colors ${
                         assigned === cat
-                          ? cat === 'Good ask' ? 'bg-green-600 text-white border-green-600' : 'bg-amber-500 text-white border-amber-500'
+                          ? 'bg-primary text-white border-primary'
                           : 'border-border text-ink-mid hover:border-primary hover:text-ink'
                       }`}
                     >
@@ -1507,7 +1508,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
         <div className="flex-1 overflow-y-auto space-y-2 mb-3">
           {practiceMessages.length === 0 && (
-            <p className="text-xs text-ink-light text-center py-8">You matched 4 days ago. Say something.</p>
+            <div className="text-center py-8">
+              <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Your goal</p>
+              <p className="text-sm text-ink-mid">
+                Ask Jamie out clearly, warmly, and without pressure. Beckett will coach the outcome.
+              </p>
+            </div>
           )}
           {practiceMessages.map((m, i) => {
             const isLast = i === practiceMessages.length - 1
@@ -1541,7 +1547,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           )}
           {showGhostOverlay && (
             <div className="text-center py-4 space-y-3">
-              <p className="text-sm text-ink-light italic">Your match stopped responding.</p>
+              <p className="text-sm text-ink-light italic">
+                Jamie stopped responding. This is practice, not a judgment.
+              </p>
               <div className="bg-white border border-border rounded-card p-4 text-left">
                 <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Beckett</p>
                 {ghostAnalysis ? <p className="text-sm text-ink leading-relaxed">{ghostAnalysis}</p> : <p className="text-xs text-ink-light">Analyzing…</p>}
@@ -1608,9 +1616,27 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             </div>
           ))}
         </div>
-        <button onClick={() => setPhase('confidence-end')} className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors">
-          Continue →
-        </button>
+        <div className="space-y-3">
+          <button
+            onClick={() => {
+              setPracticeMessages([])
+              setPracticeInput('')
+              setGhosted(false)
+              setShowGhostOverlay(false)
+              setHardIntervention(null)
+              setGhostAnalysis(null)
+              setDebrief(null)
+              ghostCheckStrikes.current = 0
+              setPhase('open-practice')
+            }}
+            className="w-full border border-primary text-primary rounded-pill py-3 text-sm font-medium hover:bg-primary-light transition-colors"
+          >
+            Try again with Beckett&apos;s advice
+          </button>
+          <button onClick={() => setPhase('confidence-end')} className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors">
+            Continue →
+          </button>
+        </div>
       </div>
     )
   }
@@ -1639,7 +1665,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       {/* Sticky course title header */}
       <div className="sticky top-0 z-20 bg-white border-b border-border px-4 py-3">
         <div className="max-w-3xl mx-auto">
-          <p className="text-sm font-medium text-ink truncate">{course.title}</p>
+          <div className="flex items-center gap-2">
+            {course.id === 'ask-someone-out' && (
+              <span className="rounded-pill bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
+                Personal Preview
+              </span>
+            )}
+            <p className="text-sm font-medium text-ink truncate">{course.title}</p>
+          </div>
         </div>
       </div>
 
