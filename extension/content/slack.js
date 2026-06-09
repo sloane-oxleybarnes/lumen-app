@@ -188,6 +188,8 @@
       platform: 'slack',
       channelType: getChannelType(),
       channelName: getChannelName(),
+      source: 'slack_dom',
+      messageCount: conversation.length,
       isSafePerson,
       currentUserName: currentUserName !== 'the user'
         ? currentUserName

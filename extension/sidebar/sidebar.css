@@ -304,6 +304,25 @@ body {
   line-height: 1.5;
 }
 
+/* ── Analysis metadata ───────────────────────────────────────── */
+
+.analysis-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 9px 10px;
+}
+
+.analysis-meta-text {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
 /* ── Empty state ─────────────────────────────────────────────── */
 
 .empty-state {

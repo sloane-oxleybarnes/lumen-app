@@ -16,6 +16,7 @@ let state = {
   lastMeetingPayload: null,
   currentSender: null,
   currentSenderEmail: null,
+  lastAnalysisMetadata: null,
   contactHistoryCache: {},
   beckettToken: null,
 };
@@ -182,6 +183,21 @@ async function connectBeckettFromPanel() {
 
 $('connectBeckettBtn').onclick = connectBeckettFromPanel;
 
+$('slackReconnectBtn').onclick = async () => {
+  const btn = $('slackReconnectBtn');
+  btn.disabled = true;
+  btn.textContent = 'Connecting...';
+  const res = await msg('CONNECT_SLACK');
+  btn.disabled = false;
+  btn.textContent = 'Reconnect Slack';
+  if (res.error) {
+    showError($('errorBox'), `Slack reconnect failed: ${res.error}`);
+    return;
+  }
+  $('errorBox').hidden = true;
+  btn.hidden = true;
+};
+
 // ── Voice calibration badge ───────────────────────────────────
 
 function updateVoiceBadge() {
@@ -233,6 +249,7 @@ $('analyzeBtn').onclick = async () => {
   setAnalyzeLoading(false);
 
   if (response.error) { showError($('errorBox'), response.error); return; }
+  state.lastAnalysisMetadata = response.metadata || null;
   showResults(response.result, response.isSafePerson);
   state.lastResult = response.result;
   state.currentSender = response.sender || null;
@@ -266,11 +283,14 @@ function clearResults() {
   $('askSection').hidden = true;
   $('askAnswerCard').hidden = true;
   $('contactStrip').hidden = true;
+  $('analysisMeta').hidden = true;
+  $('slackReconnectBtn').hidden = true;
 }
 
 function showResults(data, isSafePerson) {
   if (!data) return;
   $('safeBadge').hidden = !isSafePerson;
+  renderAnalysisMetadata(state.lastAnalysisMetadata);
   $('rIntent').textContent = data.intent || '—';
   $('rTone').textContent = data.tone || '—';
   $('rWant').textContent = data.want || '—';
@@ -292,6 +312,38 @@ function showResults(data, isSafePerson) {
   $('askInput').value = '';
   $('askAnswerCard').hidden = true;
   $('feedbackRow').hidden = !isBeta();
+}
+
+function renderAnalysisMetadata(metadata) {
+  const card = $('analysisMeta');
+  const text = $('analysisMetaText');
+  const reconnect = $('slackReconnectBtn');
+  if (!metadata) {
+    card.hidden = true;
+    return;
+  }
+
+  const sourceLabel = metadata.source === 'slack_dom'
+    ? 'Slack page context'
+    : metadata.source === 'gmail_api'
+      ? 'Gmail full-thread API'
+      : 'Page context';
+  const count = Number(metadata.threadCount || 0);
+  const details = [
+    sourceLabel,
+    count ? `${count} message${count === 1 ? '' : 's'} included` : null,
+    metadata.channelName ? `#${metadata.channelName}` : metadata.channelType || null,
+  ].filter(Boolean);
+
+  if (metadata.platform === 'slack' && metadata.slackConnected === false) {
+    details.push('Slack not connected locally');
+    reconnect.hidden = false;
+  } else {
+    reconnect.hidden = true;
+  }
+
+  text.textContent = details.join(' · ');
+  card.hidden = false;
 }
 
 // ── Contacts lookup ───────────────────────────────────────────

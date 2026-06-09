@@ -209,10 +209,13 @@ async function handleTriggerAnalyze(payload, sendResponse) {
 
     const ctx = await extractContextFromTab(tab) || tabContexts[tab.id] || null;
 
-    if (!ctx) { sendResponse({ error: 'Could not read the page. Try opening a message first.' }); return; }
+    if (!ctx) {
+      sendResponse({ error: 'Could not read this conversation. Open a Slack channel or DM, wait for messages to load, then try again.' });
+      return;
+    }
 
-    const { linkedInProfile, lumenMode, plan, voice_samples, currentUserEmail, slackUserName, beckettUserName, beckettUserEmail } = await chrome.storage.local.get([
-      'linkedInProfile', 'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName', 'beckettUserName', 'beckettUserEmail',
+    const { linkedInProfile, lumenMode, plan, voice_samples, currentUserEmail, slackUserName, beckettUserName, beckettUserEmail, slackToken, slackUserId } = await chrome.storage.local.get([
+      'linkedInProfile', 'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName', 'beckettUserName', 'beckettUserEmail', 'slackToken', 'slackUserId',
     ]);
     const mode = payload.mode || lumenMode || 'business';
     const isPro = plan === 'pro' || plan === 'beta';
@@ -266,15 +269,48 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       currentUser,
     });
 
+    const analysisMetadata = {
+      platform: ctx.platform,
+      mode,
+      source: ctx.platform === 'slack' ? (ctx.source || 'slack_dom') : (ctx.platform === 'gmail' && thread !== ctx.thread ? 'gmail_api' : 'page_dom'),
+      threadCount: Array.isArray(thread) ? thread.length : 0,
+      channelType: ctx.channelType || null,
+      channelName: ctx.channelName || null,
+      slackConnected: ctx.platform === 'slack' ? !!slackToken : null,
+      slackUserId: ctx.platform === 'slack' ? (slackUserId || null) : null,
+    };
+
     const result = await callBeckettJson('analyze_message', prompt, 1000, {
       platform: ctx.platform,
       mode,
-      threadCount: Array.isArray(thread) ? thread.length : 0,
+      source: analysisMetadata.source,
+      threadCount: analysisMetadata.threadCount,
     });
-    sendResponse({ result, isSafePerson: ctx.isSafePerson || false, sender: ctx.sender });
+    sendResponse({
+      result,
+      isSafePerson: ctx.isSafePerson || false,
+      sender: ctx.sender,
+      senderEmail: ctx.senderEmail || null,
+      metadata: analysisMetadata,
+    });
   } catch (e) {
-    sendResponse({ error: e.message });
+    sendResponse({ error: friendlyAnalyzeError(e) });
   }
+}
+
+function friendlyAnalyzeError(error) {
+  const message = error?.message || 'Analysis failed.';
+  if (/Could not read the page/i.test(message)) {
+    return 'Could not read this conversation. Open a Slack channel or DM, wait for messages to load, then try again.';
+  }
+  if (/Daily beta AI limit/i.test(message)) return message;
+  if (/Unauthorized|Beta access required/i.test(message)) {
+    return 'Beckett login is not connected. Open the extension settings and log in with Beckett again.';
+  }
+  if (/Slack|token|authorization/i.test(message)) {
+    return `${message} Reconnect Slack from Settings if this keeps happening.`;
+  }
+  return message;
 }
 
 async function extractContextFromTab(tab) {
@@ -823,7 +859,7 @@ async function getSettings() {
   const keys = [
     'plan', 'lumenMode', 'linkedInProfile',
     'safe_people', 'betaEmail', 'voice_samples',
-    'slackToken', 'slackUserId', 'currentUserEmail', 'beckettToken', 'beckettUserName', 'beckettUserEmail',
+    'slackToken', 'slackUserId', 'slackUserName', 'currentUserEmail', 'beckettToken', 'beckettUserName', 'beckettUserEmail',
   ];
   const data = await chrome.storage.local.get(keys);
   if (data.beckettToken && (!data.beckettUserName || !data.beckettUserEmail)) {
@@ -847,6 +883,8 @@ async function getSettings() {
       business: samples.filter(s => s.mode === 'business').length,
     },
     slackConnected: !!data.slackToken,
+    slackUserId: data.slackUserId || '',
+    slackUserName: data.slackUserName || '',
     gmailUserEmail: data.currentUserEmail || '',
     beckettToken: data.beckettToken || null,
     beckettUserName: data.beckettUserName || '',
