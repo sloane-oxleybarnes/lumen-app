@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { callAnthropic } from '@/lib/anthropic'
 import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
+import { trackBetaEvent } from '@/lib/beta-events'
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +45,15 @@ export async function POST(req: NextRequest) {
       source: 'course',
       action: `course_${action}`,
     })
-    return callAnthropic(system, messages, maxTokens)
+    const result = await callAnthropic(system, messages, maxTokens)
+    await trackBetaEvent({
+      userId: session.user.id,
+      email: session.user.email,
+      eventName: 'analysis_completed',
+      source: 'course',
+      metadata: { action: `course_${action}` },
+    })
+    return result
   }
 
   // ── Dating app turn ────────────────────────────────────────────────────

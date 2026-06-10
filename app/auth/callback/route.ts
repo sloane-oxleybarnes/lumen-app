@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/server-admin'
+import { trackBetaEvent } from '@/lib/beta-events'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -26,6 +27,7 @@ export async function GET(request: NextRequest) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
       if (integration === 'google' && data.session?.user) {
+        const now = new Date().toISOString()
         await supabaseAdmin.from('user_integrations').upsert(
           {
             user_id: data.session.user.id,
@@ -39,11 +41,19 @@ export async function GET(request: NextRequest) {
               email: data.session.user.email || null,
               scopes: 'gmail.readonly calendar.readonly',
             },
-            connected_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
+            connected_at: now,
+            updated_at: now,
           },
           { onConflict: 'user_id,provider' }
         )
+
+        await trackBetaEvent({
+          userId: data.session.user.id,
+          email: data.session.user.email,
+          eventName: 'gmail_connected',
+          source: 'web_app',
+          metadata: { integration: 'google' },
+        })
       }
 
       return NextResponse.redirect(

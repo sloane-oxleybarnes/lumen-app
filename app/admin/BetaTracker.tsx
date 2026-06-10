@@ -1,7 +1,11 @@
 type BetaTrackerRow = {
   email: string;
   name: string | null;
+  lifecycleStage: string | null;
   signedUpAt: string | null;
+  approvedAt: string | null;
+  inviteSentAt: string | null;
+  lastActivityAt: string | null;
   approved: boolean;
   accountCreatedAt: string | null;
   onboardedAt: string | null;
@@ -14,6 +18,13 @@ type BetaTrackerRow = {
   feedbackCount: number;
   negativeFeedbackCount: number;
   lastFeedbackAt: string | null;
+  recentEvents: BetaEventSummary[];
+};
+
+type BetaEventSummary = {
+  eventName: string;
+  source: string;
+  createdAt: string;
 };
 
 function formatDate(value: string | null) {
@@ -42,6 +53,7 @@ export default function AdminBetaTracker({ rows }: { rows: BetaTrackerRow[] }) {
   const gmail = rows.filter((row) => row.gmailConnectedAt).length;
   const slack = rows.filter((row) => row.slackConnectedAt).length;
   const feedback = rows.filter((row) => row.feedbackCount > 0).length;
+  const active = rows.filter((row) => row.lastActivityAt).length;
 
   return (
     <section className="mt-10">
@@ -52,12 +64,13 @@ export default function AdminBetaTracker({ rows }: { rows: BetaTrackerRow[] }) {
         </p>
       </div>
 
-      <div className="mb-4 grid gap-3 sm:grid-cols-5">
+      <div className="mb-4 grid gap-3 sm:grid-cols-6">
         <Metric label="Users" value={rows.length} />
         <Metric label="Signed in" value={signedIn} />
         <Metric label="Extension" value={extension} />
         <Metric label="Gmail / Slack" value={`${gmail} / ${slack}`} />
         <Metric label="Feedback" value={feedback} />
+        <Metric label="Active" value={active} />
       </div>
 
       <div className="overflow-x-auto rounded-card border border-border bg-white">
@@ -85,6 +98,7 @@ export default function AdminBetaTracker({ rows }: { rows: BetaTrackerRow[] }) {
                     <p className="font-medium text-ink">{row.name || row.email}</p>
                     <p className="text-xs text-ink-light">{row.name ? row.email : ""}</p>
                     <p className="mt-1 text-xs text-ink-light">Signed up {formatDate(row.signedUpAt)}</p>
+                    <p className="text-xs text-ink-light">Stage: {row.lifecycleStage || "unknown"}</p>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap gap-1.5">
@@ -92,6 +106,7 @@ export default function AdminBetaTracker({ rows }: { rows: BetaTrackerRow[] }) {
                       <Check ok={Boolean(row.accountCreatedAt)} label="signed in" />
                       <Check ok={Boolean(row.onboardedAt)} label="onboarded" />
                     </div>
+                    <p className="mt-2 text-xs text-ink-light">Invite: {formatDate(row.inviteSentAt)}</p>
                   </td>
                   <td className="px-4 py-4">
                     <div className="flex flex-wrap gap-1.5">
@@ -104,11 +119,21 @@ export default function AdminBetaTracker({ rows }: { rows: BetaTrackerRow[] }) {
                     <p>{row.analysisCount} analyses</p>
                     <p className="text-xs text-ink-light">First: {formatDate(row.firstAnalysisAt)}</p>
                     <p className="text-xs text-ink-light">{row.courseCompletions} courses completed</p>
+                    <p className="text-xs text-ink-light">Last active: {formatDate(row.lastActivityAt)}</p>
                   </td>
                   <td className="px-4 py-4 text-ink-mid">
                     <p>{row.feedbackCount} reports</p>
                     <p className="text-xs text-ink-light">{row.negativeFeedbackCount} need improvement</p>
                     <p className="text-xs text-ink-light">Last: {formatDate(row.lastFeedbackAt)}</p>
+                    {row.recentEvents.length ? (
+                      <div className="mt-2 space-y-1">
+                        {row.recentEvents.slice(0, 2).map((event) => (
+                          <p className="text-xs text-ink-light" key={`${row.email}-${event.eventName}-${event.createdAt}`}>
+                            {event.eventName} · {event.source} · {formatDate(event.createdAt)}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
                   </td>
                 </tr>
               ))

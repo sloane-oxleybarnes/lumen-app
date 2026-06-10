@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { callAnthropic } from '@/lib/anthropic'
 import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
+import { trackBetaEvent } from '@/lib/beta-events'
 
 function modeInstruction(mode?: string) {
   if (mode === 'professional') {
@@ -60,7 +61,15 @@ export async function POST(req: NextRequest) {
       action: `practice_${action}`,
       metadata: { mode: mode || null },
     })
-    return callAnthropic(system, messages, maxTokens)
+    const result = await callAnthropic(system, messages, maxTokens)
+    await trackBetaEvent({
+      userId: session.user.id,
+      email: session.user.email,
+      eventName: 'analysis_completed',
+      source: 'practice',
+      metadata: { action: `practice_${action}`, mode: mode || null },
+    })
+    return result
   }
 
   if (action === 'turn') {

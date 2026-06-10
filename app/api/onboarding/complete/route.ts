@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/server-admin";
 import type { CoachingTone } from "@/lib/onboarding";
+import { trackBetaEvent } from "@/lib/beta-events";
+import { triggerLoopsEvent, updateLoopsContact } from "@/lib/loops";
 
 type OnboardingBody = {
   email?: string;
@@ -54,6 +56,30 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  const email = body.email || session.user.email || null;
+  if (email) {
+    await supabaseAdmin
+      .from("beta_signups")
+      .update({ lifecycle_stage: "onboarded", last_activity_at: now })
+      .eq("email", email.toLowerCase());
+
+    await updateLoopsContact(email, { onboarded: true });
+    await triggerLoopsEvent(email, "onboarding_completed");
+  }
+
+  await trackBetaEvent({
+    userId: session.user.id,
+    email,
+    eventName: "onboarding_completed",
+    source: "web_app",
+    metadata: {
+      strengthsCount: body.strengths?.length || 0,
+      triggersCount: body.workplace_triggers?.length || 0,
+      preferencesCount: body.communication_preferences?.length || 0,
+      neurodivergentContextCount: body.neurodivergent_context?.length || 0,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

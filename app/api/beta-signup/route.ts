@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createOrUpdateHubSpotContact } from "@/lib/hubspot";
 import { addLoopsContact, triggerLoopsEvent } from "@/lib/loops";
+import { trackBetaEvent } from "@/lib/beta-events";
 import { Resend } from "resend";
 
 export async function POST(req: NextRequest) {
@@ -11,16 +12,22 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Email required" }, { status: 400 });
   }
 
+  const normalizedEmail = email.trim().toLowerCase();
+  const sourceValue = source || "landing_page";
+  const planValue = plan || "beta";
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
   const { error } = await supabase.from("beta_signups").upsert({
-    email,
+    email: normalizedEmail,
     name,
-    source: source || "landing_page",
-    plan: plan || "beta",
+    source: sourceValue,
+    plan: planValue,
+    lifecycle_stage: "requested_access",
+    last_activity_at: new Date().toISOString(),
   }, { onConflict: "email" });
 
   if (error && error.code !== "23505") {
@@ -28,31 +35,38 @@ export async function POST(req: NextRequest) {
   }
 
   const hsId = await createOrUpdateHubSpotContact({
-    email,
+    email: normalizedEmail,
     firstname: name?.split(" ")[0],
     lastname: name?.split(" ").slice(1).join(" "),
-    plan: plan || "beta",
-    source: source || "landing_page",
+    plan: planValue,
+    source: sourceValue,
   });
 
   if (hsId) {
     await supabase
       .from("beta_signups")
       .update({ hubspot_contact_id: hsId })
-      .eq("email", email);
+      .eq("email", normalizedEmail);
   }
 
   await addLoopsContact({
-    email,
+    email: normalizedEmail,
     firstName: name?.split(" ")[0],
     lastName: name?.split(" ").slice(1).join(" "),
-    plan: plan || "beta",
-    source: source || "landing_page",
+    plan: planValue,
+    source: sourceValue,
   });
 
-  await triggerLoopsEvent(email, "beta_signup", {
-    plan: plan || "beta",
-    source: source || "landing_page",
+  await triggerLoopsEvent(normalizedEmail, "beta_signup", {
+    plan: planValue,
+    source: sourceValue,
+  });
+
+  await trackBetaEvent({
+    email: normalizedEmail,
+    eventName: "beta_signup_requested",
+    source: sourceValue,
+    metadata: { plan: planValue, name: name || null },
   });
 
   if (process.env.RESEND_API_KEY) {
@@ -60,7 +74,7 @@ export async function POST(req: NextRequest) {
     try {
       await resend.emails.send({
         from: "Beckett <hello@meetbeckett.co>",
-        to: email,
+        to: normalizedEmail,
         subject: "You're on the Beckett waitlist",
         html: `<p>Thanks for signing up — we're reviewing applications and will be in touch if you're accepted into the beta.</p><p>— Sloane</p>`,
       });
@@ -72,7 +86,7 @@ export async function POST(req: NextRequest) {
         from: "Beckett <hello@meetbeckett.co>",
         to: "hello@meetbeckett.co",
         subject: "New Beckett beta signup",
-        html: `<p><strong>${name || "Someone"}</strong> just signed up for the beta.</p><p>Email: ${email}</p><p>Source: ${source || "landing_page"}</p>`,
+        html: `<p><strong>${name || "Someone"}</strong> just signed up for the beta.</p><p>Email: ${normalizedEmail}</p><p>Source: ${sourceValue}</p>`,
       });
     } catch (e) {
       console.error("Resend notification error:", e);

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { callAnthropic, type AnthropicMessage } from '@/lib/anthropic'
 import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 import { getExtensionProfile } from '@/lib/extension-auth'
+import { trackBetaEvent } from '@/lib/beta-events'
 
 type ExtensionAiAction =
   | 'analyze_message'
@@ -73,6 +74,19 @@ export async function POST(req: NextRequest) {
     const text = await callAnthropic(system, messages, clampMaxTokens(body.maxTokens))
     const cleaned = text.trim()
 
+    await trackBetaEvent({
+      userId: profile.id,
+      email: profile.email,
+      eventName: 'analysis_completed',
+      source: 'extension',
+      metadata: {
+        action,
+        responseFormat,
+        platform: metadata?.platform || null,
+        mode: metadata?.mode || null,
+      },
+    })
+
     if (responseFormat === 'json') {
       return NextResponse.json({ result: extractJson(cleaned), usage })
     }
@@ -90,4 +104,3 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
-

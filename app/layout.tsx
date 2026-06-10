@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
+import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -39,6 +40,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${dmSans.variable} ${dmSerif.variable}`}>
       <body className="bg-bg text-ink antialiased" style={{ fontFamily: "var(--font-dm-sans), system-ui, sans-serif" }}>
+        <AnalyticsScripts />
         {children}
       </body>
     </html>

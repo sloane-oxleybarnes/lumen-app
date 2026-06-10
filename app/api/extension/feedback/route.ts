@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getExtensionProfile } from "@/lib/extension-auth";
 import { supabaseAdmin } from "@/lib/server-admin";
+import { trackBetaEvent } from "@/lib/beta-events";
 
 type FeedbackBody = {
   feedback?: "yes" | "no";
@@ -80,6 +81,20 @@ export async function POST(req: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  await trackBetaEvent({
+    userId: profile.id,
+    email: profile.email,
+    eventName: "feedback_submitted",
+    source: "extension",
+    metadata: {
+      rating: body.feedback,
+      platform: body.context?.platform || null,
+      mode: body.mode || null,
+      feedbackSource: body.metadata?.source || null,
+      threadCount,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

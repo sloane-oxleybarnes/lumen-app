@@ -30,11 +30,12 @@ export default async function AdminPage() {
     { data: aiUsage },
     { data: courseCompletions },
     { data: feedback },
+    { data: betaEvents },
     content,
   ] = await Promise.all([
     supabase
       .from("beta_signups")
-      .select("id, email, name, created_at, approved")
+      .select("id, email, name, created_at, approved, lifecycle_stage, approved_at, invite_sent_at, last_activity_at")
       .order("created_at", { ascending: false }),
     supabase
       .from("profiles")
@@ -55,6 +56,11 @@ export default async function AdminPage() {
       .select("id, user_id, rating, comment, platform, mode, source, thread_count, sender, sender_email, response_text, analysis_result, context_snapshot, metadata, created_at")
       .order("created_at", { ascending: false })
       .limit(100),
+    supabase
+      .from("beta_events")
+      .select("id, user_id, email, event_name, source, metadata, created_at")
+      .order("created_at", { ascending: false })
+      .limit(300),
     getSiteContent(),
   ]);
 
@@ -66,6 +72,7 @@ export default async function AdminPage() {
     aiUsage: aiUsage || [],
     courseCompletions: courseCompletions || [],
     feedback: feedback || [],
+    betaEvents: betaEvents || [],
   });
 
   return (
@@ -83,6 +90,10 @@ type SignupRow = {
   name: string | null;
   created_at: string;
   approved: boolean;
+  lifecycle_stage?: string | null;
+  approved_at?: string | null;
+  invite_sent_at?: string | null;
+  last_activity_at?: string | null;
 };
 
 type ProfileRow = {
@@ -117,6 +128,14 @@ type FeedbackRow = ActivityRow & {
   rating: string;
 };
 
+type BetaEventRow = {
+  user_id: string | null;
+  email: string | null;
+  event_name: string;
+  source: string;
+  created_at: string;
+};
+
 function buildBetaTrackerRows({
   signups,
   profiles,
@@ -124,6 +143,7 @@ function buildBetaTrackerRows({
   aiUsage,
   courseCompletions,
   feedback,
+  betaEvents,
 }: {
   signups: SignupRow[];
   profiles: ProfileRow[];
@@ -131,6 +151,7 @@ function buildBetaTrackerRows({
   aiUsage: ActivityRow[];
   courseCompletions: CourseCompletionRow[];
   feedback: FeedbackRow[];
+  betaEvents: BetaEventRow[];
 }): BetaTrackerRow[] {
   const profileByEmail = new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile]));
   const signupByEmail = new Map(signups.map((signup) => [signup.email.toLowerCase(), signup]));
@@ -146,11 +167,23 @@ function buildBetaTrackerRows({
     const analyses = aiUsage.filter((item) => item.user_id === userId);
     const courses = courseCompletions.filter((item) => item.user_id === userId);
     const feedbackRows = feedback.filter((item) => item.user_id === userId);
+    const recentEvents = betaEvents
+      .filter((item) => (userId && item.user_id === userId) || item.email?.toLowerCase() === email)
+      .slice(0, 5)
+      .map((item) => ({
+        eventName: item.event_name,
+        source: item.source,
+        createdAt: item.created_at,
+      }));
 
     return {
       email: profile?.email || signup?.email || email,
       name: profile?.display_name || profile?.first_name || profile?.full_name || signup?.name || null,
+      lifecycleStage: signup?.lifecycle_stage || (profile ? "account_created" : null),
       signedUpAt: signup?.created_at || null,
+      approvedAt: signup?.approved_at || null,
+      inviteSentAt: signup?.invite_sent_at || null,
+      lastActivityAt: signup?.last_activity_at || recentEvents[0]?.createdAt || null,
       approved: Boolean(signup?.approved || profile),
       accountCreatedAt: profile?.created_at || null,
       onboardedAt: profile?.onboarding_completed_at || null,
@@ -163,6 +196,7 @@ function buildBetaTrackerRows({
       feedbackCount: feedbackRows.length,
       negativeFeedbackCount: feedbackRows.filter((item) => item.rating === "no").length,
       lastFeedbackAt: feedbackRows.at(-1)?.created_at || null,
+      recentEvents,
     };
   }).sort((a, b) => {
     const aTime = Date.parse(a.signedUpAt || a.accountCreatedAt || "1970-01-01");

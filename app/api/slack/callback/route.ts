@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/server-admin";
+import { trackBetaEvent } from "@/lib/beta-events";
 
 const SLACK_OAUTH_WORKER =
   process.env.SLACK_OAUTH_WORKER_URL || "https://lumen-slack.sloane-oxleyhase.workers.dev";
@@ -42,6 +43,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/settings?slack=auth_error", req.url));
   }
 
+  const now = new Date().toISOString();
   await supabaseAdmin.from("user_integrations").upsert(
     {
       user_id: session.user.id,
@@ -51,14 +53,24 @@ export async function GET(req: NextRequest) {
       external_team_id: tokenData.team?.id || null,
       external_team_name: tokenData.team?.name || null,
       metadata: tokenData,
-      connected_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      connected_at: now,
+      updated_at: now,
     },
     { onConflict: "user_id,provider" }
   );
+
+  await trackBetaEvent({
+    userId: session.user.id,
+    email: session.user.email,
+    eventName: "slack_connected",
+    source: "web_app",
+    metadata: {
+      teamId: tokenData.team?.id || null,
+      teamName: tokenData.team?.name || null,
+    },
+  });
 
   const response = NextResponse.redirect(new URL("/dashboard/settings?slack=connected", req.url));
   response.cookies.delete("beckett_slack_oauth_state");
   return response;
 }
-

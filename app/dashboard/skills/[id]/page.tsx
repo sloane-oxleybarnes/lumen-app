@@ -126,6 +126,20 @@ export default function SkillModulePage() {
           },
           { onConflict: 'user_id,course_id' }
         )
+        fetch('/api/beta-events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            eventName: 'course_completed',
+            source: 'skill',
+            metadata: {
+              courseId: skillModule!.id,
+              courseTitle: skillModule!.title,
+              preConfidence,
+              postConfidence,
+            },
+          }),
+        }).catch(() => {})
       } catch { /* table may not exist yet */ }
     }
     save()

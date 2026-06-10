@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { trackBetaEvent } from "@/lib/beta-events";
 
 type CourseFeedbackBody = {
   courseId?: string;
@@ -65,6 +66,20 @@ export async function POST(req: NextRequest) {
   });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await trackBetaEvent({
+    userId: user.id,
+    email: user.email,
+    eventName: "feedback_submitted",
+    source: "course",
+    metadata: {
+      rating: body.rating,
+      courseId: body.courseId || null,
+      courseTitle: body.courseTitle || null,
+      preConfidence: body.preConfidence ?? null,
+      postConfidence: body.postConfidence ?? null,
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }

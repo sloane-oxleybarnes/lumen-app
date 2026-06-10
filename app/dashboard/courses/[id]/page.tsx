@@ -460,6 +460,21 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       pre_confidence: preConfidence, post_confidence: postConfidence,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'user_id,course_id' })
+
+    fetch('/api/beta-events', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        eventName: 'course_completed',
+        source: 'course',
+        metadata: {
+          courseId: course.id,
+          courseTitle: course.title,
+          preConfidence,
+          postConfidence,
+        },
+      }),
+    }).catch(() => {})
   }
 
   async function submitCourseFeedback() {

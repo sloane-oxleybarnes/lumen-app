@@ -1,4 +1,4 @@
-const HUBSPOT_API_KEY = process.env.HUBSPOT_API_KEY!;
+const HUBSPOT_API_KEY = process.env.HUBSPOT_API_KEY;
 const BASE_URL = "https://api.hubspot.com";
 
 interface HubSpotContact {
@@ -13,6 +13,8 @@ interface HubSpotContact {
 export async function createOrUpdateHubSpotContact(
   contact: HubSpotContact
 ): Promise<string | null> {
+  if (!HUBSPOT_API_KEY) return null;
+
   try {
     const res = await fetch(`${BASE_URL}/crm/v3/contacts`, {
       method: "POST",
@@ -69,6 +71,8 @@ export async function createHubSpotDeal(params: {
   stage: string;
   plan: string;
 }): Promise<string | null> {
+  if (!HUBSPOT_API_KEY) return null;
+
   try {
     const res = await fetch(`${BASE_URL}/crm/v3/deals`, {
       method: "POST",
@@ -110,6 +114,8 @@ export async function createHubSpotCompany(params: {
   contactId: string;
   plan: string;
 }): Promise<string | null> {
+  if (!HUBSPOT_API_KEY) return null;
+
   try {
     const res = await fetch(`${BASE_URL}/crm/v3/companies`, {
       method: "POST",
