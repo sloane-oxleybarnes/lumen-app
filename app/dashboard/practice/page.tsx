@@ -259,6 +259,7 @@ function ContactOverlay({
 export default function PracticePage() {
   const supabase = createClient()
   const [phase, setPhase] = useState<Phase>('setup')
+  const [setupStep, setSetupStep] = useState(0)
   const [mode, setMode] = useState<Mode>('professional')
   const [conversationFormat, setConversationFormat] = useState<ConversationFormat>('text')
   const [textSubFormat, setTextSubFormat] = useState<TextSubFormat>('slack')
@@ -355,8 +356,14 @@ export default function PracticePage() {
   }
 
   async function startPractice() {
-    if (!person.trim() || !situation.trim()) {
-      setError('Please add the person and the conversation you want help with.')
+    if (!person.trim()) {
+      setSetupStep(0)
+      setError('Please add the person you want to practice with.')
+      return
+    }
+    if (!situation.trim()) {
+      setSetupStep(1)
+      setError('Please add the conversation you want help with.')
       return
     }
     setError('')
@@ -494,6 +501,7 @@ export default function PracticePage() {
 
   function resetToSetup() {
     setPhase('setup')
+    setSetupStep(0)
     setMessages([])
     setDebrief(null)
     setInlineFeedback({})
@@ -512,9 +520,27 @@ export default function PracticePage() {
       { value: 'sms', label: 'Text message' },
       { value: 'not-sure', label: 'Not sure' },
     ]
+    const setupSlides = [
+      {
+        eyebrow: 'Step 1 of 3',
+        title: 'Set the scene',
+        description: 'Tell Beckett who you are talking to and what kind of conversation this should feel like.',
+      },
+      {
+        eyebrow: 'Step 2 of 3',
+        title: 'Name what is hard',
+        description: 'Describe the conversation, the pattern that usually shows up, and how much pressure this carries.',
+      },
+      {
+        eyebrow: 'Step 3 of 3',
+        title: 'Choose the coaching target',
+        description: 'Give Beckett the outcome you want and the skill you want to practice most.',
+      },
+    ]
+    const currentSlide = setupSlides[setupStep]
 
     return (
-      <div className="w-full max-w-3xl">
+      <div className="w-full max-w-2xl">
         {showContactOverlay && (
           <ContactOverlay
             trustedPeople={trustedPeople}
@@ -526,209 +552,262 @@ export default function PracticePage() {
         <h1 className="text-3xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
           Practice a conversation
         </h1>
-        <p className="text-ink-mid text-sm mb-4">Rehearse before the real thing. Beckett plays the other person and helps you adjust as you go.</p>
-
-        <div className="mb-8 rounded-card border border-border bg-white p-4">
-          <p className="text-sm font-medium text-ink mb-1">Start with the basics and Beckett will help shape the rest.</p>
-          <p className="text-sm text-ink-mid leading-relaxed">
-            Add who this is with, what you need to say, and where things usually get sticky. You can keep this brief.
-          </p>
-        </div>
+        <p className="text-ink-mid text-sm mb-6">Rehearse before the real thing. Beckett plays the other person and helps you adjust as you go.</p>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
-        {/* Toggles row */}
-        <div className="mb-5 flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
-          {/* Mode */}
-          <div>
-            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Mode</p>
-            <div className="flex rounded-pill border border-border overflow-hidden">
-              {(['professional', 'personal'] as Mode[]).map(m => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors capitalize ${
-                    mode === m ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
-                  }`}
-                >
-                  {m}
-                </button>
+        <div className="rounded-card border border-border bg-white p-5 shadow-sm">
+          <div className="mb-6 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-medium uppercase tracking-wide text-ink-light">{currentSlide.eyebrow}</p>
+              <h2 className="mt-1 text-xl font-medium text-ink">{currentSlide.title}</h2>
+              <p className="mt-1 text-sm leading-relaxed text-ink-mid">{currentSlide.description}</p>
+            </div>
+            <div className="flex gap-1 pt-1" aria-hidden="true">
+              {setupSlides.map((slide, index) => (
+                <span
+                  key={slide.title}
+                  className={`h-1.5 w-8 rounded-full ${index === setupStep ? 'bg-primary' : 'bg-border'}`}
+                />
               ))}
             </div>
           </div>
 
-          <div className="min-w-0">
-            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Channel format</p>
-            <div className="flex flex-wrap overflow-hidden rounded-pill border border-border bg-white">
-              {textSubFormatOptions.map(({ value, label }) => (
-                <button
-                  key={value}
-                  onClick={() => setTextSubFormat(value)}
-                  className={`px-4 py-2 text-sm font-medium transition-colors ${
-                    textSubFormat === value ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
+          {setupStep === 0 && (
+            <div className="space-y-5">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">Mode</p>
+                  <div className="flex overflow-hidden rounded-pill border border-border">
+                    {(['professional', 'personal'] as Mode[]).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setMode(m)}
+                        className={`flex-1 px-4 py-2 text-sm font-medium capitalize transition-colors ${
+                          mode === m ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
+                        }`}
+                      >
+                        {m}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
-        <div className="grid gap-5 lg:grid-cols-2">
-          <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-ink">Person&apos;s name</label>
-              <button
-                onClick={() => setShowContactOverlay(true)}
-                className="text-xs text-primary hover:underline"
-              >
-                {contactContext ? `Using: ${contactContext.name}` : '+ Connect a contact'}
-              </button>
-            </div>
-            <input
-              type="text"
-              value={person}
-              onChange={e => setPerson(e.target.value)}
-              placeholder="e.g. Nick"
-              className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            {contactContext && (
-              <div className="mt-2 flex items-center justify-between bg-primary-light rounded-sm px-3 py-2">
-                <p className="text-xs text-primary">Context loaded from {contactContext.name}</p>
-                <button onClick={() => setContactContext(null)} className="text-xs text-primary hover:underline ml-2">Remove</button>
+                <div>
+                  <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">Channel format</p>
+                  <div className="flex flex-wrap overflow-hidden rounded-pill border border-border bg-white">
+                    {textSubFormatOptions.map(({ value, label }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => setTextSubFormat(value)}
+                        className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
+                          textSubFormat === value ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-sm font-medium text-ink">Person&apos;s name</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowContactOverlay(true)}
+                    className="text-xs text-primary hover:underline"
+                  >
+                    {contactContext ? `Using: ${contactContext.name}` : '+ Connect a contact'}
+                  </button>
+                </div>
+                <input
+                  type="text"
+                  value={person}
+                  onChange={e => setPerson(e.target.value)}
+                  placeholder="e.g. Nick"
+                  className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {contactContext && (
+                  <div className="mt-2 flex items-center justify-between bg-primary-light rounded-sm px-3 py-2">
+                    <p className="text-xs text-primary">Context loaded from {contactContext.name}</p>
+                    <button type="button" onClick={() => setContactContext(null)} className="text-xs text-primary hover:underline ml-2">Remove</button>
+                  </div>
+                )}
+              </div>
+
+              <PracticeTextInput
+                label="How do you know them?"
+                value={relationshipContext}
+                onChange={setRelationshipContext}
+                placeholder="e.g. They&apos;ve been my manager for 2 years and we usually have high trust"
+                helperText="A sentence or two is enough. Include the role or dynamic that matters here."
+              />
+
+              <div>
+                <PracticeTextInput
+                  label="Their communication style"
+                  value={personStyle}
+                  onChange={setPersonStyle}
+                  placeholder="e.g. Friendly, but avoids direct criticism and gets tense when surprised"
+                  helperText="Pick one of these if it helps you get started."
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {communicationStyleSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setPersonStyle(suggestion)}
+                      className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                        personStyle === suggestion
+                          ? 'border-primary bg-primary-light text-primary'
+                          : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {setupStep === 1 && (
+            <div className="space-y-5">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">What conversation do you want to practice?</label>
+                <textarea
+                  value={situation}
+                  onChange={e => setSituation(e.target.value)}
+                  placeholder="e.g. I need to set a boundary around weekend messages without sounding combative"
+                  rows={4}
+                  className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+                <p className="mt-1 text-xs text-ink-light">What is the real conversation, and what feels hard about starting it?</p>
+              </div>
+
+              <PracticeTextarea
+                label="What usually gets hard in this dynamic?"
+                value={recurringPattern}
+                onChange={setRecurringPattern}
+                placeholder="e.g. I over-explain, they stay vague, and we leave without a clear next step"
+                helperText="This is the pattern Beckett should watch for while you practice."
+              />
+
+              <div>
+                <PracticeTextInput
+                  label="How high-pressure does this feel?"
+                  value={stakes}
+                  onChange={setStakes}
+                  placeholder="e.g. High stakes for my role"
+                  helperText="Choose a quick option or write your own."
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {stakesOptions.map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      onClick={() => setStakes(option)}
+                      className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                        stakes === option
+                          ? 'border-primary bg-primary-light text-primary'
+                          : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                      }`}
+                    >
+                      {option}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <PracticeTextInput
+                label="What response do you expect from them?"
+                value={expectedResponse}
+                onChange={setExpectedResponse}
+                placeholder="e.g. They may push back at first, then ask me to prioritize"
+                helperText="If you are not sure, add your best guess."
+              />
+            </div>
+          )}
+
+          {setupStep === 2 && (
+            <div className="space-y-5">
+              <PracticeTextInput
+                label="What outcome do you want?"
+                value={goal}
+                onChange={setGoal}
+                placeholder="e.g. I want them to respect the boundary and help me reprioritize"
+              />
+
+              <div>
+                <PracticeTextInput
+                  label="What do you want Beckett to help you practice?"
+                  value={practiceFocus}
+                  onChange={setPracticeFocus}
+                  placeholder="e.g. Help me start clearly and not backpedal"
+                  helperText="This helps Beckett tune feedback to the part you most want to improve."
+                />
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {practiceFocusSuggestions.map((suggestion) => (
+                    <button
+                      key={suggestion}
+                      type="button"
+                      onClick={() => setPracticeFocus(suggestion)}
+                      className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                        practiceFocus === suggestion
+                          ? 'border-primary bg-primary-light text-primary'
+                          : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                      }`}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-card border border-border bg-bg p-4">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-light mb-2">Practice preview</p>
+                <p className="text-sm text-ink leading-relaxed">
+                  Beckett will practice as {person.trim() || 'the other person'} in{' '}
+                  {textSubFormatOptions.find(option => option.value === textSubFormat)?.label || 'this channel'}
+                  {practiceFocus.trim() ? `, with a focus on: ${practiceFocus.trim()}.` : '.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="mt-8 flex items-center justify-between gap-3 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={() => { setError(''); setSetupStep(Math.max(0, setupStep - 1)) }}
+              disabled={setupStep === 0}
+              className="rounded-pill border border-border px-5 py-2.5 text-sm font-medium text-ink-mid transition-colors hover:border-primary hover:text-ink disabled:opacity-40"
+            >
+              Back
+            </button>
+
+            {setupStep < setupSlides.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => { setError(''); setSetupStep(Math.min(setupSlides.length - 1, setupStep + 1)) }}
+                className="rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+              >
+                Next
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={startPractice}
+                disabled={loading}
+                className="rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark disabled:opacity-50"
+              >
+                {loading ? 'Starting…' : 'Start practice'}
+              </button>
             )}
           </div>
-
-          <PracticeTextInput
-            label="How do you know them?"
-            value={relationshipContext}
-            onChange={setRelationshipContext}
-            placeholder="e.g. They&apos;ve been my manager for 2 years and we usually have high trust"
-            helperText="A sentence or two is enough. Include the role or dynamic that matters here."
-          />
-
-          <div>
-            <label className="block text-sm font-medium text-ink mb-1">What conversation do you want to practice?</label>
-            <textarea
-              value={situation}
-              onChange={e => setSituation(e.target.value)}
-              placeholder="e.g. I need to set a boundary around weekend messages without sounding combative"
-              rows={3}
-              className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-            <p className="mt-1 text-xs text-ink-light">What is the real conversation, and what feels hard about starting it?</p>
-          </div>
-
-          <div>
-            <PracticeTextInput
-              label="Their communication style"
-              value={personStyle}
-              onChange={setPersonStyle}
-              placeholder="e.g. Friendly, but avoids direct criticism and gets tense when surprised"
-              helperText="Pick one of these if it helps you get started."
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              {communicationStyleSuggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => setPersonStyle(suggestion)}
-                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
-                    personStyle === suggestion
-                      ? 'border-primary bg-primary-light text-primary'
-                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
-                  }`}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <PracticeTextarea
-            label="What usually gets hard in this dynamic?"
-            value={recurringPattern}
-            onChange={setRecurringPattern}
-            placeholder="e.g. I over-explain, they stay vague, and we leave without a clear next step"
-            helperText="This is the pattern Beckett should watch for while you practice."
-          />
-
-          <div>
-            <PracticeTextInput
-              label="How high-pressure does this feel?"
-              value={stakes}
-              onChange={setStakes}
-              placeholder="e.g. High stakes for my role"
-              helperText="Choose a quick option or write your own."
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              {stakesOptions.map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  onClick={() => setStakes(option)}
-                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
-                    stakes === option
-                      ? 'border-primary bg-primary-light text-primary'
-                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
-                  }`}
-                >
-                  {option}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <PracticeTextInput
-            label="What response do you expect from them?"
-            value={expectedResponse}
-            onChange={setExpectedResponse}
-            placeholder="e.g. They may push back at first, then ask me to prioritize"
-            helperText="If you are not sure, add your best guess."
-          />
-
-          <PracticeTextInput
-            label="What outcome do you want?"
-            value={goal}
-            onChange={setGoal}
-            placeholder="e.g. I want them to respect the boundary and help me reprioritize"
-          />
-
-          <div>
-            <PracticeTextInput
-              label="What do you want Beckett to help you practice?"
-              value={practiceFocus}
-              onChange={setPracticeFocus}
-              placeholder="e.g. Help me start clearly and not backpedal"
-              helperText="This helps Beckett tune feedback to the part you most want to improve."
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              {practiceFocusSuggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => setPracticeFocus(suggestion)}
-                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
-                    practiceFocus === suggestion
-                      ? 'border-primary bg-primary-light text-primary'
-                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
-                  }`}
-                >
-                  {suggestion}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <button
-            onClick={startPractice}
-            disabled={loading}
-            className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-50 lg:col-span-2"
-          >
-            {loading ? 'Starting…' : 'Start practice'}
-          </button>
         </div>
 
         {/* Previous sessions */}

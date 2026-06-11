@@ -26,11 +26,11 @@ const LUMEN_CSS = `
   .panel { background: #1a1a1a; color: #f0f0f0; box-shadow: -2px 0 20px rgba(0,0,0,0.4); }
   .card { background: #252525; border-color: #333; }
   .mode-btn { background: #2a2a2a; color: #aaa; }
-  .mode-btn.active { background: #4F46E5; color: #fff; }
-  .analyze-btn { background: #4F46E5; }
+  .mode-btn.active { background: #BA7517; color: #fff; }
+  .analyze-btn { background: #BA7517; }
   .response-item { border-color: #333; }
   .copy-btn { background: #2a2a2a; color: #ccc; }
-  .use-btn { background: #4F46E5; }
+  .use-btn { background: #BA7517; }
 }
 
 /* Collapsed pill — just the toggle button */
@@ -53,7 +53,7 @@ const LUMEN_CSS = `
   writing-mode: vertical-rl;
   font-size: 10px;
   font-weight: 700;
-  color: #4F46E5;
+  color: #BA7517;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -90,7 +90,7 @@ const LUMEN_CSS = `
 }
 
 .header-top .lumen-logo { font-size: 15px; }
-.header-top .lumen-wordmark { font-size: 13px; font-weight: 700; color: #4F46E5; flex: 1; }
+.header-top .lumen-wordmark { font-size: 13px; font-weight: 700; color: #BA7517; flex: 1; }
 
 .live-indicator {
   display: flex;
@@ -145,7 +145,7 @@ const LUMEN_CSS = `
   font-family: inherit;
 }
 
-.mode-btn.active { background: #4F46E5; color: #fff; }
+.mode-btn.active { background: #BA7517; color: #fff; }
 
 /* Profile pill */
 .profile-pill {
@@ -153,10 +153,10 @@ const LUMEN_CSS = `
   align-items: center;
   gap: 6px;
   padding: 4px 10px;
-  background: #EEF2FF;
+  background: #FAEEDA;
   border-radius: 20px;
   font-size: 11px;
-  color: #4338CA;
+  color: #854F0B;
   font-weight: 500;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -169,7 +169,7 @@ const LUMEN_CSS = `
   width: 18px;
   height: 18px;
   border-radius: 50%;
-  background: #4F46E5;
+  background: #BA7517;
   color: #fff;
   font-size: 9px;
   font-weight: 700;
@@ -208,7 +208,7 @@ const LUMEN_CSS = `
   width: 14px;
   height: 14px;
   border: 2px solid #e5e7eb;
-  border-top-color: #4F46E5;
+  border-top-color: #BA7517;
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
@@ -231,7 +231,7 @@ const LUMEN_CSS = `
 .analyze-btn {
   width: 100%;
   padding: 10px;
-  background: #4F46E5;
+  background: #BA7517;
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -242,7 +242,7 @@ const LUMEN_CSS = `
   transition: background 0.15s;
 }
 
-.analyze-btn:hover { background: #4338CA; }
+.analyze-btn:hover { background: #854F0B; }
 .analyze-btn:disabled { opacity: 0.5; cursor: default; }
 
 /* Cards */
@@ -254,8 +254,8 @@ const LUMEN_CSS = `
 }
 
 .card.highlight {
-  background: #EEF2FF;
-  border-color: #C7D2FE;
+  background: #FAEEDA;
+  border-color: #EF9F27;
 }
 
 .card-label {
@@ -275,7 +275,7 @@ const LUMEN_CSS = `
 
 @media (prefers-color-scheme: dark) {
   .card-text { color: #e5e7eb; }
-  .card.highlight { background: #1e1b4b; border-color: #3730a3; }
+  .card.highlight { background: rgba(186,117,23,0.18); border-color: #BA7517; }
 }
 
 /* Responses */
@@ -333,8 +333,8 @@ const LUMEN_CSS = `
 
 .copy-btn { background: #f3f4f6; color: #374151; }
 .copy-btn:hover { background: #e5e7eb; }
-.use-btn { background: #4F46E5; color: #fff; }
-.use-btn:hover { background: #4338CA; }
+.use-btn { background: #BA7517; color: #fff; }
+.use-btn:hover { background: #854F0B; }
 
 /* Empty state */
 .empty-state {

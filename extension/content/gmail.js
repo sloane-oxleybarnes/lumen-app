@@ -145,7 +145,7 @@
     Object.assign(btn.style, {
       marginLeft: '8px',
       padding: '4px 10px',
-      background: '#4F46E5',
+      background: '#BA7517',
       color: '#fff',
       border: 'none',
       borderRadius: '6px',
