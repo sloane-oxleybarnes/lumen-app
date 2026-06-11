@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import MoodSelector from "@/components/dashboard/MoodSelector";
+import CoachWalkthrough from "@/components/dashboard/CoachWalkthrough";
 
 export default async function DashboardPage() {
   const supabase = createSupabaseServerClient();
@@ -10,7 +11,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("full_name, plan, extension_connected_at")
+    .select("full_name, plan, extension_connected_at, first_login_complete, dashboard_walkthrough_completed_at")
     .eq("id", session.user.id)
     .single();
 
@@ -42,9 +43,13 @@ export default async function DashboardPage() {
   } catch { /* table may not exist yet */ }
 
   const extensionConnected = Boolean(profile?.extension_connected_at);
+  const showWalkthrough = Boolean(
+    profile?.first_login_complete && !profile?.dashboard_walkthrough_completed_at
+  );
 
   return (
     <div className="w-full max-w-6xl">
+      <CoachWalkthrough shouldShow={showWalkthrough} />
       {/* Header */}
       <div className="mb-8">
         <h1

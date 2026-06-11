@@ -25,6 +25,7 @@ export type Profile = {
   pattern_model_enabled?: boolean;
   first_login_complete?: boolean;
   onboarding_completed_at?: string | null;
+  dashboard_walkthrough_completed_at?: string | null;
   deletion_requested_at?: string | null;
   deletion_status?: string | null;
   deletion_notes?: string | null;

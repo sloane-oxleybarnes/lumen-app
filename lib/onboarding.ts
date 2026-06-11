@@ -15,7 +15,6 @@ export const workplaceTriggerOptions = [
   "Unexpected changes to plans",
   "Passive aggression or indirect communication",
   "Feeling like I am being criticized",
-  "High sensory environments like loud rooms",
   "Conflict or raised voices",
   "Not knowing what is expected of me",
   "Feeling like I have to mask or perform",
@@ -27,11 +26,11 @@ export const communicationPreferenceOptions = [
   "I prefer direct language",
   "I process better in writing",
   "I need time before responding",
-  "I want help sounding warmer",
-  "I want help being more concise",
   "I prefer scripts and examples",
-  "I want Beckett to explain the social context",
-  "I want Beckett to tell me what to do next",
+  "Help me understand the social context",
+  "Help me choose what to do next",
+  "Help me make messages warmer",
+  "Help me make messages more concise",
 ];
 
 export const coachingToneOptions = [
@@ -69,9 +68,6 @@ export const neurodivergentContextOptions = [
   "Sensory processing differences",
   "Social processing differences",
   "Anxiety affects my communication",
-  "Self-identified / exploring",
-  "Multiple of these",
-  "Prefer not to say",
   "Something else",
 ];
 

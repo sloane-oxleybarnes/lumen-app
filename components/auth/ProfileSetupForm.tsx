@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase";
@@ -16,7 +17,7 @@ const steps = [
   "Name",
   "Strengths",
   "Triggers",
-  "Preferences",
+  "Coaching",
   "Context",
   "Extension",
 ];
@@ -53,6 +54,14 @@ function OptionButton({
     >
       {label}
     </button>
+  );
+}
+
+function TrustNote({ children }: { children: ReactNode }) {
+  return (
+    <div className="rounded-sm border border-primary/15 bg-primary-light/40 p-3 text-xs leading-relaxed text-ink-mid">
+      {children}
+    </div>
   );
 }
 
@@ -211,7 +220,8 @@ export default function ProfileSetupForm() {
             Set up your Beckett coach
           </h1>
           <p className="text-sm text-ink-mid">
-            Beckett uses this to coach you in a way that fits how you communicate at work.
+            Beckett beta is workplace-first. Your answers help your coach support Gmail,
+            Slack, practice conversations, and workplace skill modules.
           </p>
         </div>
 
@@ -233,7 +243,8 @@ export default function ProfileSetupForm() {
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What should Beckett call you?</h2>
               <p className="text-sm text-ink-mid mb-5">
-                This is used inside the dashboard and for coaching prompts.
+                This is used inside your Beckett account and coaching prompts. It is not shown
+                publicly to other users.
               </p>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -249,13 +260,22 @@ export default function ProfileSetupForm() {
                   <input value={displayName} onChange={(e) => setDisplayName(e.target.value)} className="w-full border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               </div>
+              <div className="mt-5">
+                <TrustNote>
+                  Your setup answers are saved to your Beckett profile so Beckett can coach you
+                  more accurately. They are not shared publicly, and they are not used to train
+                  public AI models. You can edit or remove them later.
+                </TrustNote>
+              </div>
             </div>
           )}
 
           {step === 1 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What are your communication strengths?</h2>
-              <p className="text-sm text-ink-mid mb-5">Pick up to three. Beckett starts from what already works.</p>
+              <p className="text-sm text-ink-mid mb-5">
+                Pick up to three. Beckett starts from what already works in workplace conversations.
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {strengthOptions.map((option) => (
                   <OptionButton
@@ -274,7 +294,10 @@ export default function ProfileSetupForm() {
           {step === 2 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What tends to make work communication harder?</h2>
-              <p className="text-sm text-ink-mid mb-5">Pick anything that fits. This shapes how Beckett reads and drafts messages.</p>
+              <p className="text-sm text-ink-mid mb-5">
+                Pick anything that fits. This helps Beckett notice where messages, feedback,
+                tone, or expectations may need extra care.
+              </p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {workplaceTriggerOptions.map((option) => (
                   <OptionButton
@@ -291,8 +314,15 @@ export default function ProfileSetupForm() {
           {step === 3 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">How should Beckett coach you?</h2>
-              <p className="text-sm text-ink-mid mb-5">Choose preferences and a default coaching tone. You can change this later.</p>
-              <div className="grid gap-2 sm:grid-cols-2 mb-6">
+              <p className="text-sm text-ink-mid mb-5">
+                First choose what kind of help you want. Then choose the tone Beckett should use
+                when giving coaching feedback.
+              </p>
+              <div className="mb-6">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">
+                  What do you want help with?
+                </p>
+                <div className="grid gap-2 sm:grid-cols-2">
                 {communicationPreferenceOptions.map((option) => (
                   <OptionButton
                     key={option}
@@ -301,8 +331,12 @@ export default function ProfileSetupForm() {
                     onClick={() => setPreferences((current) => toggleValue(current, option))}
                   />
                 ))}
+                </div>
               </div>
               <div className="space-y-2">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-light">
+                  How should Beckett sound as your coach?
+                </p>
                 {coachingToneOptions.map((option) => (
                   <button
                     key={option.value}
@@ -324,10 +358,19 @@ export default function ProfileSetupForm() {
 
           {step === 4 && (
             <div>
-              <h2 className="text-xl text-ink mb-2 font-serif">Optional context</h2>
+              <h2 className="text-xl text-ink mb-2 font-serif">
+                Is there any neurodivergent context you want Beckett to know?
+              </h2>
               <p className="text-sm text-ink-mid mb-5">
-                This is not required and is never used to diagnose you. It just gives Beckett extra context.
+                Optional. This can include ADHD, autism, dyslexia, sensory processing differences,
+                or anything else that helps Beckett coach you better. Beckett does not diagnose you.
               </p>
+              <div className="mb-5">
+                <TrustNote>
+                  This context is saved to your Beckett profile and used only to shape your coaching.
+                  It is not shown publicly, and you can skip this or edit it later.
+                </TrustNote>
+              </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {neurodivergentContextOptions.map((option) => (
                   <OptionButton
@@ -352,6 +395,7 @@ export default function ProfileSetupForm() {
               <h2 className="text-xl text-ink mb-2 font-serif">Connect your work tools</h2>
               <p className="text-sm text-ink-mid mb-5">
                 Beckett works best when your coach is connected to the places your work conversations happen.
+                You can skip this for now and finish setup from Settings.
               </p>
               <div className="space-y-3">
                 <div className="rounded-sm border border-border bg-bg/60 p-4">
