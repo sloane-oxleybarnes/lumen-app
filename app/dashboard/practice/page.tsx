@@ -38,6 +38,29 @@ type PracticeContext = {
   practiceFocus: string
 }
 
+const communicationStyleSuggestions = [
+  'Direct and brief',
+  'Warm and collaborative',
+  'Detailed and analytical',
+  'Fast-paced and reactive',
+  'Avoids conflict',
+  'Gets defensive when surprised',
+]
+
+const stakesOptions = [
+  'Low stakes',
+  'Medium stakes',
+  'High stakes',
+  'High stakes and emotional',
+]
+
+const practiceFocusSuggestions = [
+  'Help me start',
+  'Help me stay direct',
+  'Help me not over-explain',
+  'Help me end with a clear ask',
+]
+
 function buildSystemPrompt(
   person: string,
   situation: string,
@@ -258,6 +281,7 @@ export default function PracticePage() {
   const [draftLoading, setDraftLoading] = useState(false)
   const [draftNote, setDraftNote] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [limitNotice, setLimitNotice] = useState<string | null>(null)
   const [debrief, setDebrief] = useState<DebriefData | null>(null)
   const [inlineFeedback, setInlineFeedback] = useState<Record<number, string>>({})
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([])
@@ -302,7 +326,11 @@ export default function PracticePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'suggested_prompts', mode, person, situation, goal, messageCount: msgCount, lastAIMessage }),
       })
-      const data = await res.json() as { prompts?: string[] }
+      const data = await res.json() as { prompts?: string[]; error?: string }
+      if (!res.ok) {
+        if (data.error) setLimitNotice(data.error)
+        return
+      }
       if (data.prompts?.length) setSuggestedPrompts(data.prompts)
     } catch { /* non-blocking */ }
   }, [mode, person, situation, goal])
@@ -310,25 +338,31 @@ export default function PracticePage() {
   async function getDraftFeedback() {
     if (!input.trim() || draftLoading) return
     setDraftLoading(true)
+    setLimitNotice(null)
     const history = messages.map(m => `[${m.role === 'user' ? 'You' : person}]: ${m.content}`).join('\n')
     const res = await fetch('/api/practice', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'draft_feedback', mode, userMessage: input, conversationHistory: history, person, situation, goal }),
     })
-    const data = await res.json() as { note?: string }
+    const data = await res.json() as { note?: string; error?: string }
     setDraftLoading(false)
+    if (!res.ok) {
+      setLimitNotice(data.error || 'Beckett could not generate feedback right now.')
+      return
+    }
     if (data.note) setDraftNote(data.note)
   }
 
   async function startPractice() {
     if (!person.trim() || !situation.trim()) {
-      setError('Please fill in who this is with and what you need to work through.')
+      setError('Please add the person and the conversation you want help with.')
       return
     }
     setError('')
     setMessages([])
     setPhase('conversation')
+    setLimitNotice(null)
     loadSuggestedPrompts(undefined, 0)
   }
 
@@ -344,6 +378,7 @@ export default function PracticePage() {
     setSuggestedPrompts([])
     setSentViaPrompt(false)
     setLoading(true)
+    setLimitNotice(null)
     const system = buildSystemPrompt(
       person,
       situation,
@@ -396,6 +431,7 @@ export default function PracticePage() {
       }
     } else if (data.error) {
       setError(data.error)
+      setLimitNotice(data.error)
     }
   }
 
@@ -490,7 +526,14 @@ export default function PracticePage() {
         <h1 className="text-3xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
           Practice a conversation
         </h1>
-        <p className="text-ink-mid text-sm mb-8">Rehearse before the real thing. Beckett plays the other person.</p>
+        <p className="text-ink-mid text-sm mb-4">Rehearse before the real thing. Beckett plays the other person and helps you adjust as you go.</p>
+
+        <div className="mb-8 rounded-card border border-border bg-white p-4">
+          <p className="text-sm font-medium text-ink mb-1">Start with the basics and Beckett will help shape the rest.</p>
+          <p className="text-sm text-ink-mid leading-relaxed">
+            Add who this is with, what you need to say, and where things usually get sticky. You can keep this brief.
+          </p>
+        </div>
 
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
@@ -535,7 +578,7 @@ export default function PracticePage() {
         <div className="grid gap-5 lg:grid-cols-2">
           <div>
             <div className="flex items-center justify-between mb-1">
-              <label className="block text-sm font-medium text-ink">Who is this with?</label>
+              <label className="block text-sm font-medium text-ink">Person&apos;s name</label>
               <button
                 onClick={() => setShowContactOverlay(true)}
                 className="text-xs text-primary hover:underline"
@@ -547,7 +590,7 @@ export default function PracticePage() {
               type="text"
               value={person}
               onChange={e => setPerson(e.target.value)}
-              placeholder="e.g. my manager, a close friend, a colleague named Alex"
+              placeholder="e.g. Nick"
               className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
             />
             {contactContext && (
@@ -559,64 +602,125 @@ export default function PracticePage() {
           </div>
 
           <PracticeTextInput
-            label="Relationship/context"
+            label="How do you know them?"
             value={relationshipContext}
             onChange={setRelationshipContext}
-            placeholder="e.g. my manager, a cross-functional partner, a teammate I like but find hard to read"
+            placeholder="e.g. They&apos;ve been my manager for 2 years and we usually have high trust"
+            helperText="A sentence or two is enough. Include the role or dynamic that matters here."
           />
 
           <div>
-            <label className="block text-sm font-medium text-ink mb-1">What is this conversation about?</label>
+            <label className="block text-sm font-medium text-ink mb-1">What conversation do you want to practice?</label>
             <textarea
               value={situation}
               onChange={e => setSituation(e.target.value)}
-              placeholder="e.g. I need to ask for a raise, I want to set a limit around weekend messages"
+              placeholder="e.g. I need to set a boundary around weekend messages without sounding combative"
               rows={3}
               className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
+            <p className="mt-1 text-xs text-ink-light">What is the real conversation, and what feels hard about starting it?</p>
           </div>
 
-          <PracticeTextInput
-            label="Their communication style"
-            value={personStyle}
-            onChange={setPersonStyle}
-            placeholder="e.g. very direct, slow to respond, detail-oriented, gets defensive when surprised"
-          />
+          <div>
+            <PracticeTextInput
+              label="Their communication style"
+              value={personStyle}
+              onChange={setPersonStyle}
+              placeholder="e.g. Friendly, but avoids direct criticism and gets tense when surprised"
+              helperText="Pick one of these if it helps you get started."
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {communicationStyleSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setPersonStyle(suggestion)}
+                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                    personStyle === suggestion
+                      ? 'border-primary bg-primary-light text-primary'
+                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <PracticeTextarea
-            label="What tends to happen with them?"
+            label="What usually gets hard in this dynamic?"
             value={recurringPattern}
             onChange={setRecurringPattern}
-            placeholder="e.g. I over-explain, they interrupt, we both leave unclear on next steps"
+            placeholder="e.g. I over-explain, they stay vague, and we leave without a clear next step"
+            helperText="This is the pattern Beckett should watch for while you practice."
           />
 
-          <PracticeTextInput
-            label="Stakes/pressure level"
-            value={stakes}
-            onChange={setStakes}
-            placeholder="e.g. low stakes but awkward, high stakes for my role, emotionally loaded"
-          />
+          <div>
+            <PracticeTextInput
+              label="How high-pressure does this feel?"
+              value={stakes}
+              onChange={setStakes}
+              placeholder="e.g. High stakes for my role"
+              helperText="Choose a quick option or write your own."
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {stakesOptions.map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setStakes(option)}
+                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                    stakes === option
+                      ? 'border-primary bg-primary-light text-primary'
+                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                  }`}
+                >
+                  {option}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <PracticeTextInput
             label="What response do you expect from them?"
             value={expectedResponse}
             onChange={setExpectedResponse}
-            placeholder="e.g. they may push back, ask for specifics, joke to avoid tension"
+            placeholder="e.g. They may push back at first, then ask me to prioritize"
+            helperText="If you are not sure, add your best guess."
           />
 
           <PracticeTextInput
-            label="What do you want out of it?"
+            label="What outcome do you want?"
             value={goal}
             onChange={setGoal}
-            placeholder="e.g. I want them to understand why this matters to me"
+            placeholder="e.g. I want them to respect the boundary and help me reprioritize"
           />
 
-          <PracticeTextInput
-            label="What do you want Beckett to help you practice?"
-            value={practiceFocus}
-            onChange={setPracticeFocus}
-            placeholder="e.g. staying direct, not apologizing too much, ending with a clear ask"
-          />
+          <div>
+            <PracticeTextInput
+              label="What do you want Beckett to help you practice?"
+              value={practiceFocus}
+              onChange={setPracticeFocus}
+              placeholder="e.g. Help me start clearly and not backpedal"
+              helperText="This helps Beckett tune feedback to the part you most want to improve."
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              {practiceFocusSuggestions.map((suggestion) => (
+                <button
+                  key={suggestion}
+                  type="button"
+                  onClick={() => setPracticeFocus(suggestion)}
+                  className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
+                    practiceFocus === suggestion
+                      ? 'border-primary bg-primary-light text-primary'
+                      : 'border-border text-ink-mid hover:border-primary hover:text-ink'
+                  }`}
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <button
             onClick={startPractice}
@@ -810,6 +914,13 @@ export default function PracticePage() {
         </div>
 
         {error && <p className="text-red-600 text-sm mb-3 shrink-0">{error}</p>}
+        {limitNotice && (
+          <div className="mb-3 shrink-0 rounded-card border border-amber-200 bg-amber-50 px-4 py-3">
+            <p className="text-sm text-ink">
+              <span className="font-medium">Beckett:</span> {limitNotice}
+            </p>
+          </div>
+        )}
 
         {renderMessages()}
 
@@ -837,16 +948,19 @@ export default function PracticePage() {
         )}
 
         {suggestedPrompts.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-2 shrink-0">
-            {suggestedPrompts.map((prompt, i) => (
-              <button
-                key={i}
-                onClick={() => { setInput(prompt); setSentViaPrompt(true) }}
-                className="text-xs border border-border rounded-pill px-3 py-1 text-ink-mid hover:text-ink hover:border-primary transition-colors"
-              >
-                {prompt}
-              </button>
-            ))}
+          <div className="mb-2 shrink-0">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">Need a starting point?</p>
+            <div className="flex gap-2 flex-wrap">
+              {suggestedPrompts.map((prompt, i) => (
+                <button
+                  key={i}
+                  onClick={() => { setInput(prompt); setSentViaPrompt(true); setDraftNote(null) }}
+                  className="text-xs border border-border rounded-pill px-3 py-1 text-ink-mid hover:text-ink hover:border-primary transition-colors"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
           </div>
         )}
 
@@ -868,8 +982,9 @@ export default function PracticePage() {
           />
           <button
             onClick={getDraftFeedback}
-            disabled={draftLoading || loading || !input.trim()}
+            disabled={draftLoading || loading || !input.trim() || sentViaPrompt}
             className="border border-border text-ink-mid rounded-pill px-4 py-2.5 text-sm hover:text-ink hover:border-primary transition-colors disabled:opacity-40 shrink-0"
+            title={sentViaPrompt ? 'Edit the suggestion before asking Beckett for feedback.' : undefined}
           >
             {draftLoading ? '…' : 'Get feedback'}
           </button>
@@ -890,6 +1005,15 @@ export default function PracticePage() {
             <button onClick={() => setDraftNote(null)} className="text-ink-light hover:text-ink text-xs shrink-0">×</button>
           </div>
         )}
+
+        <div className="mt-4 shrink-0 border-t border-border pt-3">
+          <a
+            href="mailto:hello@meetbeckett.co?subject=Beckett%20beta%20feedback%20-%20Practice"
+            className="text-xs text-primary hover:underline"
+          >
+            Share beta feedback about practice
+          </a>
+        </div>
       </div>
     )
   }
@@ -944,11 +1068,13 @@ function PracticeTextInput({
   value,
   onChange,
   placeholder,
+  helperText,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   placeholder: string
+  helperText?: string
 }) {
   return (
     <div>
@@ -960,6 +1086,7 @@ function PracticeTextInput({
         placeholder={placeholder}
         className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
       />
+      {helperText && <p className="mt-1 text-xs text-ink-light">{helperText}</p>}
     </div>
   )
 }
@@ -969,11 +1096,13 @@ function PracticeTextarea({
   value,
   onChange,
   placeholder,
+  helperText,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
   placeholder: string
+  helperText?: string
 }) {
   return (
     <div>
@@ -985,6 +1114,7 @@ function PracticeTextarea({
         rows={3}
         className="w-full border border-border rounded-sm px-3 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary resize-none"
       />
+      {helperText && <p className="mt-1 text-xs text-ink-light">{helperText}</p>}
     </div>
   )
 }

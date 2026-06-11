@@ -156,12 +156,12 @@ Mode: ${mode || 'not specified'}
 Messages so far: ${messageCount ?? 0}
 ${lastAIMessage ? `The other person just said: "${lastAIMessage}"` : ''}
 
-Generate ${isOpening ? '3' : '4'} short suggested messages the user could send next.
+Generate exactly 2 short suggested messages the user could send next.
 Rules:
 - ${isOpening ? 'These are OPENING lines only — introductory, not mid-conversation' : 'These MUST react to what the other person just said'}
 - Each suggestion max 12 words
 - Vary the approaches (direct, soft, clarifying)
-- Return ONLY valid JSON: { "prompts": ["...", "...", "..."] }`
+- Return ONLY valid JSON: { "prompts": ["...", "..."] }`
 
     const result = await callMeteredAnthropic(
       'You generate short conversation suggestions. Return only valid JSON.',
