@@ -20,6 +20,15 @@ const sections = [
     ],
   },
   {
+    title: "What Beckett does not do",
+    body: [
+      "Beckett does not sell your personal data.",
+      "Beckett does not use Gmail or Slack content for advertising.",
+      "Beckett does not connect to LinkedIn, Google Calendar, Zoom, or Google Meet during beta.",
+      "Beckett does not ask for or store your personal Anthropic API key.",
+    ],
+  },
+  {
     title: "Feedback and debugging",
     body: [
       "If you submit beta feedback, that feedback may include the page, rating, your comment, and relevant debug context.",
