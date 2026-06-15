@@ -146,7 +146,7 @@ export default function HomePage() {
 
   const scenarios = mode === "personal" ? personalScenarios : professionalScenarios;
   const professionalHeroTitleLines = copy("home.hero.title").split("\n").filter(Boolean);
-  const personalHeroTitleLines = ["Your daily communication coach,", "right where conversations happen."];
+  const personalHeroTitleLines = ["Your personal communication coach,", "right where conversations happen."];
   const heroTitleLines = mode === "personal" ? personalHeroTitleLines : professionalHeroTitleLines;
   const heroSubtitle = mode === "personal"
     ? "Personal coaching is in preview during beta. Beckett can help you practice dating conversations and decode confusing social signals now, with mobile and message integrations coming later."
