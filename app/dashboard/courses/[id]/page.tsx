@@ -1028,7 +1028,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 key={i}
                 className={`border-2 rounded-xl p-4 transition-colors ${
                   hasError ? 'border-red-300 bg-red-50' :
-                  sortingChecked && assigned === 'Good ask' ? 'border-green-300 bg-green-50' :
+                  sortingChecked && assigned === item.correct ? 'border-green-300 bg-green-50' :
                   sortingChecked && assigned ? 'border-amber-300 bg-amber-50' :
                   'border-border bg-white'
                 }`}
@@ -1383,9 +1383,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         content = (
           <div className="space-y-3">
             {s.items.map((item, i) => (
-              <div key={i} className={`border-2 rounded-xl p-4 ${item.correct === 'Good ask' ? 'border-green-300 bg-green-50' : 'border-amber-300 bg-amber-50'}`}>
+              <div key={i} className="border-2 border-green-300 bg-green-50 rounded-xl p-4">
                 <p className="text-sm text-ink mb-1 leading-relaxed">{item.message}</p>
-                <span className={`text-xs font-medium ${item.correct === 'Good ask' ? 'text-green-700' : 'text-amber-700'}`}>{item.correct}</span>
+                <span className="text-xs font-medium text-green-700">{item.correct}</span>
                 <p className="text-xs text-ink-mid mt-1">{item.explanation}</p>
               </div>
             ))}
