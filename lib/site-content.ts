@@ -26,7 +26,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Homepage subheadline",
     group: "Homepage",
     defaultValue:
-      "Beckett helps neurodivergent professionals read workplace tone, draft clearer replies, and practice hard conversations in Gmail, Slack, and coached beta courses.",
+      "Beckett is a neurodivergent communication coach for ADHD workplace communication, autism workplace support, clearer replies, and practice for difficult conversations in Gmail, Slack, and coached beta courses.",
     inputType: "textarea",
   },
   {
@@ -85,7 +85,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Beta page subheadline",
     group: "Beta page",
     defaultValue:
-      "We're building Beckett with a small group of early members. Beta access is free and includes everything in Pro - no credit card, no commitment.",
+      "We're building Beckett with a small group of early members who want workplace communication coaching for Gmail, Slack, practice, and skill modules. Beta access is free - no credit card, no commitment.",
     inputType: "textarea",
   },
   {
@@ -105,7 +105,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Features page subheadline",
     group: "Features page",
     defaultValue:
-      "12 features built around one goal: helping you communicate with more clarity and confidence.",
+      "Tools for neurodivergent workplace communication: decode messages, draft replies, practice difficult conversations, and build repeatable skills.",
     inputType: "textarea",
   },
   {
@@ -132,7 +132,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Integrations page subheadline",
     group: "Integrations page",
     defaultValue:
-      "Beckett runs in the tools you already use - no new apps, no workflow changes.",
+      "Beckett brings workplace communication coaching into Gmail, Slack, and Chrome for beta, with meeting tools planned after the core flows are stable.",
     inputType: "textarea",
   },
   {

@@ -3,6 +3,16 @@ import Footer from "@/components/marketing/Footer";
 import BetaSignupForm from "@/components/marketing/BetaSignupForm";
 import { contentValue } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Beta Access",
+  description:
+    "Request free beta access to Beckett, a workplace communication coach for neurodivergent professionals using Gmail, Slack, practice, and skills.",
+  alternates: {
+    canonical: "/beta",
+  },
+};
 
 const betaPerks = [
   "Full Pro access — every feature, no limits",
@@ -26,7 +36,7 @@ export default async function BetaPage() {
       <div className="pt-32 pb-20 px-4 sm:px-6 max-w-3xl mx-auto">
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 bg-primary-light text-primary text-xs font-medium rounded-pill px-4 py-2 mb-8">
-            <span className="w-2 h-2 bg-primary rounded-full inline-block animate-pulse" />
+            <span className="w-2 h-2 bg-primary rounded-full inline-block animate-pulse" aria-hidden="true" />
             {contentValue(content, "beta.hero.badge")}
           </div>
 
@@ -55,6 +65,7 @@ export default async function BetaPage() {
                   className="w-5 h-5 text-primary flex-shrink-0 mt-0.5"
                   viewBox="0 0 20 20"
                   fill="currentColor"
+                  aria-hidden="true"
                 >
                   <path
                     fillRule="evenodd"

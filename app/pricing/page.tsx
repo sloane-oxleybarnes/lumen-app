@@ -3,6 +3,16 @@ import Footer from "@/components/marketing/Footer";
 import Link from "next/link";
 import { contentValue } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Beta Pricing",
+  description:
+    "Beckett beta access is free for early users testing workplace communication coaching, Gmail, Slack, practice, and skill modules.",
+  alternates: {
+    canonical: "/pricing",
+  },
+};
 
 const plans = [
   {
@@ -69,13 +79,13 @@ const plans = [
 ];
 
 const checkIcon = (
-  <svg className="w-4 h-4 text-green-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+  <svg className="w-4 h-4 text-green-600 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
     <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
   </svg>
 );
 
 const xIcon = (
-  <svg className="w-4 h-4 text-ink-light flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+  <svg className="w-4 h-4 text-ink-light flex-shrink-0" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
     <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
   </svg>
 );
@@ -140,7 +150,7 @@ export default async function PricingPage() {
                 {plan.features.map((f) => (
                   <li key={f} className="flex items-start gap-2">
                     {plan.highlight ? (
-                      <svg className="w-4 h-4 text-white flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                      <svg className="w-4 h-4 text-white flex-shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     ) : checkIcon}

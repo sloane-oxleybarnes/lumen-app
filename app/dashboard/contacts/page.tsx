@@ -177,8 +177,9 @@ export default function ContactsPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-40">
-        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+      <div className="flex h-40 items-center justify-center" role="status" aria-live="polite">
+        <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" aria-hidden="true" />
+        <span className="sr-only">Loading contacts</span>
       </div>
     );
   }
@@ -208,13 +209,19 @@ export default function ContactsPage() {
 
       {/* Search */}
       {contacts.length > 0 && (
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search by name, email, or Slack handle…"
-          className="w-full border border-border rounded-sm px-3 py-2 text-sm mb-5 focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        <div className="mb-5">
+          <label htmlFor="contact-search" className="sr-only">
+            Search contacts by name, email, Slack handle, or relationship
+          </label>
+          <input
+            id="contact-search"
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name, email, or Slack handle…"
+            className="w-full border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
       )}
 
       {/* Add / Edit form */}
@@ -366,7 +373,7 @@ export default function ContactsPage() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-sm font-medium text-ink">{c.name}</p>
-                      {c.trusted && <span className="text-base leading-none">💛</span>}
+                      {c.trusted && <span className="text-base leading-none" aria-label="Trusted contact">💛</span>}
                     </div>
                     {relationshipLabel(c) && (
                       <p className="mt-1 text-xs text-primary">{relationshipLabel(c)}</p>
@@ -388,12 +395,20 @@ export default function ContactsPage() {
                     onClick={(e) => { e.stopPropagation(); toggleTrusted(c); }}
                     className="shrink-0 text-xs text-ink-light transition-colors hover:text-amber-500"
                     title={c.trusted ? "Remove trusted" : "Mark trusted"}
+                    aria-label={c.trusted ? `Remove ${c.name} from trusted contacts` : `Mark ${c.name} as trusted`}
                   >
-                    {c.trusted ? "💛" : "♡"}
+                    <span aria-hidden="true">{c.trusted ? "💛" : "♡"}</span>
                   </button>
                 </div>
 
                 <div className="mt-4 flex gap-3" onClick={(e) => e.stopPropagation()}>
+                  <button
+                    onClick={() => setSelectedId(expanded ? null : c.id)}
+                    className="text-xs text-primary transition-colors hover:underline"
+                    aria-expanded={expanded}
+                  >
+                    {expanded ? "Hide details" : "Details"}
+                  </button>
                   <button
                     onClick={() => openEdit(c)}
                     className="text-xs text-ink-mid transition-colors hover:text-ink"
@@ -426,6 +441,7 @@ export default function ContactsPage() {
                           onClick={(e) => { e.stopPropagation(); refreshInsights(c.id); }}
                           disabled={generatingInsights}
                           className="text-xs text-primary hover:underline disabled:opacity-50"
+                          aria-label={`${c.contact_insights ? "Refresh" : "Generate"} relationship insights for ${c.name}`}
                         >
                           {generatingInsights ? "Generating…" : c.contact_insights ? "Refresh" : "Generate"}
                         </button>

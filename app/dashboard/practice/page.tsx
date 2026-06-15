@@ -554,7 +554,7 @@ export default function PracticePage() {
         </h1>
         <p className="text-ink-mid text-sm mb-6">Rehearse before the real thing. Beckett plays the other person and helps you adjust as you go.</p>
 
-        {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+        {error && <p className="text-red-600 text-sm mb-4" role="alert">{error}</p>}
 
         <div className="rounded-card border border-border bg-white p-5 shadow-sm">
           <div className="mb-6 flex items-start justify-between gap-4">
@@ -578,12 +578,13 @@ export default function PracticePage() {
               <div className="grid gap-5 sm:grid-cols-2">
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">Mode</p>
-                  <div className="flex overflow-hidden rounded-pill border border-border">
+                  <div className="flex overflow-hidden rounded-pill border border-border" role="group" aria-label="Practice mode">
                     {(['professional', 'personal'] as Mode[]).map(m => (
                       <button
                         key={m}
                         type="button"
                         onClick={() => setMode(m)}
+                        aria-pressed={mode === m}
                         className={`flex-1 px-4 py-2 text-sm font-medium capitalize transition-colors ${
                           mode === m ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
                         }`}
@@ -596,12 +597,13 @@ export default function PracticePage() {
 
                 <div>
                   <p className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-light">Channel format</p>
-                  <div className="flex flex-wrap overflow-hidden rounded-pill border border-border bg-white">
+                  <div className="flex flex-wrap overflow-hidden rounded-pill border border-border bg-white" role="group" aria-label="Channel format">
                     {textSubFormatOptions.map(({ value, label }) => (
                       <button
                         key={value}
                         type="button"
                         onClick={() => setTextSubFormat(value)}
+                        aria-pressed={textSubFormat === value}
                         className={`flex-1 px-3 py-2 text-sm font-medium transition-colors ${
                           textSubFormat === value ? 'bg-primary text-white' : 'text-ink-mid hover:text-ink'
                         }`}
@@ -620,6 +622,7 @@ export default function PracticePage() {
                     type="button"
                     onClick={() => setShowContactOverlay(true)}
                     className="text-xs text-primary hover:underline"
+                    aria-label={contactContext ? `Change connected contact, currently using ${contactContext.name}` : "Connect a contact for this practice session"}
                   >
                     {contactContext ? `Using: ${contactContext.name}` : '+ Connect a contact'}
                   </button>
@@ -634,7 +637,9 @@ export default function PracticePage() {
                 {contactContext && (
                   <div className="mt-2 flex items-center justify-between bg-primary-light rounded-sm px-3 py-2">
                     <p className="text-xs text-primary">Context loaded from {contactContext.name}</p>
-                    <button type="button" onClick={() => setContactContext(null)} className="text-xs text-primary hover:underline ml-2">Remove</button>
+                    <button type="button" onClick={() => setContactContext(null)} className="text-xs text-primary hover:underline ml-2" aria-label={`Remove ${contactContext.name} context`}>
+                      Remove
+                    </button>
                   </div>
                 )}
               </div>
@@ -661,6 +666,7 @@ export default function PracticePage() {
                       key={suggestion}
                       type="button"
                       onClick={() => setPersonStyle(suggestion)}
+                      aria-pressed={personStyle === suggestion}
                       className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
                         personStyle === suggestion
                           ? 'border-primary bg-primary-light text-primary'
@@ -711,6 +717,7 @@ export default function PracticePage() {
                       key={option}
                       type="button"
                       onClick={() => setStakes(option)}
+                      aria-pressed={stakes === option}
                       className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
                         stakes === option
                           ? 'border-primary bg-primary-light text-primary'
@@ -756,6 +763,7 @@ export default function PracticePage() {
                       key={suggestion}
                       type="button"
                       onClick={() => setPracticeFocus(suggestion)}
+                      aria-pressed={practiceFocus === suggestion}
                       className={`rounded-pill border px-3 py-1 text-xs transition-colors ${
                         practiceFocus === suggestion
                           ? 'border-primary bg-primary-light text-primary'
@@ -867,13 +875,14 @@ export default function PracticePage() {
               </div>
             ))}
             {loading && (
-              <div className="px-5 py-4 bg-gray-50">
+              <div className="px-5 py-4 bg-gray-50" role="status" aria-live="polite">
                 <p className="text-xs font-semibold text-ink mb-2">{person}</p>
-                <div className="flex gap-1 items-center h-4">
+                <div className="flex gap-1 items-center h-4" aria-hidden="true">
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
+                <span className="sr-only">{person} is responding</span>
               </div>
             )}
             <div ref={bottomRef} />
@@ -911,13 +920,14 @@ export default function PracticePage() {
                 </div>
               ))}
               {loading && (
-                <div className="flex gap-3 px-4 py-2">
-                  <div className="w-8 h-8 rounded bg-gray-300 flex-shrink-0 mt-0.5" />
-                  <div className="flex gap-1 items-center h-8">
+                <div className="flex gap-3 px-4 py-2" role="status" aria-live="polite">
+                  <div className="w-8 h-8 rounded bg-gray-300 flex-shrink-0 mt-0.5" aria-hidden="true" />
+                  <div className="flex gap-1 items-center h-8" aria-hidden="true">
                     <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                     <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                     <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                   </div>
+                  <span className="sr-only">{person} is responding</span>
                 </div>
               )}
               <div ref={bottomRef} />
@@ -953,13 +963,14 @@ export default function PracticePage() {
             </div>
           ))}
           {loading && (
-            <div className="flex justify-start">
+            <div className="flex justify-start" role="status" aria-live="polite">
               <div className="bg-white border border-border rounded-2xl rounded-bl-sm px-4 py-2.5">
-                <div className="flex gap-1 items-center h-4">
+                <div className="flex gap-1 items-center h-4" aria-hidden="true">
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
                   <span className="w-1.5 h-1.5 bg-ink-light rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
+                <span className="sr-only">{person} is responding</span>
               </div>
             </div>
           )}
@@ -992,7 +1003,7 @@ export default function PracticePage() {
           </button>
         </div>
 
-        {error && <p className="text-red-600 text-sm mb-3 shrink-0">{error}</p>}
+        {error && <p className="text-red-600 text-sm mb-3 shrink-0" role="alert">{error}</p>}
         {limitNotice && (
           <div className="mb-3 shrink-0 rounded-card border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-sm text-ink">
@@ -1021,7 +1032,7 @@ export default function PracticePage() {
                   End session
                 </button>
               )}
-              <button onClick={() => setIntervention(null)} className="text-ink-light hover:text-ink text-xs">×</button>
+              <button onClick={() => setIntervention(null)} className="text-ink-light hover:text-ink text-xs" aria-label="Dismiss Beckett note">×</button>
             </div>
           </div>
         )}
@@ -1046,6 +1057,7 @@ export default function PracticePage() {
         <div className="flex gap-2 shrink-0 items-end">
           <textarea
             ref={textareaRef}
+            aria-label="Your practice message"
             rows={1}
             value={input}
             onChange={e => { setInput(e.target.value); setDraftNote(null); setSentViaPrompt(false) }}
@@ -1081,7 +1093,7 @@ export default function PracticePage() {
             <p className="text-xs text-ink-mid italic flex-1">
               <span className="not-italic text-ink-light">↳ Beckett:</span> {draftNote}
             </p>
-            <button onClick={() => setDraftNote(null)} className="text-ink-light hover:text-ink text-xs shrink-0">×</button>
+            <button onClick={() => setDraftNote(null)} className="text-ink-light hover:text-ink text-xs shrink-0" aria-label="Dismiss draft feedback">×</button>
           </div>
         )}
 

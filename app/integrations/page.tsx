@@ -3,6 +3,16 @@ import Footer from "@/components/marketing/Footer";
 import Link from "next/link";
 import { contentValue } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Integrations",
+  description:
+    "Beckett beta works in Gmail, Slack, and Chrome so neurodivergent professionals can get workplace communication coaching where work happens.",
+  alternates: {
+    canonical: "/integrations",
+  },
+};
 
 const live = [
   { name: "Gmail", icon: "📧", description: "Decode and draft in any Gmail thread." },
@@ -59,7 +69,7 @@ export default async function IntegrationsPage() {
               key={item.name}
               className="bg-white rounded-card border border-border p-6"
             >
-              <div className="text-3xl mb-3">{item.icon}</div>
+              <div className="text-3xl mb-3" aria-hidden="true">{item.icon}</div>
               <h3
                 className="text-base text-ink mb-1"
                 style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
@@ -88,7 +98,7 @@ export default async function IntegrationsPage() {
               key={item.name}
               className="bg-white rounded-card border border-border p-5 flex items-center gap-3 opacity-70"
             >
-              <span className="text-2xl">{item.icon}</span>
+              <span className="text-2xl" aria-hidden="true">{item.icon}</span>
               <span className="text-sm text-ink-mid font-medium">{item.name}</span>
             </div>
           ))}

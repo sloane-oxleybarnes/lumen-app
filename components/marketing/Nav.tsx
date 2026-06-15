@@ -69,9 +69,11 @@ export default function Nav() {
         <button
           className="md:hidden p-2"
           onClick={() => setOpen(!open)}
-          aria-label="Toggle menu"
+          aria-label={open ? "Close navigation menu" : "Open navigation menu"}
+          aria-expanded={open}
+          aria-controls="mobile-navigation"
         >
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
             {open ? (
               <path
                 fillRule="evenodd"
@@ -91,7 +93,7 @@ export default function Nav() {
 
       {/* Mobile menu */}
       {open && (
-        <div className="md:hidden border-t border-border bg-bg px-4 py-4 space-y-3">
+        <div id="mobile-navigation" className="md:hidden border-t border-border bg-bg px-4 py-4 space-y-3">
           {links.map((l) => (
             <Link
               key={l.href}

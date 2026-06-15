@@ -65,17 +65,36 @@ export default function CoachWalkthrough({ shouldShow }: CoachWalkthroughProps) 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 px-4 py-8">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/30 px-4 py-8"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="coach-walkthrough-title"
+      aria-describedby="coach-walkthrough-body"
+    >
       <div className="w-full max-w-lg rounded-card border border-border bg-white p-6 shadow-xl">
         <div className="mb-5">
-          <div className="mb-3 h-1.5 overflow-hidden rounded-pill bg-bg">
+          <div
+            className="mb-3 h-1.5 overflow-hidden rounded-pill bg-bg"
+            role="progressbar"
+            aria-label="Walkthrough progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={progress}
+          >
             <div className="h-full rounded-pill bg-primary transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-xs font-medium uppercase tracking-wide text-primary">{current.eyebrow}</p>
-          <h2 className="mt-2 text-2xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
+          <h2
+            id="coach-walkthrough-title"
+            className="mt-2 text-2xl text-ink"
+            style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
+          >
             {current.title}
           </h2>
-          <p className="mt-3 text-sm leading-relaxed text-ink-mid">{current.body}</p>
+          <p id="coach-walkthrough-body" className="mt-3 text-sm leading-relaxed text-ink-mid">
+            {current.body}
+          </p>
         </div>
 
         {isLast ? (

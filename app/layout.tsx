@@ -17,18 +17,43 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Beckett — Your workplace communication coach",
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meetbeckett.co"),
+  title: {
+    default: "Beckett - Neurodivergent Workplace Communication Coach",
+    template: "%s | Beckett",
+  },
   description:
-    "Beckett helps neurodivergent professionals decode workplace tone, draft clearer replies, and practice hard conversations.",
+    "Beckett is a neurodivergent communication coach for ADHD workplace communication, autism workplace support, clearer replies, and difficult conversations.",
+  alternates: {
+    canonical: "/",
+  },
   icons: {
     icon: "/brand/beckett-favicon.png",
     apple: "/brand/beckett-favicon.png",
   },
   openGraph: {
-    title: "Beckett — Your workplace communication coach",
+    title: "Beckett - Neurodivergent Workplace Communication Coach",
     description:
-      "Beckett helps neurodivergent professionals decode workplace tone, draft clearer replies, and practice hard conversations.",
+      "Decode Gmail and Slack, draft clearer replies, and practice difficult workplace conversations with Beckett.",
+    url: "/",
     siteName: "Beckett",
+    images: [
+      {
+        url: "/brand/beckett-og.png",
+        width: 1200,
+        height: 630,
+        alt: "Beckett workplace communication coach",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Beckett - Neurodivergent Workplace Communication Coach",
+    description:
+      "Workplace communication coaching for neurodivergent professionals in Gmail, Slack, and practice sessions.",
+    images: ["/brand/beckett-og.png"],
   },
 };
 

@@ -480,7 +480,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {error && <p className="text-sm text-red-600 mt-5">{error}</p>}
+          {error && <p className="text-sm text-red-600 mt-5" role="alert">{error}</p>}
 
           <div className="mt-8 flex items-center justify-between gap-3">
             <button

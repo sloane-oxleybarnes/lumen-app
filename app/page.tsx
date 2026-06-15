@@ -187,21 +187,23 @@ export default function HomePage() {
           <button
             className="nav-hamburger"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Menu"
+            aria-label={mobileMenuOpen ? "Close navigation menu" : "Open navigation menu"}
+            aria-expanded={mobileMenuOpen}
+            aria-controls="homepage-mobile-navigation"
           >
             {mobileMenuOpen ? (
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M4 4L16 16M16 4L4 16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             ) : (
-              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
                 <path d="M3 6h14M3 10h14M3 14h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
               </svg>
             )}
           </button>
         </div>
         {mobileMenuOpen && (
-          <div className="nav-mobile-menu">
+          <div id="homepage-mobile-navigation" className="nav-mobile-menu">
             <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
             <a href="#skills" onClick={() => setMobileMenuOpen(false)}>Scenarios</a>
             <a href="/auth/signin">Sign in</a>
@@ -213,7 +215,7 @@ export default function HomePage() {
       {/* HERO */}
       <section className="hero">
         <div className="beta-badge">
-          <span className="bb-dot" />
+          <span className="bb-dot" aria-hidden="true" />
           {copy("home.hero.badge")}
         </div>
         <h1>
@@ -313,14 +315,14 @@ export default function HomePage() {
                   <div className="r-card">
                     <div className="r-tag t-warm">Warm</div>
                     <div className="r-text">Appreciate the note, Sarah. Happy to sync before the all-hands — want to make sure we&apos;re fully aligned.</div>
-                    <div className="r-copy"><button>Copy</button></div>
+                    <div className="r-copy"><button type="button" tabIndex={-1} aria-hidden="true">Copy</button></div>
                   </div>
                   <div className="r-card">
                     <div className="r-tag t-direct">Direct</div>
                     <div className="r-text">Thanks for flagging — I&apos;ll loop you in before moving forward on decisions like this.</div>
-                    <div className="r-copy"><button>Copy</button></div>
+                    <div className="r-copy"><button type="button" tabIndex={-1} aria-hidden="true">Copy</button></div>
                   </div>
-                  <button className="ins-btn">↗ Insert into Gmail</button>
+                  <button className="ins-btn" type="button" tabIndex={-1} aria-hidden="true">↗ Insert into Gmail</button>
                 </div>
               </div>
             </div>
@@ -473,7 +475,9 @@ export default function HomePage() {
             <p className="beta-ok">You&apos;re on the list. We&apos;ll be in touch. ✓</p>
           ) : (
             <form className="beta-form" onSubmit={submitBeta}>
+              <label className="sr-only" htmlFor="homepage-beta-email">Email for beta access</label>
               <input
+                id="homepage-beta-email"
                 className="beta-input"
                 type="email"
                 placeholder="your@email.com"

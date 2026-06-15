@@ -3,6 +3,16 @@ import Footer from "@/components/marketing/Footer";
 import Link from "next/link";
 import { contentValue } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Features",
+  description:
+    "Explore Beckett features for neurodivergent workplace communication coaching, including message decoding, drafting, Slack support, practice, and skills.",
+  alternates: {
+    canonical: "/features",
+  },
+};
 
 const features = [
   {
@@ -135,7 +145,7 @@ export default async function FeaturesPage() {
               className="bg-white rounded-card border border-border p-6 flex flex-col gap-3"
             >
               <div className="flex items-start justify-between gap-2">
-                <span className="text-2xl">{f.icon}</span>
+                <span className="text-2xl" aria-hidden="true">{f.icon}</span>
                 <span
                   className={`text-xs font-medium rounded-pill px-2.5 py-0.5 ${planColor[f.plan]}`}
                 >

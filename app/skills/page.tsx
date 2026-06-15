@@ -1,6 +1,16 @@
 import Nav from "@/components/marketing/Nav";
 import Footer from "@/components/marketing/Footer";
 import Link from "next/link";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: "Skill Modules",
+  description:
+    "Practice difficult conversations with Beckett skill modules for feedback, conflict, saying no, asking for support, and written workplace communication.",
+  alternates: {
+    canonical: "/skills",
+  },
+};
 
 const skillModules = [
   {
@@ -84,7 +94,7 @@ export default function SkillsPage() {
               key={s.title}
               className="bg-white rounded-card border border-border p-7 flex flex-col"
             >
-              <div className="text-3xl mb-4">{s.icon}</div>
+              <div className="text-3xl mb-4" aria-hidden="true">{s.icon}</div>
               <div className="flex items-center gap-2 mb-3">
                 <span
                   className={`text-xs font-medium rounded-pill px-2.5 py-0.5 ${difficultyColor[s.difficulty]}`}

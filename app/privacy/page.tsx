@@ -40,6 +40,9 @@ export const metadata = {
   title: "Privacy and Trust - Beckett",
   description:
     "How Beckett handles Gmail, Slack, extension context, beta feedback, deletion, and coaching boundaries.",
+  alternates: {
+    canonical: "/privacy",
+  },
 };
 
 export default function PrivacyPage() {

@@ -30,7 +30,7 @@ export default function BetaSignupForm({
 
   if (status === "success") {
     return (
-      <div className="bg-primary-light border border-primary/20 rounded-card px-6 py-5 text-center">
+      <div className="bg-primary-light border border-primary/20 rounded-card px-6 py-5 text-center" role="status" aria-live="polite">
         <p className="text-primary font-medium mb-1">You&apos;re in.</p>
         <p className="text-ink-mid text-sm">
           We&apos;ll be in touch shortly with your beta access.
@@ -41,7 +41,11 @@ export default function BetaSignupForm({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3 w-full">
+      <label className="sr-only" htmlFor={`beta-name-${source}`}>
+        Your name
+      </label>
       <input
+        id={`beta-name-${source}`}
         type="text"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -49,7 +53,11 @@ export default function BetaSignupForm({
         className="border border-border rounded-sm px-4 py-3 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent bg-white"
       />
       <div className="flex gap-2">
+        <label className="sr-only" htmlFor={`beta-email-${source}`}>
+          Email for beta access
+        </label>
         <input
+          id={`beta-email-${source}`}
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
@@ -66,7 +74,7 @@ export default function BetaSignupForm({
         </button>
       </div>
       {status === "error" && (
-        <p className="text-red-600 text-xs">
+        <p className="text-red-600 text-xs" role="alert">
           Something went wrong. Please try again.
         </p>
       )}

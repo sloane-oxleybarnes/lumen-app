@@ -666,7 +666,10 @@ export default function SettingsPage() {
         </div>
 
         {diagnosticsError && (
-          <div className="rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div
+            className="rounded-sm border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700"
+            role="alert"
+          >
             {diagnosticsError}
           </div>
         )}
@@ -724,7 +727,11 @@ export default function SettingsPage() {
             </p>
           </div>
         ) : !diagnosticsError ? (
-          <div className="rounded-sm border border-border bg-bg/60 p-4 text-sm text-ink-light">
+          <div
+            className="rounded-sm border border-border bg-bg/60 p-4 text-sm text-ink-light"
+            role="status"
+            aria-live="polite"
+          >
             {diagnosticsLoading ? "Checking beta systems..." : "Run a health check to see current status."}
           </div>
         ) : null}
@@ -817,10 +824,11 @@ export default function SettingsPage() {
               personal data from the systems we use to run the beta. We may keep limited records only
               when needed for security, legal, or abuse-prevention reasons.
             </p>
-            <label className="block text-sm font-medium text-ink mb-1">
+            <label htmlFor="account-deletion-note" className="block text-sm font-medium text-ink mb-1">
               Optional note
             </label>
             <textarea
+              id="account-deletion-note"
               value={deletionNotes}
               onChange={(e) => setDeletionNotes(e.target.value)}
               rows={3}
@@ -835,12 +843,12 @@ export default function SettingsPage() {
               {deletionStatus === "loading" ? "Requesting…" : "Request account deletion"}
             </button>
             {deletionStatus === "requested" && (
-              <p className="text-xs text-red-700 mt-3">
+              <p className="text-xs text-red-700 mt-3" role="status" aria-live="polite">
                 Request received. We will complete deletion within 30 days.
               </p>
             )}
             {deletionStatus === "error" && (
-              <p className="text-xs text-red-700 mt-3">
+              <p className="text-xs text-red-700 mt-3" role="alert">
                 Something went wrong. Please email hello@meetbeckett.co.
               </p>
             )}
