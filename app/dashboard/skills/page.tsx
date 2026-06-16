@@ -9,6 +9,7 @@ type SkillCard = {
   description: string
   href: string
   status: 'live' | 'planned'
+  level: 'Foundational'
   estimatedMinutes: number
   courseId?: string
   illustration: 'date' | 'colleague' | 'no'
@@ -25,6 +26,7 @@ const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
         description: 'Start a new working relationship clearly without scripting yourself into stiffness.',
         href: '/dashboard/courses/introducing-new-colleague',
         status: 'live',
+        level: 'Foundational',
         estimatedMinutes: 35,
         courseId: 'introducing-new-colleague',
         illustration: 'colleague',
@@ -35,6 +37,7 @@ const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
         description: 'Ask specific follow-up questions at work without over-apologizing or pretending you understand.',
         href: '/dashboard/courses/asking-for-clarity',
         status: 'live',
+        level: 'Foundational',
         estimatedMinutes: 35,
         courseId: 'asking-for-clarity',
         illustration: 'colleague',
@@ -51,6 +54,7 @@ const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
         description: 'Move from chatting to a clear, low-pressure ask with Beckett coaching you through the wording and practice.',
         href: '/dashboard/courses/ask-someone-out',
         status: 'live',
+        level: 'Foundational',
         estimatedMinutes: 30,
         courseId: 'ask-someone-out',
         illustration: 'date',
@@ -95,30 +99,38 @@ function SkillModuleCard({ card, completedCourseIds }: { card: SkillCard; comple
   const isCompleted = card.courseId ? completedCourseIds.has(card.courseId) : false
   const isLive = card.status === 'live'
 
+  const targetHref = isCompleted ? `${card.href}?review=toolkit` : card.href
   const inner = (
-    <div className="flex gap-5 rounded-card border border-border bg-white p-5 transition-colors group-hover:border-primary">
+    <div className={`relative flex gap-5 rounded-card border p-5 transition-colors ${
+      isCompleted
+        ? 'border-border bg-gray-50 opacity-80 group-hover:opacity-100'
+        : 'border-border bg-white group-hover:border-primary'
+    }`}>
+      {isCompleted && (
+        <div className="absolute inset-0 rounded-card bg-white/30 pointer-events-none" />
+      )}
       <LineIllustration type={card.illustration} />
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-1 relative">
         <div className="mb-2 flex flex-wrap items-center gap-2">
           <h2 className="text-base font-medium text-ink">{card.title}</h2>
           {isLive ? (
-            <span className="rounded-pill bg-primary-light px-2 py-0.5 text-xs text-primary">Live</span>
+            <span className="rounded-pill bg-primary-light px-2 py-0.5 text-xs text-primary">{card.level}</span>
           ) : (
             <span className="rounded-pill bg-bg px-2 py-0.5 text-xs text-ink-light">Coming soon</span>
           )}
           {isCompleted && (
-            <span className="rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">Completed</span>
+            <span className="rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">Course completed</span>
           )}
         </div>
         <p className="text-sm leading-relaxed text-ink-mid">{card.description}</p>
-        <p className="mt-3 text-xs text-ink-light">{card.estimatedMinutes} min</p>
+        <p className="mt-3 text-xs text-ink-light">{isCompleted ? 'Review skills' : `${card.estimatedMinutes} min`}</p>
       </div>
       <span className={`mt-1 text-lg ${isLive ? 'text-ink-light group-hover:text-primary' : 'text-ink-light/40'}`}>→</span>
     </div>
   )
 
   if (!isLive) return <div className="cursor-default opacity-85">{inner}</div>
-  return <Link href={card.href} className="group block">{inner}</Link>
+  return <Link href={targetHref} className="group block">{inner}</Link>
 }
 
 export default function SkillsPage() {
@@ -149,7 +161,6 @@ export default function SkillsPage() {
         <section key={section.label} className="mb-10">
           <div className="mb-4">
             <h2 className="text-xs font-medium uppercase tracking-wide text-ink-light">{section.label}</h2>
-            <p className="mt-1 text-sm text-ink-mid">{section.description}</p>
           </div>
           <div className="grid gap-4">
             {section.cards.slice(0, 2).map(card => (

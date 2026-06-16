@@ -17,6 +17,15 @@ type AboutData = {
   how_i_work_best: string;
 };
 
+type ToolkitItem = {
+  id: string;
+  course_id: string;
+  category: string;
+  label: string;
+  content: string;
+  created_at: string;
+};
+
 function toggleValue(list: string[], value: string, max?: number) {
   if (list.includes(value)) return list.filter((item) => item !== value);
   if (max && list.length >= max) return list;
@@ -146,6 +155,8 @@ export default function AboutPage() {
   const [neurodivergentContext, setNeurodivergentContext] = useState<string[]>([]);
   const [contextOther, setContextOther] = useState("");
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
+  const [toolkitItems, setToolkitItems] = useState<ToolkitItem[]>([]);
+  const [deletingToolkitId, setDeletingToolkitId] = useState<string | null>(null);
 
   useEffect(() => {
     async function load() {
@@ -175,6 +186,11 @@ export default function AboutPage() {
         setCoachingTone(profile.coaching_tone || "direct_kind");
         setNeurodivergentContext(profile.neurodivergent_context || []);
         setContextOther(profile.neurodivergent_context_other || "");
+      }
+      const toolkitRes = await fetch("/api/course-toolkit");
+      if (toolkitRes.ok) {
+        const toolkitData = (await toolkitRes.json().catch(() => ({}))) as { items?: ToolkitItem[] };
+        setToolkitItems(toolkitData.items || []);
       }
       setLoading(false);
     }
@@ -217,6 +233,17 @@ export default function AboutPage() {
     });
   }
 
+  async function deleteToolkitItem(id: string) {
+    setDeletingToolkitId(id);
+    const res = await fetch("/api/course-toolkit", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id }),
+    });
+    setDeletingToolkitId(null);
+    if (res.ok) setToolkitItems((current) => current.filter((item) => item.id !== id));
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
@@ -239,6 +266,40 @@ export default function AboutPage() {
       </p>
 
       <form onSubmit={save} className="space-y-5">
+        <div className="bg-white border border-border rounded-card p-5">
+          <div className="mb-4">
+            <h2 className="text-sm font-medium text-ink mb-1">Communication toolkit</h2>
+            <p className="text-xs text-ink-light">
+              Phrases and questions you created in Beckett courses. Delete anything you do not want to keep.
+            </p>
+          </div>
+          {toolkitItems.length === 0 ? (
+            <p className="text-sm text-ink-light">Nothing saved yet. Course phrases will appear here after you build them.</p>
+          ) : (
+            <div className="space-y-3">
+              {toolkitItems.map((item) => (
+                <div key={item.id} className="rounded-card border border-border bg-bg p-4">
+                  <div className="mb-2 flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-xs font-medium text-primary">{item.label}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-ink-light">{item.category.replace(/_/g, " ")}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => deleteToolkitItem(item.id)}
+                      disabled={deletingToolkitId === item.id}
+                      className="text-xs text-ink-light hover:text-red-600 disabled:opacity-50"
+                    >
+                      {deletingToolkitId === item.id ? "Deleting..." : "Delete"}
+                    </button>
+                  </div>
+                  <p className="text-sm leading-relaxed text-ink">{item.content}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         <SummarySection
           title="Communication strengths"
           description="Pick up to three. Beckett starts from what already works."
