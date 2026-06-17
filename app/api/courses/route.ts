@@ -5,10 +5,12 @@ import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 import { trackBetaEvent } from '@/lib/beta-events'
 
 export async function POST(req: NextRequest) {
+  const diagnostic: { action?: string; courseId?: string | null; userId?: string } = {}
   try {
   const supabase = createSupabaseServerClient()
   const { data: { session } } = await supabase.auth.getSession()
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  diagnostic.userId = session.user.id
 
   const { data: profile } = await supabase
     .from('profiles')
@@ -32,10 +34,15 @@ export async function POST(req: NextRequest) {
     scenario?: string
     explanation?: string
     matchName?: string
+    matchDescription?: string
     conversationHistory?: string
+    practiceKind?: 'dating' | 'workplace'
+    courseId?: string
   }
 
   const { action } = body
+  diagnostic.action = action
+  diagnostic.courseId = body.courseId || null
   const callMeteredAnthropic = async (
     system: string | null,
     messages: { role: 'user' | 'assistant'; content: string }[],
@@ -56,7 +63,7 @@ export async function POST(req: NextRequest) {
     return result
   }
 
-  // ── Dating app turn ────────────────────────────────────────────────────
+  // ── Practice turn ──────────────────────────────────────────────────────
   if (action === 'turn') {
     const { system, messages } = body
     if (!messages?.length) return NextResponse.json({ error: 'messages required' }, { status: 400 })
@@ -71,7 +78,8 @@ export async function POST(req: NextRequest) {
 
   // ── Ghost check ────────────────────────────────────────────────────────
   if (action === 'check_ghost') {
-    const { messages, matchName } = body
+    const { messages, matchName, practiceKind } = body
+    if (practiceKind !== 'dating') return NextResponse.json({ ghost: false, hardIntervention: null })
     if (!messages?.length) return NextResponse.json({ ghost: false, hardIntervention: null })
     const lastFew = messages.slice(-8)
 
@@ -100,7 +108,8 @@ Return ONLY valid JSON: { "ghost": boolean, "hardIntervention": null | "brief 1-
 
   // ── Ghost analysis (Beckett debrief on why they were ghosted) ──────────
   if (action === 'ghost_analysis') {
-    const { conversationHistory, matchName } = body
+    const { conversationHistory, matchName, practiceKind } = body
+    if (practiceKind !== 'dating') return NextResponse.json({ analysis: '' })
     const prompt = `A person was practicing asking someone out on a dating app. Their match (${matchName || 'Jamie'}) stopped responding — they were ghosted.
 
 Conversation:
@@ -118,20 +127,21 @@ As Beckett, write 2-3 sentences of honest, compassionate analysis of why the con
 
   // ── Mini-conversation (consequence preview for guided practice) ─────────
   if (action === 'mini_convo') {
-    const { wrongAnswer, scenario, explanation, matchName } = body
+    const { wrongAnswer, scenario, explanation, matchName, practiceKind } = body
+    const isDating = practiceKind === 'dating'
 
-    const prompt = `Generate a short realistic dating app conversation (3-4 exchanges) showing what would happen if someone sent a bad message.
+    const prompt = `Generate a short realistic ${isDating ? 'dating app' : 'workplace'} conversation (3-4 exchanges) showing what would happen if someone sent a less effective message.
 
-Context: ${scenario || 'asking someone out on a dating app'}
-The bad message they sent: "${wrongAnswer}"
-Why it's a problem: ${explanation || 'not ideal'}
+Context: ${scenario || (isDating ? 'asking someone out on a dating app' : 'asking for clarity at work')}
+The message they sent: "${wrongAnswer}"
+Why it is a problem: ${explanation || 'not ideal'}
 
-Format: alternate between [User] and [${matchName || 'Jamie'}]. Start with the user sending the bad message. Show the realistic consequence — the match becoming less engaged, more noncommittal, or giving a polite brush-off. Keep each message 1-2 sentences. Stay realistic, not dramatic.
+Format: alternate between [User] and [${matchName || (isDating ? 'Jamie' : 'Jordan')}]. Start with the user sending the message. Show the realistic consequence — ${isDating ? 'the match becoming less engaged, more noncommittal, or giving a polite brush-off' : 'the other person needing to ask for clarification or giving an answer that still leaves the task unclear'}. Keep each message 1-2 sentences. Stay realistic, not dramatic.
 
 Return ONLY valid JSON: { "messages": [{ "role": "user" | "assistant", "content": "..." }] }`
 
     const result = await callMeteredAnthropic(
-      'You generate realistic dating app conversation previews. Return only valid JSON.',
+      `You generate realistic ${isDating ? 'dating app' : 'workplace'} conversation previews. Return only valid JSON.`,
       [{ role: 'user', content: prompt }],
       400
     )
@@ -159,11 +169,12 @@ Return ONLY valid JSON: { "messages": [{ "role": "user" | "assistant", "content"
 
   // ── Debrief ────────────────────────────────────────────────────────────
   if (action === 'debrief') {
-    const { conversationHistory, matchName } = body
+    const { conversationHistory, matchName, matchDescription, practiceKind } = body
     if (!conversationHistory) return NextResponse.json({ error: 'conversationHistory required' }, { status: 400 })
 
-    const system = 'You are Beckett, giving honest feedback after a dating app practice conversation. Always respond with valid JSON only — no extra text.'
-    const user = `You were playing the role of ${matchName || 'a dating app match'} in a practice conversation.
+    const isDating = practiceKind === 'dating'
+    const system = `You are Beckett, giving honest feedback after a ${isDating ? 'dating app' : 'workplace'} practice conversation. Always respond with valid JSON only — no extra text.`
+    const user = `You were playing the role of ${matchName || (isDating ? 'a dating app match' : 'the other person')} (${matchDescription || (isDating ? 'a dating app match' : 'a workplace conversation partner')}) in a practice conversation.
 
 Here is the conversation:
 ${conversationHistory}
@@ -189,6 +200,13 @@ Return only valid JSON. No markdown, no extra text.`
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (error) {
+    console.error('Course API failure', {
+      action: diagnostic.action || 'unknown',
+      courseId: diagnostic.courseId || null,
+      userId: diagnostic.userId || null,
+      status: error instanceof AiUsageLimitError ? error.status : 500,
+      message: error instanceof Error ? error.message : 'Unknown error',
+    })
     if (error instanceof AiUsageLimitError) {
       return NextResponse.json(
         { error: error.message, limit: error.limit, remaining: error.remaining },

@@ -80,7 +80,19 @@ export type MCRound = { scenario: string; options: MCOption[] }
 export type MultipleChoiceSlide = {
   type: 'multiple-choice'
   title: string
+  description?: string
+  helperChecklist?: string[]
   rounds: MCRound[]
+}
+
+export type MultiSelectOption = { text: string; correct: boolean }
+export type MultiSelectRound = { scenario: string; question: string; options: MultiSelectOption[]; explanation: string }
+export type MultiSelectQuizSlide = {
+  type: 'multi-select-quiz'
+  title: string
+  description?: string
+  formulaStep?: number
+  rounds: MultiSelectRound[]
 }
 
 export type ChecklistSlide = {
@@ -93,6 +105,7 @@ export type VisualFormulaSlide = {
   type: 'visual-formula'
   title: string
   description?: string
+  activeStep?: number
   steps: { label: string; text: string; example?: string }[]
 }
 
@@ -138,6 +151,7 @@ export type CourseSlide =
   | SideBySideSlide
   | SortingSlide
   | MultipleChoiceSlide
+  | MultiSelectQuizSlide
   | ChecklistSlide
   | VisualFormulaSlide
   | ReflectionChoiceSlide
@@ -147,9 +161,11 @@ export type OpenPracticeConfig = {
   matchName: string
   matchDescription: string
   systemPrompt: string
+  practiceKind?: 'dating' | 'workplace'
   channel?: 'dating' | 'slack' | 'chat'
   subtitle?: string
   goal: string
+  helperChecklist?: string[]
   starterMessages?: { role: 'user' | 'assistant'; content: string; timestamp?: string }[]
   starterOptions?: string[]
   userStarts?: boolean
@@ -167,6 +183,13 @@ export type Course = {
   openPractice: OpenPracticeConfig
   reviewWrongAnswers: boolean
   reviewConversationTurns: number
+  savesToToolkit?: boolean
+  reviewSummary?: {
+    title: string
+    description: string
+    formulas?: { label: string; text: string }[]
+    checklist?: string[]
+  }
 }
 
 // ── Asking Someone Out ─────────────────────────────────────────────────────
@@ -184,6 +207,7 @@ const askSomeoneOut: Course = {
   openPractice: {
     matchName: 'Jamie',
     matchDescription: 'a dating app match you have been chatting with about music and weekend plans',
+    practiceKind: 'dating',
     channel: 'dating',
     subtitle: 'Dating app match - chatted yesterday',
     goal: 'Use one of your saved ask styles or draft your own. The goal is a clear, low-pressure first-date ask.',
@@ -384,6 +408,7 @@ const introducingNewColleague: Course = {
   openPractice: {
     matchName: 'Maya',
     matchDescription: 'a new cross-functional colleague joining your project',
+    practiceKind: 'workplace',
     channel: 'slack',
     subtitle: 'Slack DM - new colleague',
     goal: 'Introduce yourself, give Maya useful context, and make the next collaboration step clear.',
@@ -511,20 +536,46 @@ Never break character. You are Maya, not Beckett.`,
 
 const askingForClarity: Course = {
   id: 'asking-for-clarity',
-  title: 'Asking for Clarity Without Feeling Uncomfortable',
+  title: 'Asking for Clarity at Work',
   description: 'A workplace course where Beckett helps you ask specific follow-up questions without over-apologizing or pretending you understand.',
-  estimatedMinutes: 35,
+  estimatedMinutes: 45,
   confidenceQuestion: 'How confident do you feel asking for clarity at work?',
-  confidenceIntro: 'In this course, Beckett will help you turn unclear work requests into specific questions you can actually ask.',
-  reflectiveQuestion: 'Your clarity questions are saved in your Communication toolkit.',
+  confidenceIntro: 'In this course, Beckett will help you identify unclear work requests and then create specific clarifying questions you can ask.',
+  reflectiveQuestion: 'You practiced the clarity formula: what I understand, what is unclear, the specific question, and why it helps.',
   reviewWrongAnswers: true,
   reviewConversationTurns: 4,
+  savesToToolkit: false,
+  reviewSummary: {
+    title: 'Clarity formula review',
+    description: 'Use this when a work request feels vague, rushed, or incomplete.',
+    formulas: [
+      { label: 'What I understand', text: 'Start with what you think is true so the other person can confirm or correct it.' },
+      { label: 'What is unclear', text: 'Name the missing piece instead of saying the whole thing is confusing.' },
+      { label: 'Specific question', text: 'Ask one answerable question, with options if that makes it easier.' },
+      { label: 'Why it helps', text: 'Connect the answer to better work, prioritization, scope, or avoiding rework.' },
+    ],
+    checklist: [
+      'I named what I understand',
+      'I named the unclear part',
+      'I asked one specific question',
+      'I gave options if that makes answering easier',
+      'I did not apologize for needing the information',
+    ],
+  },
   openPractice: {
     matchName: 'Jordan',
     matchDescription: 'a busy manager who gave you an unclear task',
+    practiceKind: 'workplace',
     channel: 'slack',
     subtitle: 'Slack DM - vague work request',
     goal: 'Ask Jordan for the missing information you need before you start the work.',
+    helperChecklist: [
+      'Name what is already understood',
+      'Identify the specific unclear part',
+      'Ask one specific answerable question',
+      'Give options if that makes answering easier',
+      'Leave out the apology',
+    ],
     starterMessages: [
       { role: 'assistant', content: 'Can you clean up the onboarding flow before the team review?', timestamp: '10:12 AM' },
       { role: 'assistant', content: 'Mainly just make sure it is in better shape.', timestamp: '10:12 AM' },
@@ -546,36 +597,59 @@ Never break character. You are Jordan, not Beckett.`,
       title: 'What Clarity Actually Is',
       description: 'Clarity is shared alignment, not needing extra help.',
       sections: [
+        {
+          heading: 'Why this can feel loaded',
+          bullets: [
+            'Asking for clarity at work should be simple, but for many neurodivergent people it is not.',
+            'This course covers what makes clarification feel loaded, how to identify the missing information, and how to ask directly without apologizing.',
+          ],
+        },
         { heading: 'The goal', bullets: ['Make sure you are solving the right problem before you spend energy on it.'] },
-        { heading: 'What can be unclear', bullets: ['Deadline, priority, definition of done, owner, audience, or level of polish.'] },
+        { heading: 'What can be unclear', bullets: ['Timeline, priority, definition of done, audience, and who the decision maker is.'] },
         { heading: 'The reframe', bullets: ['You are not bothering someone; you are preventing avoidable rework.'] },
-      ],
-    },
-    {
-      type: 'flip-cards',
-      title: 'What Kind Of Clarity Do You Need?',
-      description: 'Tap each card to see what the question is really asking for.',
-      cards: [
-        { front: 'Priority', back: ['What matters first?', 'Question: If I can only finish one part today, which part should I prioritize?'] },
-        { front: 'Deadline', back: ['When is it actually needed?', 'Question: Do you need this today or before Friday?'] },
-        { front: 'Definition of done', back: ['What does finished mean?', 'Question: Do you mean copy edits, structure, or both?'] },
-        { front: 'Context', back: ['What background should guide the work?', 'Question: Is there an example I should use?'] },
-        { front: 'Owner', back: ['Who decides or approves?', 'Question: Who should make the final call?'] },
-        { front: 'Polish', back: ['How finished should it be?', 'Question: Should this be rough, clean, or ready to send?'] },
       ],
     },
     {
       type: 'reflection-choice',
       title: 'Why Asking Can Feel Hard',
-      description: 'Pick the parts that make clarity questions feel uncomfortable.',
-      prompt: 'Which part tends to be hardest for you?',
+      description: 'Asking for clarification is harder than it should be. Not because the question is difficult, but because of everything that surrounds it: the worry that you should already know, the fear of sounding annoying, and the impulse to apologize before you ask.',
+      prompt: 'What part tends to be hardest for you?',
       multi: true,
-      options: ['Worrying I should already know', 'Not knowing what part is unclear', 'Fear of sounding annoying', 'Needing more specificity than others', 'Processing spoken instructions slowly', 'Over-apologizing before I ask'],
+      options: [
+        'Worrying that I should already know',
+        'Not knowing what information I am missing',
+        'Fear of sounding annoying',
+        'Needing more specificity than others',
+        'Knowing that I process spoken instructions slowly',
+        'Feeling like I should apologize before I ask',
+      ],
+    },
+    {
+      type: 'side-by-side',
+      title: 'Asking Without Over-Apologizing',
+      scenario: 'You need to ask what "clean this up" means.',
+      bad: { label: 'Weaker version', message: 'Sorry, this is probably annoying, but can you explain what you meant by clean this up?', note: 'The apology makes the question feel heavier than it needs to be.' },
+      good: { label: 'Stronger version', message: 'Quick clarification: when you say clean this up, do you mean copy edits, structure, or both?', note: 'Specific, neutral, and easy to answer.' },
+    },
+    {
+      type: 'matching',
+      title: 'Rewrite The Apology',
+      description: 'Time to practice. Match each over-apologetic question to a cleaner workplace version.',
+      instruction: 'Tap an original, then tap the improved version.',
+      leftLabel: 'Original',
+      rightLabel: 'Improved',
+      pairs: [
+        { left: { name: 'Clean up', description: 'Sorry, this is probably annoying, but can you explain what you meant?', mismatchNote: 'Look for the version that asks what clean up means.' }, right: { name: 'Improved', description: 'Quick clarification: do you mean copy edits, structure, or both?' } },
+        { left: { name: 'Deadline', description: 'Sorry if this is obvious, but when is this due?', mismatchNote: 'Look for the version that confirms deadline before prioritizing.' }, right: { name: 'Improved', description: 'I want to confirm the deadline before I prioritize this. Do you need it today or later this week?' } },
+        { left: { name: 'Polish', description: 'I am probably overthinking this, but should I make this polished?', mismatchNote: 'Look for the version that asks rough versus polished.' }, right: { name: 'Improved', description: 'To avoid overbuilding it, should this be a rough internal draft or a polished version?' } },
+        { left: { name: 'Owner', description: 'Sorry, who am I supposed to ask about this?', mismatchNote: 'Look for the version that asks who decides.' }, right: { name: 'Improved', description: 'Who should make the final call before I move this forward?' } },
+        { left: { name: 'Context', description: 'Sorry, I feel like I missed something. What is this for?', mismatchNote: 'Look for the version that asks for background context.' }, right: { name: 'Improved', description: 'Is there background context or an example I should review before I start?' } },
+      ],
     },
     {
       type: 'visual-formula',
       title: 'The Clarity Formula',
-      description: 'A strong clarity question gives your brain a track to run on.',
+      description: 'Knowing you need clarification and knowing how to ask for it are two different things. This formula gives your brain a clear structure to work from.',
       steps: [
         { label: 'What I understand', text: 'Start with what you think is true.', example: 'I understand the goal is to clean up onboarding before review.' },
         { label: 'What is unclear', text: 'Name the missing piece.', example: 'I am not sure whether clean up means copy, structure, or both.' },
@@ -584,8 +658,101 @@ Never break character. You are Jordan, not Beckett.`,
       ],
     },
     {
+      type: 'flip-cards',
+      title: 'What Kind Of Clarity Do You Need?',
+      description: 'Tap each card to see what the question is really asking for.',
+      cards: [
+        { front: 'Timeline', back: ['When is this task due and how should I prioritize it?', 'Question: Do you need this today or before Friday?'] },
+        { front: 'Definition of done', back: ['What does finished mean?', 'Questions: Do you mean copy edits, structure, or both? Should this be rough, clean, or ready to send?'] },
+        { front: 'Audience', back: ['Who is this for: internal team, leadership, or beta users?', 'Question: Will this be an internal or external-facing document?'] },
+        { front: 'Decision maker', back: ['Who needs to approve the final version?', 'Question: Will this be reviewed by the team or should I send it to someone specific?'] },
+      ],
+    },
+    {
+      type: 'multi-select-quiz',
+      title: 'Step 1 - What Do I Know?',
+      description: 'Identify what you already know. It anchors the question, shows you have been listening, and gives the other person a clear starting point to correct or confirm.',
+      formulaStep: 1,
+      rounds: [
+        {
+          scenario: 'Message from Jordan, your manager: "Hey - can you take a look at the onboarding doc and clean it up before the team review on Thursday?"',
+          question: 'What do you already know from this message? Select all that apply.',
+          options: [
+            { text: 'There is a team review happening on Thursday', correct: true },
+            { text: 'The onboarding doc is the one that needs work', correct: true },
+            { text: 'The work needs to be done before Thursday', correct: true },
+            { text: 'What clean it up means', correct: false },
+            { text: 'How polished the final version needs to be', correct: false },
+            { text: 'Whether to focus on copy, structure, or both', correct: false },
+            { text: 'Whether anyone else is also working on the doc', correct: false },
+          ],
+          explanation: 'You know the document, the deadline, and the event it is for. What is missing is the definition of done.',
+        },
+        {
+          scenario: 'Slack message from a teammate: "Can you take over the client email for the Halford account? I have a conflict this afternoon."',
+          question: 'What do you already know from this message? Select all that apply.',
+          options: [
+            { text: 'There is a client email that needs to be sent', correct: true },
+            { text: 'Your teammate cannot handle it this afternoon', correct: true },
+            { text: 'The account is Halford', correct: true },
+            { text: 'When the email needs to go out', correct: false },
+            { text: 'What the email should say or what the goal is', correct: false },
+            { text: 'Whether there is a draft already started', correct: false },
+            { text: 'Who the email is going to', correct: false },
+          ],
+          explanation: 'You know what needs doing and why your teammate cannot do it. What is missing is the timing, content, audience, and whether there is a draft.',
+        },
+        {
+          scenario: 'Email from a senior colleague: "I would love your input on the new process doc before it goes to leadership. Let me know what you think when you get a chance."',
+          question: 'What do you already know from this message? Select all that apply.',
+          options: [
+            { text: 'There is a process doc that is being finalized', correct: true },
+            { text: 'It is going to leadership at some point', correct: true },
+            { text: 'They want your input before it goes out', correct: true },
+            { text: 'What kind of feedback they are looking for', correct: false },
+            { text: 'How detailed or thorough your review should be', correct: false },
+            { text: 'When they need your response by', correct: false },
+            { text: 'Whether this is urgent or low priority', correct: false },
+          ],
+          explanation: 'You know the document exists, where it is headed, and that your input is wanted. The missing parts are timeline and scope.',
+        },
+      ],
+    },
+    {
+      type: 'multiple-choice',
+      title: 'Step 2 - What Information Is Missing?',
+      description: 'Not everything that feels unclear actually is. Usually one specific missing piece is creating the confusion.',
+      helperChecklist: ['What I understand', 'What is unclear'],
+      rounds: [
+        {
+          scenario: 'Your manager says, "Can you clean up the onboarding doc?" What information is most missing?',
+          options: [
+            { text: 'Definition of done: what clean up means', correct: true, explanation: 'You need to know whether this means copy, structure, polish, or all of it.' },
+            { text: 'The order you should tackle each section', correct: false, explanation: 'Order may matter later, but first you need to know what clean up means.' },
+            { text: 'Whether to send it when you are done or wait for a review meeting', correct: false, explanation: 'That is useful later, but it does not resolve the core unclear phrase.' },
+          ],
+        },
+        {
+          scenario: 'A teammate says, "Can you help with the launch issue?" What information is most missing?',
+          options: [
+            { text: 'Ownership and urgency', correct: true, explanation: 'You need to know what part they want you to own and whether this is urgent.' },
+            { text: 'Whether this is related to the bug reported last week', correct: false, explanation: 'Maybe, but first you need to know what they need from you and how urgent it is.' },
+            { text: 'Who else is already working on it', correct: false, explanation: 'Helpful context, but not the most important missing information.' },
+          ],
+        },
+        {
+          scenario: 'Your skip-level manager says, "Can you take a look at the new process doc and let me know what you think?" What is the most important missing information?',
+          options: [
+            { text: 'Scope and purpose', correct: true, explanation: '"Let me know what you think" could mean a gut reaction, line edit, or strategic critique.' },
+            { text: 'Whether they wrote the doc themselves or inherited it', correct: false, explanation: 'That might affect tone, but it does not tell you what kind of input they need.' },
+            { text: 'How long the doc is and whether you have time to read it today', correct: false, explanation: 'Time matters, but the first question is what kind of review they want.' },
+          ],
+        },
+      ],
+    },
+    {
       type: 'sorting',
-      title: 'Good Questions vs. Vague Questions',
+      title: 'Step 3 - Asking Specific Questions',
       instruction: 'Sort each message by what kind of clarity question it is.',
       categories: ['Strong clarity question', 'Too vague', 'Too apologetic'],
       items: [
@@ -596,79 +763,70 @@ Never break character. You are Jordan, not Beckett.`,
       ],
     },
     {
-      type: 'side-by-side',
-      title: 'Asking Without Over-Apologizing',
-      scenario: 'You need to ask what "clean this up" means.',
-      bad: { label: 'Too apologetic', message: 'Sorry, this is probably annoying, but can you explain what you meant by clean this up?', note: 'The apology makes the question feel heavier than it needs to be.' },
-      good: { label: 'Clearer', message: 'Quick clarification: when you say clean this up, do you mean copy edits, structure, or both?', note: 'Specific, neutral, and easy to answer.' },
-    },
-    {
-      type: 'matching',
-      title: 'Rewrite The Apology',
-      description: 'Match each over-apologetic question to a calmer workplace version.',
-      instruction: 'Tap an original, then tap the better version.',
-      leftLabel: 'Original',
-      rightLabel: 'Better',
-      pairs: [
-        { left: { name: 'Clean up', description: 'Sorry, this is probably annoying, but can you explain what you meant?', mismatchNote: 'Look for the version that asks what clean up means.' }, right: { name: 'Better', description: 'Quick clarification: do you mean copy edits, structure, or both?' } },
-        { left: { name: 'Deadline', description: 'Sorry if this is obvious, but when is this due?', mismatchNote: 'Look for the version that confirms deadline before prioritizing.' }, right: { name: 'Better', description: 'I want to confirm the deadline before I prioritize this. Do you need it today or later this week?' } },
-        { left: { name: 'Polish', description: 'I am probably overthinking this, but should I make this polished?', mismatchNote: 'Look for the version that asks rough versus polished.' }, right: { name: 'Better', description: 'To avoid overbuilding it, should this be a rough internal draft or a polished version?' } },
-        { left: { name: 'Owner', description: 'Sorry, who am I supposed to ask about this?', mismatchNote: 'Look for the version that asks who decides.' }, right: { name: 'Better', description: 'Who should make the final call before I move this forward?' } },
-        { left: { name: 'Context', description: 'Sorry, I feel like I missed something. What is this for?', mismatchNote: 'Look for the version that asks for background context.' }, right: { name: 'Better', description: 'Is there background context or an example I should review before I start?' } },
-      ],
-    },
-    {
-      type: 'flip-cards',
-      title: 'Types Of Context To Ask For',
-      description: 'Use these when a request feels incomplete.',
-      cards: [
-        { front: 'Audience', back: ['Who is this for: internal team, leadership, or beta users?'] },
-        { front: 'Decision maker', back: ['Who needs to approve the final version?'] },
-        { front: 'Constraints', back: ['Are there must-keep sections or things I should avoid changing?'] },
-        { front: 'Definition of done', back: ['What would make this complete enough to hand off?'] },
-        { front: 'Priority', back: ['If I only finish one part today, which part matters most?'] },
+      type: 'sorting',
+      title: 'Step 4 - Why This Helps You',
+      instruction: 'Choose whether each closing line connects the question to the work.',
+      categories: ['Connects to the work', 'Does not connect to the work'],
+      items: [
+        { message: 'That will help me avoid redoing it after the review.', correct: 'Connects to the work', explanation: 'It names a specific outcome that benefits the project.' },
+        { message: 'I just want to make sure I am not doing it wrong.', correct: 'Does not connect to the work', explanation: 'This centers personal anxiety rather than the task outcome.' },
+        { message: 'That will help me prioritize correctly before I start.', correct: 'Connects to the work', explanation: 'It links the clarification to a decision that affects the work.' },
+        { message: 'I always get confused by this kind of thing.', correct: 'Does not connect to the work', explanation: 'This explains a pattern rather than connecting the question to the task.' },
+        { message: 'Knowing this will help me scope the work accurately before the deadline.', correct: 'Connects to the work', explanation: 'It connects the missing information to accurate scoping.' },
+        { message: 'I just do not want to get it wrong and have to redo everything.', correct: 'Does not connect to the work', explanation: 'The concern is valid, but the framing centers fear of failure.' },
+        { message: 'That will help me make sure the output is at the right level before I hand it off.', correct: 'Connects to the work', explanation: 'It names a concrete work checkpoint.' },
+        { message: 'I feel like I missed something in the briefing.', correct: 'Does not connect to the work', explanation: 'This explains a feeling rather than connecting the question to an outcome.' },
       ],
     },
     {
       type: 'multiple-choice',
-      title: 'What Information Is Missing?',
+      title: 'Put It All Together',
+      description: 'Each round shows a real workplace message and three possible responses. Only one response puts the full Clarity Formula together correctly.',
+      helperChecklist: [
+        'Names what is already understood',
+        'Identifies the specific unclear part',
+        'Asks one specific answerable question',
+        'Gives options where helpful',
+        'Does not include an apology',
+      ],
       rounds: [
         {
-          scenario: 'Your manager says, "Can you clean up the onboarding doc?" What information is most missing?',
+          scenario: 'Message from your manager, sent Monday morning: "Hey - before you start on the homepage copy, just make sure it matches the new direction we talked about."',
           options: [
-            { text: 'Definition of done: what clean up means', correct: true, explanation: 'You need to know whether this means copy, structure, polish, or all of it.' },
-            { text: 'Their personality type', correct: false, explanation: 'That does not help you complete the task.' },
-            { text: 'Whether they are mad at you', correct: false, explanation: 'The task is underspecified; start with the work question.' },
+            { text: 'I have my notes from our last conversation. I am not sure whether the new direction means a different tone, structure, or messaging priorities. Which should I focus on first so I avoid rewriting anything after the fact?', correct: true, explanation: 'It names what is known, identifies the gap, asks one answerable question, and connects it to avoiding rework.' },
+            { text: 'I have my notes from our last conversation. Before I start, I want to confirm - when you say new direction, are you referring to the Friday meeting or something more recent?', correct: false, explanation: 'Good question, but it only clarifies the source. It does not yet ask what part of the work should change.' },
+            { text: 'I want to make sure I get this right before I start. Could you point me to where the new direction is documented so I am working from the right version?', correct: false, explanation: 'Reasonable, but less complete. It asks for documentation without naming the actual unclear parts.' },
           ],
         },
         {
-          scenario: 'A teammate says, "Can you help with the launch issue?" What information is most missing?',
+          scenario: 'Slack message from a senior colleague: "Can you take a look at the deck before it goes to the client and just tighten it up a bit?"',
           options: [
-            { text: 'Ownership and urgency', correct: true, explanation: 'You need to know what part they want you to own and whether this is urgent.' },
-            { text: 'Whether they like your work', correct: false, explanation: 'That may be anxiety talking, not the missing task context.' },
-            { text: 'What they had for lunch', correct: false, explanation: 'Not relevant to the task.' },
+            { text: 'I know the presentation is going out soon. To make sure I focus on what matters most, do you mean tightening the copy, cutting slides, or improving visual consistency?', correct: true, explanation: 'It names what is known, identifies the vague phrase, and gives three answerable options.' },
+            { text: 'Happy to help before it goes to the client. Should I track my changes so you can review what I touched before it goes out?', correct: false, explanation: 'This asks about workflow, but not what tighten it up means.' },
+            { text: 'I know the deck is mostly finalized. I can focus on either the copy or the visual side - which would be more useful for the client version?', correct: false, explanation: 'Close, but it assumes the deck is mostly finalized and misses the option of cutting or restructuring.' },
+          ],
+        },
+        {
+          scenario: 'Email from a project lead you have not worked with before: "We need someone to own the onboarding section of the handbook. Let me know if you can take it on."',
+          options: [
+            { text: 'I know this is for the new team handbook. Before I commit, I want to clarify - does own mean writing from scratch, editing an existing draft, or coordinating input from others? That will help me give you a realistic timeline.', correct: true, explanation: 'It identifies the critical gap, gives concrete options, and connects the answer to a realistic timeline.' },
+            { text: 'I would be glad to take this on. Before I commit, could you share any existing drafts or briefs so I know what I am working with?', correct: false, explanation: 'Useful, but it skips the core ambiguity: what owning the section actually means.' },
+            { text: 'Happy to help with the onboarding section. Is this just the first week or does it cover the full first month of joining?', correct: false, explanation: 'Good scope question, but it does not clarify the responsibility you are agreeing to own.' },
+          ],
+        },
+        {
+          scenario: 'Message from your manager, end of day Friday: "Can you pull together a summary of where we are on the project for the leadership update next week?"',
+          options: [
+            { text: 'I know the project has three active workstreams. Should the summary cover all three or just the ones with recent movement? That will help me make sure it is scoped correctly before I start drafting.', correct: true, explanation: 'It names what is known, asks a specific scope question, and connects the answer to starting correctly.' },
+            { text: 'Before I start, do you want this as bullet points or a narrative update?', correct: false, explanation: 'This helps with format, but the bigger missing piece is scope.' },
+            { text: 'I know leadership updates usually go out Wednesday. Is this the same format as last quarter or is there a new template I should use?', correct: false, explanation: 'This may be useful, but it assumes facts and focuses on template before scope.' },
           ],
         },
       ],
-    },
-    {
-      type: 'guided-builder',
-      title: 'Build Your Clarity Questions',
-      description: 'Create question types you can reuse at work.',
-      fields: [
-        { key: 'topic', label: 'What kind of work request is this for?', placeholder: 'onboarding flow', options: ['onboarding flow', 'launch issue', 'team review doc', 'client email'] },
-        { key: 'part', label: 'What part usually needs clarity?', placeholder: 'definition of done', options: ['priority', 'deadline', 'definition of done', 'owner', 'level of polish'] },
-        { key: 'options', label: 'What options would make it easier to answer?', placeholder: 'copy edits, structure, or both' },
-      ],
-      outputs: [
-        { label: 'Definition-of-done question', category: 'clarity_question', template: 'Quick clarification on {topic}: when you say {part}, do you mean {options}?' },
-        { label: 'Priority question', category: 'clarity_question', template: 'To prioritize {topic} correctly, should I focus on {options} first?' },
-      ],
-      saveLabel: 'Save clarity questions and continue →',
     },
     {
       type: 'checklist',
-      title: 'Final Checklist',
+      title: 'Clarity Checklist',
       items: [
         'I named what I understand',
         'I named the unclear part',

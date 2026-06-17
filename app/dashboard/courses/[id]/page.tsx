@@ -8,10 +8,12 @@ import type {
   MatchingSlide, InteractiveReadSlide, DraftPracticeSlide,
   SideBySideSlide, SortingSlide, MultipleChoiceSlide, ChecklistSlide,
   VisualFormulaSlide, ReflectionChoiceSlide, GuidedBuilderSlide,
+  MultiSelectQuizSlide,
 } from '@/lib/courses'
 
 type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion' | 'review'
 type Message = { role: 'user' | 'assistant'; content: string; timestamp?: string }
+type CourseApiError = Error & { status?: number; data?: { error?: string; limit?: number; remaining?: number } }
 type WrongAnswer = {
   slideIndex: number
   itemIndex: number
@@ -39,13 +41,23 @@ const PAIR_COLORS = [
   { bg: 'bg-violet-100', border: 'border-violet-400', text: 'text-violet-700' },
 ]
 
-async function callAPI(body: Record<string, unknown>) {
+const CLARITY_FORMULA_STEPS = ['What I understand', 'What is unclear', 'Specific question', 'Why it helps']
+
+async function callAPI(body: Record<string, unknown>): Promise<unknown> {
   const res = await fetch('/api/courses', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  return res.json()
+  const data = await res.json().catch(() => ({})) as { error?: string; limit?: number; remaining?: number }
+  if (!res.ok) {
+    const message = typeof data?.error === 'string' ? data.error : 'Beckett could not complete that request.'
+    const error = new Error(message) as CourseApiError
+    error.status = res.status
+    error.data = data
+    throw error
+  }
+  return data
 }
 
 export default function CoursePage({ params }: { params: { id: string } }) {
@@ -136,6 +148,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [mcShowFeedback, setMcShowFeedback] = useState(false)
   const [mcIsWrong, setMcIsWrong] = useState(false)
 
+  // ── Multi-select quiz ────────────────────────────────────────────────────
+  const [msRound, setMsRound] = useState(0)
+  const [msSelections, setMsSelections] = useState<Record<number, number[]>>({})
+  const [msChecked, setMsChecked] = useState(false)
+  const [msHasError, setMsHasError] = useState(false)
+
   // ── Checklist ────────────────────────────────────────────────────────────
   const [checkedItems, setCheckedItems] = useState<Set<number>>(new Set())
 
@@ -147,6 +165,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [showGhostOverlay, setShowGhostOverlay] = useState(false)
   const [hardIntervention, setHardIntervention] = useState<string | null>(null)
   const [ghostAnalysis, setGhostAnalysis] = useState<string | null>(null)
+  const [practiceError, setPracticeError] = useState<string | null>(null)
+  const [retryMessages, setRetryMessages] = useState<Message[] | null>(null)
   const ghostCheckStrikes = useRef(0)
 
   // ── Debrief ──────────────────────────────────────────────────────────────
@@ -243,6 +263,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setMcSelected(null)
     setMcShowFeedback(false)
     setMcIsWrong(false)
+    setMsRound(0)
+    setMsSelections({})
+    setMsChecked(false)
+    setMsHasError(false)
     setCheckedItems(new Set())
   }
 
@@ -336,6 +360,49 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setMcIsWrong(false)
     } else {
       setMcRound(slide.rounds.length)
+    }
+  }
+
+  // ── Multi-select quiz ─────────────────────────────────────────────────────
+  function toggleMSOption(optionIdx: number) {
+    setMsSelections((current) => {
+      const selected = new Set(current[msRound] || [])
+      if (selected.has(optionIdx)) selected.delete(optionIdx)
+      else selected.add(optionIdx)
+      return { ...current, [msRound]: Array.from(selected) }
+    })
+    setMsChecked(false)
+    setMsHasError(false)
+  }
+
+  function checkMSRound() {
+    const slide = course.slides[currentSlideIndex] as MultiSelectQuizSlide
+    const round = slide.rounds[msRound]
+    const selected = new Set(msSelections[msRound] || [])
+    const isCorrect = round.options.every((option, idx) => option.correct === selected.has(idx))
+    setMsChecked(true)
+    setMsHasError(!isCorrect)
+    if (!isCorrect) {
+      recordWrong({
+        slideIndex: currentSlideIndex,
+        itemIndex: msRound,
+        slideTitle: slide.title,
+        scenario: round.scenario,
+        userAnswer: round.options.filter((_, idx) => selected.has(idx)).map((option) => option.text).join('; ') || 'none selected',
+        correctAnswer: round.options.filter((option) => option.correct).map((option) => option.text).join('; '),
+        explanation: round.explanation,
+      })
+    }
+  }
+
+  function advanceMSRound() {
+    const slide = course.slides[currentSlideIndex] as MultiSelectQuizSlide
+    if (msRound < slide.rounds.length - 1) {
+      setMsRound((round) => round + 1)
+      setMsChecked(false)
+      setMsHasError(false)
+    } else {
+      setMsRound(slide.rounds.length)
     }
   }
 
@@ -457,21 +524,30 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   async function getDraftFeedback(ctx: string) {
     if (!draftInput.trim() || draftLoading) return
     setDraftLoading(true)
-    const data = await callAPI({ action: 'draft_feedback', userMessage: draftInput, draftContext: ctx }) as { note?: string }
-    setDraftLoading(false)
-    if (data.note) setDraftFeedback(data.note)
+    try {
+      const data = await callAPI({ action: 'draft_feedback', userMessage: draftInput, draftContext: ctx }) as { note?: string }
+      if (data.note) setDraftFeedback(data.note)
+    } catch (error) {
+      setDraftFeedback(formatCourseApiError(error))
+    } finally {
+      setDraftLoading(false)
+    }
   }
 
   // ── Guided practice ────────────────────────────────────────────────────────
   async function loadMiniConvo(wa: WrongAnswer) {
     setMiniConvoLoading(true)
-    const data = await callAPI({
-      action: 'mini_convo',
-      wrongAnswer: wa.userAnswer, scenario: wa.scenario,
-      explanation: wa.explanation, matchName: course.openPractice.matchName,
-    }) as { messages?: Message[] }
-    setMiniConvoLoading(false)
-    if (data.messages?.length) setMiniConvo(data.messages)
+    try {
+      const data = await callAPI({
+        action: 'mini_convo',
+        wrongAnswer: wa.userAnswer, scenario: wa.scenario,
+        explanation: wa.explanation, matchName: course.openPractice.matchName,
+        practiceKind: course.openPractice.practiceKind,
+      }) as { messages?: Message[] }
+      if (data.messages?.length) setMiniConvo(data.messages)
+    } finally {
+      setMiniConvoLoading(false)
+    }
   }
 
   function advanceWA() {
@@ -484,28 +560,43 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   // ── Open practice ──────────────────────────────────────────────────────────
-  async function sendPracticeMessage() {
-    if (!practiceInput.trim() || practiceLoading || ghosted) return
-    const userMsg: Message = { role: 'user', content: practiceInput.trim() }
-    const baseMessages = practiceMessages.length === 0 ? (course.openPractice.starterMessages || []) : practiceMessages
-    const next = [...baseMessages, userMsg]
-    setPracticeMessages(next)
-    setPracticeInput('')
+  async function sendPracticeMessage(messagesToRetry?: Message[]) {
+    if (practiceLoading || ghosted) return
+    const next = messagesToRetry || (() => {
+      if (!practiceInput.trim()) return null
+      const userMsg: Message = { role: 'user', content: practiceInput.trim() }
+      const baseMessages = practiceMessages.length === 0 ? (course.openPractice.starterMessages || []) : practiceMessages
+      return [...baseMessages, userMsg]
+    })()
+    if (!next) return
+    if (!messagesToRetry) {
+      setPracticeMessages(next)
+      setPracticeInput('')
+    }
+    setPracticeError(null)
+    setRetryMessages(null)
     setPracticeLoading(true)
-
-    const data = await callAPI({
-      action: 'turn', system: course.openPractice.systemPrompt, messages: next,
-    }) as { text?: string }
-    setPracticeLoading(false)
-
-    if (data.text) {
+    try {
+      const data = await callAPI({
+        action: 'turn',
+        system: course.openPractice.systemPrompt,
+        messages: next,
+        practiceKind: course.openPractice.practiceKind,
+        courseId: course.id,
+      }) as { text?: string }
+      if (!data.text) throw new Error('Beckett did not return a response. Please try again.')
       const withAI = [...next, { role: 'assistant' as const, content: data.text }]
       setPracticeMessages(withAI)
 
-      if (withAI.length >= 4 && withAI.filter(m => m.role === 'user').length % 2 === 0) {
+      if (course.openPractice.practiceKind === 'dating' && withAI.length >= 4 && withAI.filter(m => m.role === 'user').length % 2 === 0) {
         callAPI({
-          action: 'check_ghost', messages: withAI, matchName: course.openPractice.matchName,
-        }).then((d: { ghost?: boolean; hardIntervention?: string | null }) => {
+          action: 'check_ghost',
+          messages: withAI,
+          matchName: course.openPractice.matchName,
+          practiceKind: course.openPractice.practiceKind,
+          courseId: course.id,
+        }).then((raw) => {
+          const d = raw as { ghost?: boolean; hardIntervention?: string | null }
           if (d.hardIntervention) {
             setHardIntervention(d.hardIntervention)
             setGhosted(true)
@@ -521,22 +612,49 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           }
         }).catch(() => {})
       }
+    } catch (error) {
+      setPracticeError(formatCourseApiError(error))
+      setRetryMessages(next)
+    } finally {
+      setPracticeLoading(false)
     }
   }
 
   async function loadGhostAnalysis(msgs: Message[]) {
     const history = msgs.map(m => `[${m.role === 'user' ? 'You' : course.openPractice.matchName}]: ${m.content}`).join('\n')
-    const data = await callAPI({ action: 'ghost_analysis', conversationHistory: history, matchName: course.openPractice.matchName }) as { analysis?: string }
-    if (data.analysis) setGhostAnalysis(data.analysis)
+    try {
+      const data = await callAPI({
+        action: 'ghost_analysis',
+        conversationHistory: history,
+        matchName: course.openPractice.matchName,
+        practiceKind: course.openPractice.practiceKind,
+        courseId: course.id,
+      }) as { analysis?: string }
+      if (data.analysis) setGhostAnalysis(data.analysis)
+    } catch {
+      setGhostAnalysis('Beckett could not analyze that moment, but you can still get your full debrief.')
+    }
   }
 
   async function endPracticeAndDebrief() {
     if (practiceMessages.length < 2) return
     setDebriefLoading(true)
     const history = practiceMessages.map(m => `[${m.role === 'user' ? 'You' : course.openPractice.matchName}]: ${m.content}`).join('\n')
-    const data = await callAPI({ action: 'debrief', conversationHistory: history, matchName: course.openPractice.matchName }) as DebriefData & { error?: string }
-    setDebriefLoading(false)
-    if (!data.error) { setDebrief(data); setPhase('debrief') }
+    try {
+      const data = await callAPI({
+        action: 'debrief',
+        conversationHistory: history,
+        matchName: course.openPractice.matchName,
+        practiceKind: course.openPractice.practiceKind,
+        courseId: course.id,
+        matchDescription: course.openPractice.matchDescription,
+      }) as DebriefData & { error?: string }
+      if (!data.error) { setDebrief(data); setPhase('debrief') }
+    } catch (error) {
+      setPracticeError(formatCourseApiError(error))
+    } finally {
+      setDebriefLoading(false)
+    }
   }
 
   // ── Save completion ────────────────────────────────────────────────────────
@@ -621,6 +739,71 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     )
   }
 
+  function FormulaProgress({ activeStep }: { activeStep?: number }) {
+    if (!activeStep) return null
+    return (
+      <div className="mb-6 rounded-card border border-border bg-white p-3">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-light">Clarity formula</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {CLARITY_FORMULA_STEPS.map((step, idx) => {
+            const isActive = activeStep === idx + 1
+            const isPast = activeStep > idx + 1
+            return (
+              <div
+                key={step}
+                className={`rounded-card border px-3 py-2 text-xs leading-snug ${
+                  isActive
+                    ? 'border-primary bg-primary-light text-primary'
+                    : isPast
+                      ? 'border-primary/30 bg-primary/5 text-ink'
+                      : 'border-border bg-bg text-ink-light'
+                }`}
+              >
+                <span className="mb-1 block font-semibold">Step {idx + 1}</span>
+                {step}
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
+
+  function HelperChecklist({ items }: { items?: string[] }) {
+    if (!items?.length) return null
+    return (
+      <details className="mb-5 rounded-card border border-amber-200 bg-amber-50 p-3">
+        <summary className="cursor-pointer text-xs font-medium uppercase tracking-wide text-amber-800">
+          Clarity checklist
+        </summary>
+        <ul className="mt-3 space-y-1.5">
+          {items.map((item) => (
+            <li key={item} className="flex gap-2 text-xs leading-relaxed text-ink-mid">
+              <span className="text-amber-600">□</span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      </details>
+    )
+  }
+
+  function formulaStepFromTitle(title: string) {
+    const match = title.match(/^Step\s+(\d+)/i)
+    if (!match) return undefined
+    const step = Number(match[1])
+    return step >= 1 && step <= 4 ? step : undefined
+  }
+
+  function formatCourseApiError(error: unknown) {
+    const apiError = error as CourseApiError
+    if (apiError.status === 401) return 'Please log back in to keep practicing with Beckett.'
+    if (apiError.status === 403) return apiError.message || 'This course needs beta access.'
+    if (apiError.status === 429) return apiError.message || 'You reached today\'s course practice limit.'
+    if (apiError.status && apiError.status >= 500) return 'Beckett had trouble responding. Your message is still here, and you can try again.'
+    return apiError.message || 'Beckett had trouble responding. Please try again.'
+  }
+
   function SideBySideComparison({ comparison }: { comparison: NonNullable<InteractiveReadSlide['comparison']> }) {
     return (
       <div className="mt-8 pt-8 border-t border-border">
@@ -691,6 +874,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
   function renderConfidenceEnd() {
     const courseToolkitItems = toolkitItems.filter((item) => item.course_id === course.id)
+    const usesToolkit = course.savesToToolkit !== false
     return (
       <div className="max-w-lg mx-auto">
         <p className="text-sm text-ink-mid mb-6">{course.confidenceQuestion}</p>
@@ -719,13 +903,55 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         )}
         {postConfidence && (
           <div className="mt-4">
-            <ToolkitSummary items={courseToolkitItems} />
+            {usesToolkit ? <ToolkitSummary items={courseToolkitItems} /> : <CourseRecap />}
             <button
               onClick={() => { saveCompletion(); setPhase('completion') }}
               className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
             >
               Finish course →
             </button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  function CourseRecap() {
+    const summary = course.reviewSummary
+    if (!summary) {
+      return (
+        <div className="mb-6 rounded-card border border-border bg-white p-5">
+          <p className="text-sm font-medium text-ink mb-1">What you practiced</p>
+          <p className="text-sm text-ink-mid leading-relaxed">{course.reflectiveQuestion}</p>
+        </div>
+      )
+    }
+
+    return (
+      <div className="mb-6 rounded-card border border-primary/20 bg-primary/5 p-5">
+        <p className="text-sm font-medium text-ink mb-1">{summary.title}</p>
+        <p className="text-xs text-ink-mid mb-4 leading-relaxed">{summary.description}</p>
+        {summary.formulas && (
+          <div className="grid gap-2 mb-4">
+            {summary.formulas.map((item, idx) => (
+              <div key={item.label} className="rounded-card border border-border bg-white p-3">
+                <p className="text-xs font-medium text-primary mb-1">Step {idx + 1}: {item.label}</p>
+                <p className="text-sm text-ink leading-relaxed">{item.text}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {summary.checklist && (
+          <div className="rounded-card border border-border bg-white p-3">
+            <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Final checklist</p>
+            <ul className="space-y-1.5">
+              {summary.checklist.map((item) => (
+                <li key={item} className="flex gap-2 text-sm text-ink-mid">
+                  <span className="text-primary">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
       </div>
@@ -1131,6 +1357,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       <div>
         <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} />
+        <FormulaProgress activeStep={formulaStepFromTitle(slide.title)} />
         <p className="text-sm text-ink-mid mb-5">{slide.instruction}</p>
         <div className="space-y-3 mb-6">
           {slide.items.map((item, i) => {
@@ -1195,6 +1422,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <div>
           <BackButton idx={currentSlideIndex} />
           <SlideTitle title={slide.title} />
+          <FormulaProgress activeStep={formulaStepFromTitle(slide.title)} />
           <div className="text-center py-12">
             <p className="text-3xl mb-3">✓</p>
             <p className="text-ink font-medium">All done</p>
@@ -1207,7 +1435,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return (
       <div>
         <BackButton idx={currentSlideIndex} />
-        <SlideTitle title={slide.title} />
+        <SlideTitle title={slide.title} description={slide.description} />
+        <FormulaProgress activeStep={formulaStepFromTitle(slide.title)} />
+        <HelperChecklist items={slide.helperChecklist} />
         <div className="mb-2 flex gap-1">
           {slide.rounds.map((_, i) => (
             <div key={i} className={`flex-1 h-1 rounded-full ${i < mcRound ? 'bg-primary' : i === mcRound ? 'bg-primary/40' : 'bg-gray-200'}`} />
@@ -1265,6 +1495,93 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     )
   }
 
+  function renderMultiSelectQuiz(slide: MultiSelectQuizSlide) {
+    const allDone = msRound >= slide.rounds.length
+    if (allDone) {
+      return (
+        <div>
+          <BackButton idx={currentSlideIndex} />
+          <SlideTitle title={slide.title} description={slide.description} />
+          <FormulaProgress activeStep={slide.formulaStep} />
+          <div className="text-center py-12">
+            <p className="text-3xl mb-3">✓</p>
+            <p className="text-ink font-medium">All done</p>
+          </div>
+          <NextButton label="Continue →" />
+        </div>
+      )
+    }
+
+    const round = slide.rounds[msRound]
+    const selected = new Set(msSelections[msRound] || [])
+    const canCheck = selected.size > 0 && !msChecked
+    return (
+      <div>
+        <BackButton idx={currentSlideIndex} />
+        <SlideTitle title={slide.title} description={slide.description} />
+        <FormulaProgress activeStep={slide.formulaStep} />
+        <div className="mb-2 flex gap-1">
+          {slide.rounds.map((_, i) => (
+            <div key={i} className={`flex-1 h-1 rounded-full ${i < msRound ? 'bg-primary' : i === msRound ? 'bg-primary/40' : 'bg-gray-200'}`} />
+          ))}
+        </div>
+        <p className="text-xs text-ink-light mb-5">Round {msRound + 1} of {slide.rounds.length}</p>
+        <div className="bg-bg border border-border rounded-card p-4 mb-5">
+          <p className="text-sm text-ink leading-relaxed mb-3">{round.scenario}</p>
+          <p className="text-xs font-medium text-ink-light uppercase tracking-wide">{round.question}</p>
+        </div>
+        <div className="space-y-2 mb-5">
+          {round.options.map((option, idx) => {
+            const isSelected = selected.has(idx)
+            const showCorrect = msChecked && option.correct
+            const showWrong = msChecked && isSelected && !option.correct
+            const missed = msChecked && !isSelected && option.correct
+            return (
+              <button
+                key={option.text}
+                type="button"
+                onClick={() => !msChecked && toggleMSOption(idx)}
+                className={`w-full rounded-xl border-2 px-4 py-3 text-left text-sm transition-colors ${
+                  showWrong ? 'border-red-300 bg-red-50 text-ink' :
+                  showCorrect ? 'border-green-300 bg-green-50 text-ink' :
+                  missed ? 'border-primary/50 bg-primary/5 text-ink' :
+                  isSelected ? 'border-primary bg-primary-light text-primary' :
+                  'border-border bg-white text-ink hover:border-primary'
+                }`}
+              >
+                <span className="mr-2">{msChecked ? (option.correct ? '✓' : isSelected ? '✗' : '□') : isSelected ? '✓' : '□'}</span>
+                {option.text}
+              </button>
+            )
+          })}
+        </div>
+        {msChecked && (
+          <div className={`rounded-card border p-4 mb-4 ${msHasError ? 'border-amber-200 bg-amber-50' : 'border-green-200 bg-green-50'}`}>
+            <p className={`text-sm leading-relaxed ${msHasError ? 'text-amber-800' : 'text-green-800'}`}>
+              {round.explanation}
+            </p>
+          </div>
+        )}
+        {!msChecked ? (
+          <button
+            onClick={checkMSRound}
+            disabled={!canCheck}
+            className="w-full border border-primary text-primary rounded-pill py-2.5 text-sm font-medium hover:bg-primary-light transition-colors disabled:opacity-40"
+          >
+            Check answers
+          </button>
+        ) : (
+          <button
+            onClick={advanceMSRound}
+            className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            {msRound < slide.rounds.length - 1 ? 'Next round →' : 'Done →'}
+          </button>
+        )}
+      </div>
+    )
+  }
+
   function renderChecklist(slide: ChecklistSlide) {
     const allChecked = checkedItems.size === slide.items.length
     return (
@@ -1303,6 +1620,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       <div>
         <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} description={slide.description} />
+        <FormulaProgress activeStep={slide.activeStep} />
         <div className="grid gap-3 mb-6">
           {slide.steps.map((step, i) => (
             <div key={step.label} className="bg-white border border-border rounded-xl p-4">
@@ -1454,6 +1772,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       case 'side-by-side': return renderSideBySide(slide)
       case 'sorting': return renderSorting(slide)
       case 'multiple-choice': return renderMultipleChoice(slide)
+      case 'multi-select-quiz': return renderMultiSelectQuiz(slide)
       case 'checklist': return renderChecklist(slide)
       case 'visual-formula': return renderVisualFormula(slide)
       case 'reflection-choice': return renderReflectionChoice(slide)
@@ -1464,15 +1783,16 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Review mode (read-only slide browser) ─────────────────────────────────
   function renderSlideReview() {
     const courseToolkitItems = toolkitItems.filter((item) => item.course_id === course.id)
+    const usesToolkit = course.savesToToolkit !== false
     return (
       <div className="max-w-lg mx-auto">
         <h1 className="text-2xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
           Review skills
         </h1>
         <p className="text-sm text-ink-mid mb-6 leading-relaxed">
-          A quick recap of what you built and the core ideas from this course.
+          {usesToolkit ? 'A quick recap of what you built and the core ideas from this course.' : 'A quick recap of the formula and checklist from this course.'}
         </p>
-        <ToolkitSummary items={courseToolkitItems} />
+        {usesToolkit ? <ToolkitSummary items={courseToolkitItems} /> : <CourseRecap />}
         <div className="rounded-card border border-border bg-white p-5 mb-6">
           <p className="text-sm font-medium text-ink mb-3">Core course reminders</p>
           <div className="space-y-2">
@@ -1487,9 +1807,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </div>
         </div>
         <div className="flex gap-3">
-          <a href="/dashboard/about" className="flex-1 border border-primary text-primary rounded-pill py-3 text-sm font-medium text-center hover:bg-primary-light transition-colors">
-            Open toolkit
-          </a>
+          {usesToolkit && (
+            <a href="/dashboard/about" className="flex-1 border border-primary text-primary rounded-pill py-3 text-sm font-medium text-center hover:bg-primary-light transition-colors">
+              Open toolkit
+            </a>
+          )}
           <button
             onClick={() => setPhase('confidence-start')}
             className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
@@ -1591,6 +1913,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             {debriefLoading ? '…' : 'End + review'}
           </button>
         </div>
+        <FormulaProgress activeStep={course.openPractice.helperChecklist ? 3 : undefined} />
+        <HelperChecklist items={course.openPractice.helperChecklist} />
 
         <div className="flex-1 overflow-y-auto space-y-2 mb-3">
           {practiceMessages.length === 0 && starterMessages.length === 0 && (
@@ -1643,7 +1967,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {showGhostOverlay && (
             <div className="text-center py-4 space-y-3">
               <p className="text-sm text-ink-light italic">
-                Jamie stopped responding. This is practice, not a judgment.
+                {matchName} stopped responding. This is practice, not a judgment.
               </p>
               <div className="bg-white border border-border rounded-card p-4 text-left">
                 <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Beckett</p>
@@ -1661,6 +1985,24 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               <p className="text-xs font-medium text-red-600 uppercase">Beckett stepped in</p>
               <p className="text-sm text-ink leading-relaxed">{hardIntervention}</p>
               <button onClick={endPracticeAndDebrief} className="bg-primary text-white rounded-pill px-5 py-2.5 text-sm font-medium hover:bg-primary-dark transition-colors">End session</button>
+            </div>
+          )}
+          {practiceError && (
+            <div className="rounded-card border border-amber-200 bg-amber-50 p-4 space-y-3">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-amber-800 mb-1">Beckett had trouble responding</p>
+                <p className="text-sm text-ink-mid leading-relaxed">{practiceError}</p>
+              </div>
+              {retryMessages && (
+                <button
+                  type="button"
+                  onClick={() => sendPracticeMessage(retryMessages)}
+                  disabled={practiceLoading}
+                  className="rounded-pill border border-amber-300 bg-white px-4 py-2 text-xs font-medium text-amber-800 hover:border-amber-500 disabled:opacity-50"
+                >
+                  Try again
+                </button>
+              )}
             </div>
           )}
           <div ref={bottomRef} />
@@ -1692,7 +2034,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               className="flex-1 border border-border rounded-pill px-4 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
-              onClick={sendPracticeMessage}
+              onClick={() => sendPracticeMessage()}
               disabled={practiceLoading || !practiceInput.trim()}
               className="bg-blue-500 text-white rounded-full w-10 h-10 flex items-center justify-center hover:bg-blue-600 transition-colors disabled:opacity-50 shrink-0"
             >
@@ -1732,6 +2074,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             onClick={() => {
               setPracticeMessages([])
               setPracticeInput('')
+              setPracticeError(null)
+              setRetryMessages(null)
               setGhosted(false)
               setShowGhostOverlay(false)
               setHardIntervention(null)
