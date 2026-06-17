@@ -119,6 +119,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [shuffledRight, setShuffledRight] = useState<number[]>([])
   const [matchConns, setMatchConns] = useState<{ left: number; right: number }[]>([])
   const [pendingLeft, setPendingLeft] = useState<number | null>(null)
+  const [pendingRight, setPendingRight] = useState<number | null>(null)
   const [matchChecked, setMatchChecked] = useState(false)
   const [matchErrors, setMatchErrors] = useState<Set<number>>(new Set())
   const [matchAttemptCount, setMatchAttemptCount] = useState(0)
@@ -203,6 +204,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         setShuffledRight(order)
         setMatchConns([])
         setPendingLeft(null)
+        setPendingRight(null)
         setMatchChecked(false)
         setMatchErrors(new Set())
         setMatchAttemptCount(0)
@@ -264,6 +266,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setFlippedCards(new Set())
     setMatchConns([])
     setPendingLeft(null)
+    setPendingRight(null)
     setMatchChecked(false)
     setMatchErrors(new Set())
     setMatchAttemptCount(0)
@@ -433,17 +436,31 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Matching ───────────────────────────────────────────────────────────────
   function clickLeft(leftIdx: number) {
     if (matchChecked) return
+    if (pendingRight !== null) {
+      setMatchConns(prev => {
+        const filtered = prev.filter(c => c.left !== leftIdx && c.right !== pendingRight)
+        return [...filtered, { left: leftIdx, right: pendingRight }]
+      })
+      setPendingRight(null)
+      return
+    }
     const existing = matchConns.find(c => c.left === leftIdx)
     if (existing) { setMatchConns(prev => prev.filter(c => c.left !== leftIdx)); return }
     if (pendingLeft === leftIdx) { setPendingLeft(null); return }
     setPendingLeft(leftIdx)
+    setPendingRight(null)
   }
 
   function clickRight(rightVisualIdx: number) {
     if (matchChecked) return
     if (pendingLeft === null) {
       const existing = matchConns.find(c => c.right === rightVisualIdx)
-      if (existing) setMatchConns(prev => prev.filter(c => c.right !== rightVisualIdx))
+      if (existing) {
+        setMatchConns(prev => prev.filter(c => c.right !== rightVisualIdx))
+        return
+      }
+      if (pendingRight === rightVisualIdx) setPendingRight(null)
+      else setPendingRight(rightVisualIdx)
       return
     }
     setMatchConns(prev => {
@@ -451,6 +468,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       return [...filtered, { left: pendingLeft, right: rightVisualIdx }]
     })
     setPendingLeft(null)
+    setPendingRight(null)
   }
 
   function checkMatching() {
@@ -473,6 +491,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setMatchConns(prev => prev.filter(c => !matchErrors.has(c.left)))
     setMatchChecked(false)
     setMatchErrors(new Set())
+    setPendingLeft(null)
+    setPendingRight(null)
   }
 
   function getLeftColor(leftIdx: number): (typeof PAIR_COLORS)[0] | null {
@@ -906,7 +926,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             </button>
           </div>
         )}
-        <p className="text-xs text-ink-light uppercase tracking-wide mb-4">Before you start</p>
+        <p className="text-xs text-ink-light uppercase tracking-wide mb-3">Before you start</p>
+        <h1 className="text-4xl text-ink mb-4 leading-tight" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+          {course.title}
+        </h1>
+        <p className="text-base text-ink-mid mb-4 leading-relaxed">{course.description}</p>
         <p className="text-sm text-ink-mid mb-8 leading-relaxed">{course.confidenceIntro}</p>
         <p className="text-sm text-ink-mid mb-6">{course.confidenceQuestion}</p>
         <div className="flex gap-3 mb-4">
@@ -1223,6 +1247,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               const pair = slide.pairs[pairIdx]
               const color = getRightColor(visualIdx)
               const conn = matchConns.find(c => c.right === visualIdx)
+              const isPending = pendingRight === visualIdx
               const hasError = conn ? matchErrors.has(conn.left) : false
               const wrongLeftPair = hasError && conn ? slide.pairs[conn.left] : null
               const isCorrectChecked = (matchChecked || matchRevealed) && conn && conn.left === pairIdx
@@ -1233,6 +1258,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     className={`w-full text-left rounded-xl p-3 border-2 transition-all text-sm ${
                       hasError ? 'border-red-400 bg-red-50' :
                       isCorrectChecked && slide.neutralChecked ? 'border-green-300 bg-green-50' :
+                      isPending ? 'border-primary bg-primary/5' :
                       color ? `${color.bg} ${color.border}` :
                       'border-border bg-white hover:border-primary'
                     }`}
@@ -1392,7 +1418,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     return (
       <div>
         <BackButton idx={currentSlideIndex} />
-        <SlideTitle title={slide.title} />
+        <SlideTitle title={slide.title} description={slide.description} />
         <p className="text-sm text-ink-mid mb-6 leading-relaxed">{slide.scenario}</p>
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="border-2 border-red-200 bg-red-50 rounded-xl p-4">
