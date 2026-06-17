@@ -803,32 +803,32 @@ Never break character. You are Jordan, not Beckett.`,
         {
           scenario: 'Message from your manager, sent Monday morning: "Hey - before you start on the homepage copy, just make sure it matches the new direction we talked about."',
           options: [
-            { text: 'I have my notes from our last conversation. I am not sure whether the new direction means a different tone, structure, or messaging priorities. Which should I focus on first so I avoid rewriting anything after the fact?', correct: true, explanation: 'It names what is known, identifies the gap, asks one answerable question, and connects it to avoiding rework.' },
             { text: 'I have my notes from our last conversation. Before I start, I want to confirm - when you say new direction, are you referring to the Friday meeting or something more recent?', correct: false, explanation: 'Good question, but it only clarifies the source. It does not yet ask what part of the work should change.' },
+            { text: 'I have my notes from our last conversation. I am not sure whether the new direction means a different tone, structure, or messaging priorities. Which should I focus on first so I avoid rewriting anything after the fact?', correct: true, explanation: 'It names what is known, identifies the gap, asks one answerable question, and connects it to avoiding rework.' },
             { text: 'I want to make sure I get this right before I start. Could you point me to where the new direction is documented so I am working from the right version?', correct: false, explanation: 'Reasonable, but less complete. It asks for documentation without naming the actual unclear parts.' },
           ],
         },
         {
           scenario: 'Slack message from a senior colleague: "Can you take a look at the deck before it goes to the client and just tighten it up a bit?"',
           options: [
-            { text: 'I know the presentation is going out soon. To make sure I focus on what matters most, do you mean tightening the copy, cutting slides, or improving visual consistency?', correct: true, explanation: 'It names what is known, identifies the vague phrase, and gives three answerable options.' },
             { text: 'Happy to help before it goes to the client. Should I track my changes so you can review what I touched before it goes out?', correct: false, explanation: 'This asks about workflow, but not what tighten it up means.' },
             { text: 'I know the deck is mostly finalized. I can focus on either the copy or the visual side - which would be more useful for the client version?', correct: false, explanation: 'Close, but it assumes the deck is mostly finalized and misses the option of cutting or restructuring.' },
+            { text: 'I know the presentation is going out soon. To make sure I focus on what matters most, do you mean tightening the copy, cutting slides, or improving visual consistency?', correct: true, explanation: 'It names what is known, identifies the vague phrase, and gives three answerable options.' },
           ],
         },
         {
           scenario: 'Email from a project lead you have not worked with before: "We need someone to own the onboarding section of the handbook. Let me know if you can take it on."',
           options: [
-            { text: 'I know this is for the new team handbook. Before I commit, I want to clarify - does own mean writing from scratch, editing an existing draft, or coordinating input from others? That will help me give you a realistic timeline.', correct: true, explanation: 'It identifies the critical gap, gives concrete options, and connects the answer to a realistic timeline.' },
             { text: 'I would be glad to take this on. Before I commit, could you share any existing drafts or briefs so I know what I am working with?', correct: false, explanation: 'Useful, but it skips the core ambiguity: what owning the section actually means.' },
+            { text: 'I know this is for the new team handbook. Before I commit, I want to clarify - does own mean writing from scratch, editing an existing draft, or coordinating input from others? That will help me give you a realistic timeline.', correct: true, explanation: 'It identifies the critical gap, gives concrete options, and connects the answer to a realistic timeline.' },
             { text: 'Happy to help with the onboarding section. Is this just the first week or does it cover the full first month of joining?', correct: false, explanation: 'Good scope question, but it does not clarify the responsibility you are agreeing to own.' },
           ],
         },
         {
           scenario: 'Message from your manager, end of day Friday: "Can you pull together a summary of where we are on the project for the leadership update next week?"',
           options: [
-            { text: 'I know the project has three active workstreams. Should the summary cover all three or just the ones with recent movement? That will help me make sure it is scoped correctly before I start drafting.', correct: true, explanation: 'It names what is known, asks a specific scope question, and connects the answer to starting correctly.' },
             { text: 'Before I start, do you want this as bullet points or a narrative update?', correct: false, explanation: 'This helps with format, but the bigger missing piece is scope.' },
+            { text: 'I know the project has three active workstreams. Should the summary cover all three or just the ones with recent movement? That will help me make sure it is scoped correctly before I start drafting.', correct: true, explanation: 'It names what is known, asks a specific scope question, and connects the answer to starting correctly.' },
             { text: 'I know leadership updates usually go out Wednesday. Is this the same format as last quarter or is there a new template I should use?', correct: false, explanation: 'This may be useful, but it assumes facts and focuses on template before scope.' },
           ],
         },

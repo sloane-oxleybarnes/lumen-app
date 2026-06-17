@@ -549,6 +549,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       .filter((item) => item.content && !item.content.includes('['))
   }
 
+  function apiMessages(messages: Message[]) {
+    return messages.map(({ role, content }) => ({ role, content }))
+  }
+
   async function saveBuilderOutputs(slide: GuidedBuilderSlide) {
     const items = outputsForBuilder(slide)
     if (items.length === 0) return
@@ -628,7 +632,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       const data = await callAPI({
         action: 'turn',
         system: course.openPractice.systemPrompt,
-        messages: next,
+        messages: apiMessages(next),
         practiceKind: course.openPractice.practiceKind,
         courseId: course.id,
       }) as { text?: string }
@@ -639,7 +643,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       if (course.openPractice.practiceKind === 'dating' && withAI.length >= 4 && withAI.filter(m => m.role === 'user').length % 2 === 0) {
         callAPI({
           action: 'check_ghost',
-          messages: withAI,
+          messages: apiMessages(withAI),
           matchName: course.openPractice.matchName,
           practiceKind: course.openPractice.practiceKind,
           courseId: course.id,
@@ -2141,13 +2145,19 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               </div>
             )}
             <div className="flex gap-2">
-            <input
-              type="text" value={practiceInput}
+            <textarea
+              rows={1}
+              value={practiceInput}
               onChange={e => setPracticeInput(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') sendPracticeMessage() }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  sendPracticeMessage()
+                }
+              }}
               placeholder={`Message ${matchName}…`}
               disabled={practiceLoading}
-              className="flex-1 border border-border rounded-pill px-4 py-2.5 text-sm text-ink bg-white focus:outline-none focus:ring-2 focus:ring-primary"
+              className="min-h-10 max-h-28 flex-1 resize-none overflow-y-auto whitespace-pre-wrap rounded-2xl border border-border bg-white px-4 py-2.5 text-sm leading-relaxed text-ink focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <button
               onClick={() => sendPracticeMessage()}
