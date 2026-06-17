@@ -1903,19 +1903,21 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {usesToolkit ? 'A quick recap of what you built and the core ideas from this course.' : 'A quick recap of the formula and checklist from this course.'}
         </p>
         {usesToolkit ? <ToolkitSummary items={courseToolkitItems} /> : <CourseRecap />}
-        <div className="rounded-card border border-border bg-white p-5 mb-6">
-          <p className="text-sm font-medium text-ink mb-3">Core course reminders</p>
-          <div className="space-y-2">
-            {course.slides
-              .filter((slide) => slide.type === 'visual-formula' || slide.type === 'checklist')
-              .slice(0, 3)
-              .map((slide) => (
-                <div key={slide.title} className="rounded-card bg-bg px-3 py-2">
-                  <p className="text-sm text-ink">{slide.title}</p>
-                </div>
-              ))}
+        {usesToolkit && (
+          <div className="rounded-card border border-border bg-white p-5 mb-6">
+            <p className="text-sm font-medium text-ink mb-3">Core course reminders</p>
+            <div className="space-y-2">
+              {course.slides
+                .filter((slide) => slide.type === 'visual-formula' || slide.type === 'checklist')
+                .slice(0, 3)
+                .map((slide) => (
+                  <div key={slide.title} className="rounded-card bg-bg px-3 py-2">
+                    <p className="text-sm text-ink">{slide.title}</p>
+                  </div>
+                ))}
+            </div>
           </div>
-        </div>
+        )}
         <div className="flex gap-3">
           {usesToolkit && (
             <a href="/dashboard/about" className="flex-1 border border-primary text-primary rounded-pill py-3 text-sm font-medium text-center hover:bg-primary-light transition-colors">
