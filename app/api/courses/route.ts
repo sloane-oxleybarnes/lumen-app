@@ -209,7 +209,12 @@ Return only valid JSON. No markdown, no extra text.`
     })
     if (error instanceof AiUsageLimitError) {
       return NextResponse.json(
-        { error: error.message, limit: error.limit, remaining: error.remaining },
+        {
+          error: error.message,
+          limit: error.limit,
+          remaining: error.remaining,
+          unlimitedBypassConfigured: error.unlimitedBypassConfigured,
+        },
         { status: error.status }
       )
     }

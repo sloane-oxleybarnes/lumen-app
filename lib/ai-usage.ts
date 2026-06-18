@@ -8,7 +8,11 @@ export class AiUsageLimitError extends Error {
   status = 429
   remaining = 0
 
-  constructor(public limit: number, kind: 'analysis' | 'course' = 'analysis') {
+  constructor(
+    public limit: number,
+    kind: 'analysis' | 'course' = 'analysis',
+    public unlimitedBypassConfigured = false
+  ) {
     super(
       kind === 'course'
         ? `Daily beta course practice limit reached. You get ${limit} Beckett course coaching calls per day during beta.`
@@ -32,6 +36,10 @@ function getUnlimitedAiEmails() {
     .split(',')
     .map((email) => email.trim().toLowerCase())
     .filter(Boolean)
+}
+
+export function hasUnlimitedAiBypassConfigured() {
+  return getUnlimitedAiEmails().length > 0
 }
 
 export async function isUnlimitedAiUser(userId: string) {
@@ -85,7 +93,7 @@ export async function recordAiUsage(userId: string, input: {
   const unlimited = await isUnlimitedAiUser(userId)
 
   if (!unlimited && used >= limit) {
-    throw new AiUsageLimitError(limit, isCourse ? 'course' : 'analysis')
+    throw new AiUsageLimitError(limit, isCourse ? 'course' : 'analysis', hasUnlimitedAiBypassConfigured())
   }
 
   const { error } = await supabaseAdmin.from('ai_usage_events').insert({
