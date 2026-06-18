@@ -267,58 +267,43 @@ Example: No pressure if not.
 
 ## Slide 8: Step 1: Finding the Warm Signal
 
+Type:
+Matching
+
 Description:
 A warm signal is not a confession of deep feelings. It is simply a brief, genuine reason for asking someone out.
 
-For each example, choose whether the warm signal is Too Cold, Too Intense, or Just Right.
+For each example, match the ask to how its warm signal lands.
 
-Scenario 1
+Left label:
+Ask
 
-You have been talking with someone after a weekly hobby group for a few weeks.
+Right label:
+Signal
 
-A: "Want to get coffee Saturday?"
+Pair 1:
+Ask:
+"Want to get coffee Saturday?"
+Signal:
+Too cold
+Explanation:
+It is specific, but it does not name any connection or warmth.
 
-B: "I think you're one of the most interesting people I've met in years and I can't stop thinking about you."
+Pair 2:
+Ask:
+"I think you're one of the most interesting people I've met in years and I can't stop thinking about you."
+Signal:
+Too intense
+Explanation:
+It puts a lot of emotional weight on an early ask.
 
-C: "I've enjoyed our conversations after the group. Would you want to grab coffee Saturday?"
-
-Correct:
-
-A = Too Cold
-B = Too Intense
-C = Just Right
-
-Scenario 2
-
-You matched on a dating app and have exchanged messages for about a week.
-
-A: "You seem amazing. I feel like we have a special connection already."
-
-B: "I've enjoyed chatting with you about books. Want to meet for coffee sometime this week?"
-
-C: "Meet up?"
-
-Correct:
-
-A = Too Intense
-B = Just Right
-C = Too Cold
-
-Scenario 3
-
-You know someone casually through friends.
-
-A: "I like how easy you are to talk to. Would you want to get lunch sometime?"
-
-B: "I've been waiting for the perfect moment to tell you that I really, really like you."
-
-C: "Lunch?"
-
-Correct:
-
-A = Just Right
-B = Too Intense
-C = Too Cold
+Pair 3:
+Ask:
+"I've enjoyed our conversations after the group. Would you want to grab coffee Saturday?"
+Signal:
+Just right
+Explanation:
+It names a real connection without making the ask too heavy.
 
 --
 
@@ -326,6 +311,9 @@ C = Too Cold
 
 Type:
 Sorting
+
+Description:
+A specific plan gives the other person something concrete to answer. It should usually name an activity, keep the setting public or low-pressure, and make the next step easy to accept, adjust, or decline.
 
 Instruction:
 Context: you matched on a dating app, chatted for three days, and this would be your first meetup.

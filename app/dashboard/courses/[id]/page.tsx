@@ -800,7 +800,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   async function endPracticeAndDebrief() {
     if (practiceMessages.length < 2) return
     setDebriefLoading(true)
-    const history = practiceMessages.map(m => `[${m.role === 'user' ? 'You' : course.openPractice.matchName}]: ${m.content}`).join('\n')
+    const starterCount = course.openPractice.starterMessages?.length || 0
+    const debriefMessages = course.id === 'ask-someone-out' ? practiceMessages.slice(starterCount) : practiceMessages
+    const history = debriefMessages.length
+      ? debriefMessages.map(m => `[${m.role === 'user' ? 'You' : course.openPractice.matchName}]: ${m.content}`).join('\n')
+      : 'The user ended the practice before sending their own response.'
     try {
       const data = await callAPI({
         action: 'debrief',
@@ -1248,14 +1252,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <SlideTitle title={slide.title} description={slide.description} />
         {slide.intro && <p className="text-sm text-ink-mid mb-6 leading-relaxed">{slide.intro}</p>}
         {slide.bullets && (
-          <ul className="space-y-3 mb-8">
+          <div className="grid gap-3 mb-8 sm:grid-cols-2">
             {slide.bullets.map((b, i) => (
-              <li key={i} className="flex gap-3 text-sm text-ink leading-relaxed">
-                <span className="text-primary mt-1 shrink-0">·</span>
-                <span>{b}</span>
-              </li>
+              <div key={i} className="rounded-card border border-border bg-white p-4">
+                <span className="mb-2 flex h-6 w-6 items-center justify-center rounded-full bg-primary-light text-xs font-semibold text-primary">{i + 1}</span>
+                <p className="text-sm text-ink leading-relaxed">{b}</p>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
         {slide.stats && (
           <div className="space-y-3 mb-6">
@@ -1322,10 +1326,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const canCheck = allConnected && !matchChecked
     const allCorrect = (matchChecked && matchErrors.size === 0 && allConnected) || matchRevealed
     const hasErrors = matchChecked && matchErrors.size > 0
+    const formulaProps = formulaPropsForSlide(formulaStepFromTitle(slide.title))
 
     return (
       <div>
         <BackButton idx={currentSlideIndex} />
+        <FormulaProgress {...formulaProps} />
         <SlideTitle title={slide.title} description={slide.description} />
         <p className="text-xs text-ink-light mb-5">{slide.instruction}</p>
 
@@ -1352,9 +1358,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     'border-border bg-white hover:border-primary'
                   }`}
                 >
-                  {!slide.hideCardNames && <p className="font-medium text-ink text-xs mb-1">{pair.left.name}</p>}
+                  {!slide.hideCardNames && !slide.hideLeftCardNames && <p className="font-medium text-ink text-xs mb-1">{pair.left.name}</p>}
                   <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.left.description}</p>
-                  {isCorrectChecked && slide.neutralChecked && <span className="mt-2 inline-flex text-xs text-green-700">✓ Correct</span>}
+                  {isCorrectChecked && (
+                    <span className="mt-2 inline-flex rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">✓ Correct</span>
+                  )}
                   {color && !hasError && !slide.neutralChecked && (
                     <span className={`inline-flex mt-1.5 h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] text-white ${color.bg.replace('100', '400')}`}>
                       {matchChecked || matchRevealed ? '✓' : ''}
@@ -1392,7 +1400,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                   >
                     {!slide.hideCardNames && <p className="font-medium text-ink text-xs mb-1">{pair.right.name}</p>}
                     <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.right.description}</p>
-                    {isCorrectChecked && slide.neutralChecked && <span className="mt-2 inline-flex text-xs text-green-700">✓ Correct</span>}
+                    {isCorrectChecked && (
+                      <span className="mt-2 inline-flex rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">✓ Correct</span>
+                    )}
                     {color && !hasError && !slide.neutralChecked && (
                       <span className={`inline-flex mt-1.5 h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] text-white ${color.bg.replace('100', '400')}`}>
                         {matchChecked || matchRevealed ? '✓' : ''}
@@ -1408,7 +1418,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </div>
         </div>
 
-        {pendingLeft !== null && !matchChecked && !slide.hideCardNames && (
+        {pendingLeft !== null && !matchChecked && !slide.hideCardNames && !slide.hideLeftCardNames && (
           <p className="text-xs text-primary text-center mb-3">
             {slide.pairs[pendingLeft].left.name} selected — now tap their match →
           </p>
@@ -1448,18 +1458,36 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       <div>
         <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} description={slide.description} />
-        <div className="space-y-8 mb-8">
+        <div className="grid gap-3 mb-8 sm:grid-cols-2">
           {slide.sections.map((sec, i) => (
-            <div key={i}>
+            <div
+              key={i}
+              role="button"
+              tabIndex={0}
+              onClick={() => setFlippedCards(prev => { const s = new Set(prev); s.add(i); return s })}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault()
+                  setFlippedCards(prev => { const s = new Set(prev); s.add(i); return s })
+                }
+              }}
+              className={`min-h-36 rounded-card border-2 p-4 text-left transition-colors ${
+                flippedCards.has(i) ? 'border-primary bg-primary-light' : 'border-border bg-white hover:border-primary'
+              }`}
+            >
               <h2 className="text-base font-semibold text-ink mb-3">{sec.heading}</h2>
-              <ul className="space-y-2 mb-4">
-                {sec.bullets.map((b, j) => (
-                  <li key={j} className="text-sm text-ink leading-relaxed flex gap-2">
-                    <span className="text-primary mt-1 shrink-0">·</span>
-                    <span>{b}</span>
-                  </li>
-                ))}
-              </ul>
+              {flippedCards.has(i) ? (
+                <ul className="space-y-2 mb-4">
+                  {sec.bullets.map((b, j) => (
+                    <li key={j} className="text-sm text-ink leading-relaxed flex gap-2">
+                      <span className="text-primary mt-1 shrink-0">·</span>
+                      <span>{b}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-xs text-ink-light">Tap to open</p>
+              )}
               {sec.examples && (
                 <div>
                   <p className="text-xs font-medium text-ink-light uppercase tracking-wide mb-2">Examples</p>
@@ -2052,7 +2080,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     />
                     <span>{renderBuilderText(field.fillAfter)}</span>
                   </div>
-                ) : (
+                ) : field.allowOther && fieldOptions.length > 0 ? null : (
                   <input
                     value={inputValue}
                     onChange={(e) => setBuilderText((current) => ({ ...current, [key]: e.target.value }))}
