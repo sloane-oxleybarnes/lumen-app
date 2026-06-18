@@ -123,6 +123,7 @@ type Diagnostics = {
     limit: number;
     used: number;
     remaining: number;
+    unlimited?: boolean;
   };
   api: {
     reachable: boolean;
@@ -683,10 +684,19 @@ export default function SettingsPage() {
               </div>
               <div className="rounded-sm border border-border bg-bg/60 p-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-ink-light">AI usage today</p>
-                <p className="mt-1 text-sm text-ink">
-                  {diagnostics.aiUsage.used}/{diagnostics.aiUsage.limit} used
-                </p>
-                <p className="text-xs text-ink-light">{diagnostics.aiUsage.remaining} remaining</p>
+                {diagnostics.aiUsage.unlimited ? (
+                  <>
+                    <p className="mt-1 text-sm text-ink">Unlimited tester access</p>
+                    <p className="text-xs text-ink-light">{diagnostics.aiUsage.used} calls logged today</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mt-1 text-sm text-ink">
+                      {diagnostics.aiUsage.used}/{diagnostics.aiUsage.limit} used
+                    </p>
+                    <p className="text-xs text-ink-light">{diagnostics.aiUsage.remaining} remaining</p>
+                  </>
+                )}
               </div>
               <div className="rounded-sm border border-border bg-bg/60 p-3">
                 <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Slack</p>

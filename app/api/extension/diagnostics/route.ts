@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getAiUsageToday, getDailyAiLimit } from "@/lib/ai-usage";
+import { getAiUsageToday, getDailyAiLimit, isUnlimitedAiUser, UNLIMITED_AI_LIMIT } from "@/lib/ai-usage";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
@@ -29,7 +29,8 @@ export async function GET() {
     getAiUsageToday(userId),
   ]);
 
-  const limit = getDailyAiLimit();
+  const unlimited = await isUnlimitedAiUser(userId);
+  const limit = unlimited ? UNLIMITED_AI_LIMIT : getDailyAiLimit();
   const slack = integrations?.find((item) => item.provider === "slack");
   const google = integrations?.find((item) => item.provider === "google");
 
@@ -70,7 +71,8 @@ export async function GET() {
     aiUsage: {
       limit,
       used,
-      remaining: Math.max(limit - used, 0),
+      remaining: unlimited ? UNLIMITED_AI_LIMIT : Math.max(limit - used, 0),
+      unlimited,
     },
     api: {
       reachable: true,

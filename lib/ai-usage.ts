@@ -2,6 +2,7 @@ import { supabaseAdmin } from './server-admin'
 
 const DEFAULT_BETA_DAILY_LIMIT = 15
 const DEFAULT_BETA_DAILY_COURSE_LIMIT = 40
+export const UNLIMITED_AI_LIMIT = 999999
 
 export class AiUsageLimitError extends Error {
   status = 429
@@ -24,6 +25,32 @@ export function getDailyAiLimit() {
 export function getDailyCourseAiLimit() {
   const configured = Number(process.env.BETA_DAILY_COURSE_LIMIT)
   return Number.isFinite(configured) && configured > 0 ? configured : DEFAULT_BETA_DAILY_COURSE_LIMIT
+}
+
+function getUnlimitedAiEmails() {
+  return (process.env.BETA_UNLIMITED_AI_EMAILS || '')
+    .split(',')
+    .map((email) => email.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+export async function isUnlimitedAiUser(userId: string) {
+  const allowedEmails = getUnlimitedAiEmails()
+  if (!allowedEmails.length) return false
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('email')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const profileEmail = typeof profile?.email === 'string' ? profile.email.toLowerCase() : null
+  if (profileEmail && allowedEmails.includes(profileEmail)) return true
+
+  const { data: authUser } = await supabaseAdmin.auth.admin.getUserById(userId)
+  const authEmail = authUser.user?.email?.toLowerCase()
+
+  return Boolean(authEmail && allowedEmails.includes(authEmail))
 }
 
 function startOfUtcDay() {
@@ -55,8 +82,9 @@ export async function recordAiUsage(userId: string, input: {
   const isCourse = input.source === 'course'
   const limit = isCourse ? getDailyCourseAiLimit() : getDailyAiLimit()
   const used = await getAiUsageToday(userId, isCourse ? 'course' : undefined)
+  const unlimited = await isUnlimitedAiUser(userId)
 
-  if (used >= limit) {
+  if (!unlimited && used >= limit) {
     throw new AiUsageLimitError(limit, isCourse ? 'course' : 'analysis')
   }
 
@@ -71,8 +99,9 @@ export async function recordAiUsage(userId: string, input: {
   if (error) throw error
 
   return {
-    limit,
+    limit: unlimited ? UNLIMITED_AI_LIMIT : limit,
     used: used + 1,
-    remaining: Math.max(limit - used - 1, 0),
+    remaining: unlimited ? UNLIMITED_AI_LIMIT : Math.max(limit - used - 1, 0),
+    unlimited,
   }
 }
