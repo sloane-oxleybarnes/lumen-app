@@ -255,7 +255,7 @@ Never break character. You are Jamie, not Beckett.`,
     {
       type: 'interactive-read',
       title: 'Asking Someone Out on a Date',
-      description: 'Dating often asks people to read subtle cues and unwritten rules. Beckett makes the next step more concrete: notice whether asking makes sense, choose a low-pressure plan, and say it clearly.',
+      description: 'Dating can be especially challenging when you are neurodivergent. Many common dating expectations rely on reading subtle social cues, interpreting ambiguity, and knowing unwritten rules that are rarely explained directly.\n\nThis course is about moving from interest to a respectful next step.\n\nYou are not learning how to impress someone, say the perfect thing, or guarantee a "yes." You are practicing how to communicate interest clearly, respectfully, and in a way that gives the other person an easy choice.',
       sections: [
         {
           heading: 'What you are practicing',
@@ -279,7 +279,7 @@ Never break character. You are Jamie, not Beckett.`,
     {
       type: 'read-through',
       title: 'Online Dating Reality Checks',
-      intro: 'Online dating adds a few extra layers: text tone is harder to read, boundaries matter, and safety should stay practical. These cards are the basics Beckett wants you to keep in mind.',
+      intro: 'Before we get into asking people out, it is worth spending a few minutes on online dating.\n\nMeeting someone through an app is now common, but it works differently from meeting someone through friends, work, school, hobbies, or everyday life. Text-based conversations create different challenges: it is harder to read tone, easier to misunderstand intent, and more important to think about safety and boundaries.\n\nThe same principles from this course still apply — clear communication, low pressure, and respect for the other person\'s choices — but there are a few extra considerations that can make online dating safer and less confusing.',
       bullets: [
         'Tone is harder to read over text, so clear words matter.',
         'You never owe photos, private information, or a fast meetup.',
@@ -292,7 +292,7 @@ Never break character. You are Jamie, not Beckett.`,
     {
       type: 'flip-cards',
       title: 'Neurodivergent Dating Strengths',
-      description: 'A lot of dating advice focuses on fixing weaknesses. This course starts with strengths neurodivergent people may bring, then helps you use them with pacing and clarity.',
+      description: 'A lot of dating advice focuses on fixing weaknesses. This course takes a different approach.\n\nMany neurodivergent people bring strengths to dating that are genuinely valuable in relationships: honesty, curiosity, loyalty, depth, and the ability to notice patterns that others miss. These strengths do not guarantee success, and they may not describe you personally. But they are common enough to be worth recognizing.\n\nThe goal is not to change who you are. The goal is to use your strengths in ways that help connection grow while avoiding the situations where those same strengths can accidentally create pressure, confusion, or overwhelm.',
       cards: [
         { front: 'Honesty', back: ['Saying what you mean can build trust.', 'Clear interest is often kinder than vague hints.'] },
         { front: 'Depth', back: ['You may be good at real conversation once the surface layer passes.', 'Depth is a strength when it is paced.'] },
@@ -303,7 +303,7 @@ Never break character. You are Jamie, not Beckett.`,
     {
       type: 'accordion',
       title: 'Why Dating Can Feel Hard',
-      description: 'Some dating challenges show up more often for neurodivergent people. Open each pattern so Beckett can make the invisible parts more concrete.',
+      description: 'Dating can be difficult for anyone, but some challenges show up more often for neurodivergent people.\n\nMany dating norms rely on ambiguity, unwritten rules, and interpreting subtle social signals. At the same time, strong interest, rejection sensitivity, masking, sensory needs, and concerns about safety can add extra layers of complexity.\n\nNone of these challenges mean you are bad at dating. They simply mean you may need a clearer process than the one most dating advice assumes. This course focuses on making dating more understandable: noticing real signals, pacing connection, communicating directly, and choosing situations that support both comfort and safety.',
       sections: [
         { heading: 'Unclear signals', bullets: ['Text removes tone, facial expression, and timing context.', 'Slow replies can mean many things, not just rejection.'] },
         { heading: 'Rejection sensitivity', bullets: ['A simple ask can feel like a whole verdict on your worth.', 'The course treats a no as information, not proof that you failed.'] },
@@ -315,7 +315,7 @@ Never break character. You are Jamie, not Beckett.`,
     {
       type: 'flip-cards',
       title: 'Is This Person A Good Fit To Ask Out?',
-      description: 'Before wording the ask, check whether the connection seems worth moving forward. Look for mutual effort, basic compatibility, and respect for boundaries.',
+      description: 'Before you think about how to ask someone out, it helps to ask a different question first: does this connection seem worth moving forward?\n\nInterest alone is not always enough. A good first date is more likely when there are signs of mutual effort, basic compatibility, and respect for boundaries. You are not trying to predict the future or guarantee a yes. You are simply looking for enough evidence that asking is reasonable and that spending more time together could be worthwhile.\n\nThis section will help you look for signs of interest, compatibility, and safety before taking the next step.',
       cards: [
         { front: 'Green flags', back: ['They make consistent effort.', 'They ask questions back.', 'They respect pacing.', 'They make concrete plans easier, not harder.'] },
         { front: 'Compatibility signs', back: ['Some overlap in routines or interests.', 'A communication style that does not make you feel constantly unsafe.', 'Similar availability for dating right now.'] },
@@ -374,6 +374,18 @@ Never break character. You are Jamie, not Beckett.`,
         },
         {
           left: { name: 'Just right example', description: '"I have enjoyed our conversations after the group. Would you want to grab coffee Saturday?"', mismatchNote: 'This names a real connection without making the ask too heavy.' },
+          right: { name: 'Just right', description: 'The ask gives a brief, genuine reason without overloading the moment.' },
+        },
+        {
+          left: { name: 'Too cold example', description: '"Dinner?"', mismatchNote: 'This is so short that the other person has to guess what you mean and why you are asking.' },
+          right: { name: 'Too cold', description: 'The ask has little warmth or context.' },
+        },
+        {
+          left: { name: 'Too intense example', description: '"I know we just matched, but I already feel like this could be something huge."', mismatchNote: 'This jumps ahead before there is enough shared context.' },
+          right: { name: 'Too intense', description: 'The ask makes the connection feel heavier than the context supports.' },
+        },
+        {
+          left: { name: 'Just right example', description: '"I have liked swapping book recommendations with you. Would you want to meet for coffee this weekend?"', mismatchNote: 'This gives a genuine reason and one clear next step.' },
           right: { name: 'Just right', description: 'The ask gives a brief, genuine reason without overloading the moment.' },
         },
       ],
@@ -448,6 +460,22 @@ Never break character. You are Jamie, not Beckett.`,
             { text: 'A: "I like how easy you are to talk to. Would you want to get lunch this week? Feel free to say no."', correct: true, explanation: 'A clearly includes all three parts of the formula.' },
             { text: 'B: "Lunch?"', correct: false, explanation: 'B is too vague.' },
             { text: 'C: "I know you are probably not interested, but I was wondering if maybe you would want to do something sometime."', correct: false, explanation: 'C hides the ask behind assumptions and hedging.' },
+          ],
+        },
+        {
+          scenario: 'You matched on a dating app and have been joking about coffee shops.',
+          options: [
+            { text: 'A: "I have liked our coffee shop debate. Want to try the quiet cafe near the park this weekend? No pressure if not."', correct: true, explanation: 'A names the connection, gives a specific plan, and leaves room for a no.' },
+            { text: 'B: "We should test my coffee ranking system someday if you are not too busy and if that is not weird."', correct: false, explanation: 'B has a fun idea, but it hedges and stays too vague.' },
+            { text: 'C: "You need to experience my coffee standards in person."', correct: false, explanation: 'C sounds more forceful than invitational.' },
+          ],
+        },
+        {
+          scenario: 'You have been chatting with someone who said they prefer low-key plans.',
+          options: [
+            { text: 'A: "Want to meet up or something?"', correct: false, explanation: 'A is too vague and does not show you heard their preference.' },
+            { text: 'B: "I like how easy this conversation has felt. Would you want to take a short walk and grab coffee Sunday morning? Totally okay if not."', correct: true, explanation: 'B is warm, specific, low-pressure, and aligned with a low-key preference.' },
+            { text: 'C: "I planned a whole afternoon for us because I think we will really click."', correct: false, explanation: 'C is too intense for an early ask.' },
           ],
         },
       ],

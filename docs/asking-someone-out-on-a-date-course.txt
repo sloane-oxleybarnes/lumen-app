@@ -305,6 +305,30 @@ Just right
 Explanation:
 It names a real connection without making the ask too heavy.
 
+Pair 4:
+Ask:
+"Dinner?"
+Signal:
+Too cold
+Explanation:
+This is so short that the other person has to guess what you mean and why you are asking.
+
+Pair 5:
+Ask:
+"I know we just matched, but I already feel like this could be something huge."
+Signal:
+Too intense
+Explanation:
+This jumps ahead before there is enough shared context.
+
+Pair 6:
+Ask:
+"I've liked swapping book recommendations with you. Would you want to meet for coffee this weekend?"
+Signal:
+Just right
+Explanation:
+This gives a genuine reason and one clear next step.
+
 --
 
 ## Slide 9: Step 2: A Specific Plan
@@ -511,6 +535,36 @@ Correct: A
 
 Explanation:
 A clearly includes all three parts of the formula. B is too vague. C hides the ask behind assumptions and hedging.
+
+Scenario 4
+
+You matched on a dating app and have been joking about coffee shops.
+
+A "I've liked our coffee shop debate. Want to try the quiet cafe near the park this weekend? No pressure if not."
+
+B "We should test my coffee ranking system someday if you are not too busy and if that is not weird."
+
+C "You need to experience my coffee standards in person."
+
+Correct: A
+
+Explanation:
+A names the connection, gives a specific plan, and leaves room for a no. B has a fun idea, but it hedges and stays too vague. C sounds more forceful than invitational.
+
+Scenario 5
+
+You have been chatting with someone who said they prefer low-key plans.
+
+A "Want to meet up or something?"
+
+B "I like how easy this conversation has felt. Would you want to take a short walk and grab coffee Sunday morning? Totally okay if not."
+
+C "I planned a whole afternoon for us because I think we will really click."
+
+Correct: B
+
+Explanation:
+B is warm, specific, low-pressure, and aligned with a low-key preference. A is too vague and does not show you heard their preference. C is too intense for an early ask.
 
 
 ## Slide 12: Build Your Ask
