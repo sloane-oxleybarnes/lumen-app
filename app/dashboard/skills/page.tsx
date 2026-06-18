@@ -12,7 +12,7 @@ type SkillCard = {
   level: 'Foundational'
   estimatedMinutes: number
   courseId?: string
-  illustration: 'date' | 'colleague' | 'no'
+  illustration: 'date' | 'colleague' | 'clarity' | 'no'
 }
 
 const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
@@ -40,7 +40,7 @@ const SECTIONS: { label: string; description: string; cards: SkillCard[] }[] = [
         level: 'Foundational',
         estimatedMinutes: 35,
         courseId: 'asking-for-clarity',
-        illustration: 'colleague',
+        illustration: 'clarity',
       },
     ],
   },
@@ -68,18 +68,30 @@ function LineIllustration({ type }: { type: SkillCard['illustration'] }) {
     <div className="h-24 w-28 shrink-0 rounded-sm border border-border bg-bg/80 p-4" aria-hidden="true">
       {type === 'date' && (
         <div className="relative h-full">
-          <div className="absolute left-0 top-1 h-7 w-16 rounded-full border border-primary/60" />
-          <div className="absolute right-0 top-8 h-7 w-16 rounded-full border border-ink-light/50" />
-          <div className="absolute bottom-0 left-5 h-5 w-5 rounded-full border border-primary" />
-          <div className="absolute bottom-0 left-12 h-5 w-5 rounded-full border border-primary" />
+          <div className="absolute left-1 top-2 h-14 w-10 rounded-xl border border-primary/70" />
+          <div className="absolute left-3 top-5 h-2 w-6 rounded-full bg-primary/30" />
+          <div className="absolute left-3 top-9 h-2 w-4 rounded-full bg-ink-light/30" />
+          <div className="absolute right-2 top-6 h-8 w-8 rotate-12 rounded-full border border-primary" />
+          <div className="absolute right-4 top-8 h-4 w-4 rotate-45 border-b border-r border-primary" />
         </div>
       )}
       {type === 'colleague' && (
         <div className="relative h-full">
-          <div className="absolute left-2 top-3 h-8 w-8 rounded-full border border-primary" />
-          <div className="absolute right-2 top-3 h-8 w-8 rounded-full border border-primary" />
-          <div className="absolute left-0 bottom-4 h-px w-full bg-border" />
-          <div className="absolute left-5 bottom-1 h-5 w-12 rounded-t-full border border-ink-light/50" />
+          <div className="absolute left-1 top-2 h-9 w-9 rounded-full border border-primary" />
+          <div className="absolute right-1 top-3 h-9 w-9 rounded-full border border-ink-light/60" />
+          <div className="absolute left-0 bottom-4 h-7 w-16 rounded-full border border-primary/50" />
+          <div className="absolute right-0 bottom-0 h-7 w-16 rounded-full border border-ink-light/40" />
+          <div className="absolute left-8 top-8 h-px w-7 rotate-12 bg-border" />
+        </div>
+      )}
+      {type === 'clarity' && (
+        <div className="relative h-full">
+          <div className="absolute left-1 top-2 h-12 w-20 rounded-sm border border-primary/60" />
+          <div className="absolute left-4 top-5 h-px w-12 bg-primary/70" />
+          <div className="absolute left-4 top-8 h-px w-8 bg-ink-light/50" />
+          <div className="absolute bottom-2 right-2 h-9 w-9 rounded-full border border-primary" />
+          <div className="absolute bottom-4 right-5 h-3 w-3 rounded-full border border-primary" />
+          <div className="absolute bottom-2 right-5 h-px w-3 bg-primary" />
         </div>
       )}
       {type === 'no' && (

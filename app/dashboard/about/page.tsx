@@ -26,6 +26,12 @@ type ToolkitItem = {
   created_at: string;
 };
 
+const toolkitCourseTitles: Record<string, string> = {
+  "introducing-new-colleague": "Introducing Yourself to a New Colleague",
+  "ask-someone-out": "Asking Someone Out on a Dating App",
+  "asking-for-clarity": "Asking for Clarity at Work",
+};
+
 function toggleValue(list: string[], value: string, max?: number) {
   if (list.includes(value)) return list.filter((item) => item !== value);
   if (max && list.length >= max) return list;
@@ -157,6 +163,8 @@ export default function AboutPage() {
   const [editingSections, setEditingSections] = useState<Set<string>>(new Set());
   const [toolkitItems, setToolkitItems] = useState<ToolkitItem[]>([]);
   const [deletingToolkitId, setDeletingToolkitId] = useState<string | null>(null);
+  const [toolkitFilter, setToolkitFilter] = useState("all");
+  const [showAllToolkit, setShowAllToolkit] = useState(false);
 
   useEffect(() => {
     async function load() {
@@ -244,6 +252,16 @@ export default function AboutPage() {
     if (res.ok) setToolkitItems((current) => current.filter((item) => item.id !== id));
   }
 
+  const toolkitFilters = [
+    { id: "all", label: "All" },
+    ...Array.from(new Set(toolkitItems.map((item) => item.course_id))).map((courseId) => ({
+      id: courseId,
+      label: toolkitCourseTitles[courseId] || courseId.replace(/-/g, " "),
+    })),
+  ];
+  const filteredToolkitItems = toolkitItems.filter((item) => toolkitFilter === "all" || item.course_id === toolkitFilter);
+  const visibleToolkitItems = showAllToolkit ? filteredToolkitItems : filteredToolkitItems.slice(0, 4);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-40">
@@ -276,13 +294,32 @@ export default function AboutPage() {
           {toolkitItems.length === 0 ? (
             <p className="text-sm text-ink-light">Nothing saved yet. Course phrases will appear here after you build them.</p>
           ) : (
-            <div className="space-y-3">
-              {toolkitItems.map((item) => (
+            <div className="space-y-4">
+              <div className="flex flex-wrap gap-2">
+                {toolkitFilters.map((filter) => (
+                  <button
+                    key={filter.id}
+                    type="button"
+                    onClick={() => {
+                      setToolkitFilter(filter.id);
+                      setShowAllToolkit(false);
+                    }}
+                    className={`rounded-pill border px-3 py-1.5 text-xs transition-colors ${
+                      toolkitFilter === filter.id
+                        ? "border-primary bg-primary-light text-primary"
+                        : "border-border bg-bg text-ink-mid hover:border-primary"
+                    }`}
+                  >
+                    {filter.label}
+                  </button>
+                ))}
+              </div>
+              {visibleToolkitItems.map((item) => (
                 <div key={item.id} className="rounded-card border border-border bg-bg p-4">
                   <div className="mb-2 flex items-start justify-between gap-3">
                     <div>
-                      <p className="text-xs font-medium text-primary">{item.label}</p>
-                      <p className="text-[11px] uppercase tracking-wide text-ink-light">{item.category.replace(/_/g, " ")}</p>
+                      <p className="text-xs font-medium text-primary">{toolkitCourseTitles[item.course_id] || item.course_id.replace(/-/g, " ")}</p>
+                      <p className="text-[11px] uppercase tracking-wide text-ink-light">{item.label}</p>
                     </div>
                     <button
                       type="button"
@@ -296,6 +333,15 @@ export default function AboutPage() {
                   <p className="text-sm leading-relaxed text-ink">{item.content}</p>
                 </div>
               ))}
+              {filteredToolkitItems.length > 4 && (
+                <button
+                  type="button"
+                  onClick={() => setShowAllToolkit((current) => !current)}
+                  className="rounded-pill border border-primary px-4 py-2 text-xs font-medium text-primary hover:bg-primary-light"
+                >
+                  {showAllToolkit ? "Show recent" : `View all ${filteredToolkitItems.length}`}
+                </button>
+              )}
             </div>
           )}
         </div>

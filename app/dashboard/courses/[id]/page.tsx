@@ -140,6 +140,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [toolkitItems, setToolkitItems] = useState<ToolkitItem[]>([])
   const [toolkitSaving, setToolkitSaving] = useState(false)
   const [toolkitError, setToolkitError] = useState<string | null>(null)
+  const [customIntro, setCustomIntro] = useState('')
+  const [customIntroFeedback, setCustomIntroFeedback] = useState<string | null>(null)
+  const [customIntroLoading, setCustomIntroLoading] = useState(false)
 
   // ── Sorting ──────────────────────────────────────────────────────────────
   const [sortedItems, setSortedItems] = useState<Record<number, string>>({})
@@ -534,6 +537,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       .trim()
   }
 
+  function renderBuilderText(template = '') {
+    return template.replace(/\{name\}/g, profileName || 'your name')
+  }
+
   function formulaPropsForSlide(formulaStep?: number) {
     if (!formulaStep) return { activeStep: undefined }
     if (course.id === 'introducing-new-colleague') {
@@ -560,6 +567,15 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       values[field.key] = field.multi ? [...selected, typed].filter(Boolean).join(', ') : typed || selected[0] || ''
     })
     return values
+  }
+
+  function selectedStrengthOptions() {
+    const selected = choiceSelections['Strengths You Bring To Work'] || []
+    const other = builderText[fieldKey('Strengths You Bring To Work', 'other')]?.trim()
+    return selected
+      .filter((item) => item !== 'Other')
+      .map((item) => item.charAt(0).toLowerCase() + item.slice(1))
+      .concat(other ? [other] : [])
   }
 
   function outputsForBuilder(slide: GuidedBuilderSlide) {
@@ -608,6 +624,24 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setDraftFeedback(formatCourseApiError(error))
     } finally {
       setDraftLoading(false)
+    }
+  }
+
+  async function getCustomIntroFeedback() {
+    if (!customIntro.trim() || customIntroLoading) return
+    setCustomIntroLoading(true)
+    setCustomIntroFeedback(null)
+    try {
+      const data = await callAPI({
+        action: 'draft_feedback',
+        userMessage: customIntro,
+        draftContext: 'The user is writing a short professional introduction to a new colleague. Give concise coaching on clarity, warmth, useful context, and whether it over-explains.',
+      }) as { note?: string }
+      if (data.note) setCustomIntroFeedback(data.note)
+    } catch (error) {
+      setCustomIntroFeedback(formatCourseApiError(error))
+    } finally {
+      setCustomIntroLoading(false)
     }
   }
 
@@ -1887,12 +1921,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             const key = fieldKey(slide.title, field.key)
             const selected = builderChoices[key] || []
             const inputValue = builderText[key] ?? builderValueFor(slide, field.key)
+            const fieldOptions = field.key === 'strength' ? selectedStrengthOptions() : (field.options || [])
             return (
               <div key={field.key} className="bg-white border border-border rounded-card p-4">
                 <label className="block text-sm font-medium text-ink mb-2">{field.label}</label>
-                {field.options && (
+                {fieldOptions.length > 0 && (
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {field.options.map((option) => {
+                    {fieldOptions.map((option) => {
                       const isSelected = selected.includes(option)
                       return (
                         <button
@@ -1921,14 +1956,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 )}
                 {field.fillBefore !== undefined || field.fillAfter !== undefined ? (
                   <div className="rounded-xl border border-border bg-bg px-4 py-3 text-sm leading-relaxed text-ink">
-                    <span>{field.fillBefore}</span>
+                    <span>{renderBuilderText(field.fillBefore)}</span>
                     <input
                       value={inputValue}
                       onChange={(e) => setBuilderText((current) => ({ ...current, [key]: e.target.value }))}
                       placeholder={field.placeholder || 'type here'}
                       className="mx-1 min-w-40 border-0 border-b border-primary bg-transparent px-1 py-0.5 text-sm text-ink outline-none placeholder:text-ink-light focus:border-primary-dark"
                     />
-                    <span>{field.fillAfter}</span>
+                    <span>{renderBuilderText(field.fillAfter)}</span>
                   </div>
                 ) : (
                   <input
@@ -1954,6 +1989,33 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             ))}
           </div>
         ) : null}
+        {slide.title === 'Build Your Intro' && (
+          <div className="rounded-card border border-border bg-white p-4 mb-4">
+            <label className="block text-sm font-medium text-ink mb-1">Optional: write your own intro</label>
+            <p className="text-xs text-ink-light mb-3">Try a version in your own words and ask Beckett for feedback before you save.</p>
+            <textarea
+              value={customIntro}
+              onChange={(e) => setCustomIntro(e.target.value)}
+              rows={4}
+              placeholder="Write your own intro here..."
+              className="w-full resize-none rounded-sm border border-border bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={getCustomIntroFeedback}
+              disabled={!customIntro.trim() || customIntroLoading}
+              className="mt-3 rounded-pill border border-primary px-4 py-2 text-xs font-medium text-primary hover:bg-primary-light disabled:opacity-40"
+            >
+              {customIntroLoading ? 'Getting feedback...' : 'Get Beckett feedback'}
+            </button>
+            {customIntroFeedback && (
+              <div className="mt-3 rounded-card border border-primary/20 bg-primary/5 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-primary mb-1">Beckett feedback</p>
+                <p className="text-sm leading-relaxed text-ink-mid">{customIntroFeedback}</p>
+              </div>
+            )}
+          </div>
+        )}
         {toolkitError && <p className="text-xs text-red-600 mb-3">{toolkitError}</p>}
         <button
           onClick={async () => {
@@ -2027,7 +2089,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             onClick={() => setPhase('confidence-start')}
             className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
           >
-            Done
+            Redo course
           </button>
         </div>
       </div>
