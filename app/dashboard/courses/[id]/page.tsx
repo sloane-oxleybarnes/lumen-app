@@ -529,12 +529,49 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function renderTemplate(template: string, values: Record<string, string>) {
-    return template
-      .replace(/\{(\w+)\}/g, (_, key: string) => values[key]?.trim().replace(/[.。]+$/g, '') || `[${key}]`)
+    const cleanedValues = { ...values }
+    if (cleanedValues.work) {
+      cleanedValues.workPhrase = workPhraseFor(cleanedValues.work)
+    }
+    return cleanGeneratedIntro(template
+      .replace(/\{(\w+)\}/g, (_, key: string) => cleanedValues[key]?.trim().replace(/[.。]+$/g, '') || `[${key}]`)
       .replace(/\s+/g, ' ')
       .replace(/\s+([.,!?])/g, '$1')
       .replace(/([.!?])\s*([.!?])+/g, '$1')
+      .trim())
+  }
+
+  function normalizeIntroText(text: string) {
+    return text
+      .toLowerCase()
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'")
+      .replace(/[.,!?;:]+$/g, '')
+      .replace(/[.,!?;:]/g, '')
+      .replace(/\s+/g, ' ')
       .trim()
+  }
+
+  function matchesGeneratedIntro(text: string) {
+    const slide = course.slides[currentSlideIndex]
+    if (slide.type !== 'guided-builder' || slide.title !== 'Build Your Intro') return false
+    const normalizedText = normalizeIntroText(text)
+    if (!normalizedText) return false
+    return outputsForBuilder(slide).some((output) => normalizeIntroText(output.content) === normalizedText)
+  }
+
+  function workPhraseFor(work: string) {
+    const trimmed = work.trim()
+    const peoplePattern = /\b(students?|clients?|customers?|families|teams?|children|kids|people|patients?|members?|colleagues?|coworkers?|learners?|teachers?|parents?)\b/i
+    return `${peoplePattern.test(trimmed) ? 'with' : 'on'} ${trimmed}`
+  }
+
+  function cleanGeneratedIntro(text: string) {
+    return text
+      .replace(/\bthere is ([^.!?]*?\blines\b)/gi, 'there are $1')
+      .replace(/\bthere's ([^.!?]*?\blines\b)/gi, 'there are $1')
+      .replace(/\bthere is ([^.!?]*?\bsteps\b)/gi, 'there are $1')
+      .replace(/\bthere's ([^.!?]*?\bsteps\b)/gi, 'there are $1')
   }
 
   function renderBuilderText(template = '') {
@@ -629,6 +666,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
   async function getCustomIntroFeedback() {
     if (!customIntro.trim() || customIntroLoading) return
+    if (matchesGeneratedIntro(customIntro)) {
+      setCustomIntroFeedback("This matches one of Beckett's generated intros, so no extra feedback is needed. You can use it as-is or edit it and ask for feedback.")
+      return
+    }
     setCustomIntroLoading(true)
     setCustomIntroFeedback(null)
     try {
@@ -1990,31 +2031,47 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </div>
         ) : null}
         {slide.title === 'Build Your Intro' && (
-          <div className="rounded-card border border-border bg-white p-4 mb-4">
-            <label className="block text-sm font-medium text-ink mb-1">Optional: write your own intro</label>
-            <p className="text-xs text-ink-light mb-3">Try a version in your own words and ask Beckett for feedback before you save.</p>
-            <textarea
-              value={customIntro}
-              onChange={(e) => setCustomIntro(e.target.value)}
-              rows={4}
-              placeholder="Write your own intro here..."
-              className="w-full resize-none rounded-sm border border-border bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <button
-              type="button"
-              onClick={getCustomIntroFeedback}
-              disabled={!customIntro.trim() || customIntroLoading}
-              className="mt-3 rounded-pill border border-primary px-4 py-2 text-xs font-medium text-primary hover:bg-primary-light disabled:opacity-40"
-            >
-              {customIntroLoading ? 'Getting feedback...' : 'Get Beckett feedback'}
-            </button>
-            {customIntroFeedback && (
-              <div className="mt-3 rounded-card border border-primary/20 bg-primary/5 p-3">
-                <p className="text-xs font-medium uppercase tracking-wide text-primary mb-1">Beckett feedback</p>
-                <p className="text-sm leading-relaxed text-ink-mid">{customIntroFeedback}</p>
+          (() => {
+            const isPremadeIntro = matchesGeneratedIntro(customIntro)
+            return (
+              <div className="rounded-card border border-border bg-white p-4 mb-4">
+                <label className="block text-sm font-medium text-ink mb-1">Optional: write your own intro</label>
+                <p className="text-xs text-ink-light mb-3">Try a version in your own words and ask Beckett for feedback before you save.</p>
+                <textarea
+                  value={customIntro}
+                  onChange={(e) => {
+                    setCustomIntro(e.target.value)
+                    setCustomIntroFeedback(null)
+                  }}
+                  rows={4}
+                  placeholder="Write your own intro here..."
+                  className="w-full resize-none rounded-sm border border-border bg-white px-3 py-2.5 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
+                />
+                {isPremadeIntro && (
+                  <div className="mt-3 rounded-card border border-primary/20 bg-primary/5 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-primary mb-1">Looks ready</p>
+                    <p className="text-sm leading-relaxed text-ink-mid">
+                      This matches one of Beckett&apos;s generated intros, so no extra feedback is needed. You can use it as-is or edit it and ask for feedback.
+                    </p>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={getCustomIntroFeedback}
+                  disabled={!customIntro.trim() || isPremadeIntro || customIntroLoading}
+                  className="mt-3 rounded-pill border border-primary px-4 py-2 text-xs font-medium text-primary hover:bg-primary-light disabled:opacity-40"
+                >
+                  {customIntroLoading ? 'Getting feedback...' : 'Get Beckett feedback'}
+                </button>
+                {customIntroFeedback && !isPremadeIntro && (
+                  <div className="mt-3 rounded-card border border-primary/20 bg-primary/5 p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-primary mb-1">Beckett feedback</p>
+                    <p className="text-sm leading-relaxed text-ink-mid">{customIntroFeedback}</p>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
+            )
+          })()
         )}
         {toolkitError && <p className="text-xs text-red-600 mb-3">{toolkitError}</p>}
         <button
