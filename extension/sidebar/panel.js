@@ -198,6 +198,10 @@ $('slackReconnectBtn').onclick = async () => {
   btn.hidden = true;
 };
 
+$('gmailReconnectBtn').onclick = () => {
+  chrome.runtime.sendMessage({ type: 'OPEN_SETTINGS' });
+};
+
 // ── Voice calibration badge ───────────────────────────────────
 
 function updateVoiceBadge() {
@@ -277,6 +281,7 @@ function clearResults() {
   $('contactStrip').hidden = true;
   $('analysisMeta').hidden = true;
   $('slackReconnectBtn').hidden = true;
+  $('gmailReconnectCard').hidden = true;
 }
 
 function showResults(data, isSafePerson) {
@@ -310,8 +315,10 @@ function renderAnalysisMetadata(metadata) {
   const card = $('analysisMeta');
   const text = $('analysisMetaText');
   const reconnect = $('slackReconnectBtn');
+  const gmailReconnectCard = $('gmailReconnectCard');
   if (!metadata) {
     card.hidden = true;
+    gmailReconnectCard.hidden = true;
     return;
   }
 
@@ -331,6 +338,8 @@ function renderAnalysisMetadata(metadata) {
     details.push(gmailReasonLabel(metadata.gmailEnrichmentReason));
   }
 
+  renderGmailReconnectPrompt(metadata);
+
   if (metadata.platform === 'slack' && metadata.slackConnected === false) {
     details.push('Slack not connected locally');
     reconnect.hidden = false;
@@ -340,6 +349,41 @@ function renderAnalysisMetadata(metadata) {
 
   text.textContent = details.join(' · ');
   card.hidden = false;
+}
+
+function renderGmailReconnectPrompt(metadata) {
+  const card = $('gmailReconnectCard');
+  const title = $('gmailReconnectTitle');
+  const text = $('gmailReconnectText');
+  const reason = metadata?.gmailEnrichmentReason;
+
+  if (metadata?.platform !== 'gmail' || metadata.source === 'gmail_api' || !reason) {
+    card.hidden = true;
+    return;
+  }
+
+  if (reason === 'google_not_connected') {
+    title.textContent = 'Connect Gmail for full threads';
+    text.textContent = 'Beckett can analyze the visible message now, but it needs your Gmail connection in the web app to read the full thread.';
+    card.hidden = false;
+    return;
+  }
+
+  if (reason === 'gmail_token_expired') {
+    title.textContent = 'Reconnect Gmail for full threads';
+    text.textContent = 'Your Gmail connection needs to be refreshed before Beckett can include earlier messages in this thread.';
+    card.hidden = false;
+    return;
+  }
+
+  if (reason === 'beckett_not_connected') {
+    title.textContent = 'Log in to Beckett first';
+    text.textContent = 'Connect your Beckett account, then reconnect Gmail from Settings so full-thread analysis can work.';
+    card.hidden = false;
+    return;
+  }
+
+  card.hidden = true;
 }
 
 function gmailReasonLabel(reason) {

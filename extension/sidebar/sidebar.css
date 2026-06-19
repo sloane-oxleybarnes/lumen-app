@@ -323,6 +323,29 @@ body {
   color: var(--text-muted);
 }
 
+.gmail-reconnect-card {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+  background: var(--primary-light);
+  border: 1px solid var(--primary-mid);
+  border-radius: var(--radius);
+  padding: 10px;
+}
+
+.gmail-reconnect-text {
+  margin-top: 3px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.gmail-reconnect-card .btn-save {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
 /* ── Empty state ─────────────────────────────────────────────── */
 
 .empty-state {
