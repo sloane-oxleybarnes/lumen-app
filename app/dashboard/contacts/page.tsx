@@ -64,6 +64,10 @@ export default function ContactsPage() {
   const [saving, setSaving] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [generatingInsights, setGeneratingInsights] = useState(false);
+  const [mergeSourceId, setMergeSourceId] = useState<string | null>(null);
+  const [mergeTargetId, setMergeTargetId] = useState("");
+  const [mergeError, setMergeError] = useState("");
+  const [merging, setMerging] = useState(false);
 
   const loadContacts = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -112,6 +116,54 @@ export default function ContactsPage() {
     setEditingId(c.id);
     setShowForm(true);
     setSelectedId(null);
+  }
+
+  function openMerge(c: Contact) {
+    const firstOtherContact = contacts.find((contact) => contact.id !== c.id);
+    setMergeSourceId(c.id);
+    setMergeTargetId(firstOtherContact?.id || "");
+    setMergeError("");
+    setShowForm(false);
+    setEditingId(null);
+  }
+
+  async function mergeContact(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mergeSourceId || !mergeTargetId || mergeSourceId === mergeTargetId) return;
+
+    const source = contacts.find((contact) => contact.id === mergeSourceId);
+    const target = contacts.find((contact) => contact.id === mergeTargetId);
+    if (!source || !target) return;
+
+    const confirmed = window.confirm(
+      `Merge ${source.name} into ${target.name}? ${target.name} will stay, identifiers and missing details from ${source.name} will move over, and ${source.name} will be removed.`
+    );
+    if (!confirmed) return;
+
+    setMerging(true);
+    setMergeError("");
+
+    const res = await fetch("/api/contacts/merge", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        primaryContactId: mergeTargetId,
+        duplicateContactId: mergeSourceId,
+      }),
+    });
+    const data = await res.json() as { error?: string };
+
+    setMerging(false);
+
+    if (!res.ok) {
+      setMergeError(data.error || "Could not merge contacts.");
+      return;
+    }
+
+    setMergeSourceId(null);
+    setMergeTargetId("");
+    setSelectedId(mergeTargetId);
+    await loadContacts();
   }
 
   async function save(e: React.FormEvent) {
@@ -343,6 +395,67 @@ export default function ContactsPage() {
         </div>
       )}
 
+      {mergeSourceId && (
+        <div className="bg-white border border-border rounded-card p-5 mb-5">
+          <h2 className="text-base font-medium text-ink mb-2">Merge contacts</h2>
+          <p className="text-sm text-ink-mid mb-4">
+            Choose the contact to keep. Beckett will move identifiers and missing details from the duplicate, then remove the duplicate contact.
+          </p>
+          <form onSubmit={mergeContact} className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-ink mb-1">Duplicate to merge</label>
+                <div className="rounded-sm border border-border bg-bg px-3 py-2 text-sm text-ink">
+                  {contacts.find((contact) => contact.id === mergeSourceId)?.name || "Selected contact"}
+                </div>
+              </div>
+              <div>
+                <label htmlFor="merge-target" className="block text-sm font-medium text-ink mb-1">
+                  Keep this contact
+                </label>
+                <select
+                  id="merge-target"
+                  value={mergeTargetId}
+                  onChange={(e) => setMergeTargetId(e.target.value)}
+                  required
+                  className="w-full border border-border rounded-sm bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                >
+                  <option value="">Choose contact to keep</option>
+                  {contacts
+                    .filter((contact) => contact.id !== mergeSourceId)
+                    .map((contact) => (
+                      <option key={contact.id} value={contact.id}>
+                        {contact.name}
+                        {contact.email ? ` · ${contact.email}` : ""}
+                        {contact.slack_handle ? ` · Slack: ${contact.slack_handle}` : ""}
+                      </option>
+                    ))}
+                </select>
+              </div>
+            </div>
+            {mergeError && (
+              <p className="text-sm text-red-600" role="alert">{mergeError}</p>
+            )}
+            <div className="flex gap-2">
+              <button
+                type="submit"
+                disabled={merging || !mergeTargetId}
+                className="bg-primary text-white text-sm rounded-pill px-5 py-2 hover:bg-primary-dark transition-colors disabled:opacity-50"
+              >
+                {merging ? "Merging…" : "Merge contacts"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMergeSourceId(null); setMergeTargetId(""); setMergeError(""); }}
+                className="border border-border text-sm rounded-pill px-5 py-2 text-ink-mid hover:bg-bg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* Contact cards */}
       {filtered.length === 0 && !showForm ? (
         <div className="mt-6 text-center py-16 bg-white border border-border rounded-card">
@@ -415,6 +528,14 @@ export default function ContactsPage() {
                   >
                     Edit
                   </button>
+                  {contacts.length > 1 && (
+                    <button
+                      onClick={() => openMerge(c)}
+                      className="text-xs text-ink-mid transition-colors hover:text-ink"
+                    >
+                      Merge
+                    </button>
+                  )}
                   <button
                     onClick={() => deleteContact(c.id)}
                     className="text-xs text-red-400 transition-colors hover:text-red-600"
