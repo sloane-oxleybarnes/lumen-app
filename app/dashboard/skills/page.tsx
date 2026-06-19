@@ -147,7 +147,7 @@ function SkillModuleCard({
           )}
         </div>
         <p className="text-sm leading-relaxed text-ink-mid">{card.description}</p>
-        <p className="mt-3 text-xs text-ink-light">{isCompleted ? 'Review skills' : isInProgress ? 'Resume course' : `${card.estimatedMinutes} min`}</p>
+        <p className="mt-3 text-xs text-ink-light">{isCompleted ? 'Review course' : isInProgress ? 'Resume course' : `${card.estimatedMinutes} min`}</p>
       </div>
       <span className={`mt-1 text-lg ${isLive ? 'text-ink-light group-hover:text-primary' : 'text-ink-light/40'}`}>→</span>
     </div>

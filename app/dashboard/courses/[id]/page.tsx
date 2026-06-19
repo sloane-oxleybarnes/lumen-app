@@ -21,6 +21,10 @@ type CourseProgressRow = {
   progress_percent: number | null
   saved_at: string | null
 }
+type ReviewBlock = {
+  heading?: string
+  lines: string[]
+}
 type WrongAnswer = {
   slideIndex: number
   itemIndex: number
@@ -134,6 +138,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
 
   // ── Flip cards ───────────────────────────────────────────────────────────
   const [flippedCards, setFlippedCards] = useState<Set<number>>(new Set())
+  const [reviewExpanded, setReviewExpanded] = useState<Set<number>>(new Set())
 
   // ── Matching ─────────────────────────────────────────────────────────────
   const [shuffledRight, setShuffledRight] = useState<number[]>([])
@@ -1143,12 +1148,20 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             <p className="text-xs text-ink-mid mb-3">
               Completed {completedAt ? new Date(completedAt).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''}.
             </p>
-            <button
-              onClick={() => setPhase('review')}
-              className="text-xs text-primary border border-primary rounded-pill px-3 py-1.5 hover:bg-primary-light transition-colors"
-            >
-              Review skills →
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={resetCourseForRedo}
+                className="text-xs text-primary border border-primary rounded-pill px-3 py-1.5 hover:bg-primary-light transition-colors"
+              >
+                Redo course
+              </button>
+              <button
+                onClick={() => setPhase('review')}
+                className="text-xs bg-primary text-white rounded-pill px-3 py-1.5 hover:bg-primary-dark transition-colors"
+              >
+                Review course
+              </button>
+            </div>
           </div>
         )}
         <p className="text-xs text-ink-light uppercase tracking-wide mb-3">Before you start</p>
@@ -2281,46 +2294,226 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     }
   }
 
+  function addBlock(blocks: ReviewBlock[], heading: string | undefined, lines: Array<string | undefined | null>) {
+    const cleaned = lines
+      .map((line) => line?.trim())
+      .filter((line): line is string => Boolean(line))
+    if (cleaned.length) blocks.push({ heading, lines: cleaned })
+  }
+
+  function getSlideReviewBlocks(slide: typeof course.slides[number]): ReviewBlock[] {
+    const blocks: ReviewBlock[] = []
+    addBlock(blocks, undefined, ['description' in slide ? slide.description : undefined])
+
+    if (slide.type === 'accordion') {
+      slide.sections.forEach((section) => addBlock(blocks, section.heading, section.bullets))
+    }
+
+    if (slide.type === 'read-through') {
+      addBlock(blocks, 'Overview', [slide.intro])
+      addBlock(blocks, 'Key points', slide.bullets || [])
+      addBlock(blocks, 'Notes', slide.stats || [])
+    }
+
+    if (slide.type === 'flip-cards') {
+      slide.cards.forEach((card) => addBlock(blocks, card.front, card.back))
+    }
+
+    if (slide.type === 'matching') {
+      addBlock(blocks, 'Prompt', [slide.instruction])
+      slide.pairs.forEach((pair) => {
+        addBlock(blocks, pair.left.name || 'Example', [
+          pair.left.description,
+          pair.left.mismatchNote ? `Watch for: ${pair.left.mismatchNote}` : undefined,
+          `${pair.right.name}: ${pair.right.description}`,
+        ])
+      })
+    }
+
+    if (slide.type === 'interactive-read') {
+      slide.sections.forEach((section) => {
+        addBlock(blocks, section.heading, [
+          ...section.bullets,
+          ...(section.examples || []).map((example) => `Example: ${example}`),
+        ])
+      })
+      addBlock(blocks, slide.draftPrompt ? 'Practice prompt' : undefined, [slide.draftPrompt, slide.draftContext])
+      if (slide.comparison) {
+        addBlock(blocks, 'Spot the difference', [slide.comparison.scenario])
+        addBlock(blocks, slide.comparison.bad.label, [slide.comparison.bad.message, slide.comparison.bad.note])
+        addBlock(blocks, slide.comparison.good.label, [slide.comparison.good.message, slide.comparison.good.note])
+      }
+    }
+
+    if (slide.type === 'draft-practice') {
+      addBlock(blocks, 'Prompt', [slide.prompt, slide.draftContext])
+    }
+
+    if (slide.type === 'side-by-side') {
+      addBlock(blocks, 'Scenario', [slide.scenario])
+      addBlock(blocks, slide.bad.label, [slide.bad.message, slide.bad.note])
+      addBlock(blocks, slide.good.label, [slide.good.message, slide.good.note])
+    }
+
+    if (slide.type === 'sorting') {
+      addBlock(blocks, 'Prompt', [slide.instruction])
+      slide.items.forEach((item) => {
+        addBlock(blocks, item.message, [`Best category: ${item.correct}`, item.explanation])
+      })
+    }
+
+    if (slide.type === 'multiple-choice') {
+      slide.rounds.forEach((round, idx) => {
+        const correct = round.options.find((option) => option.correct)
+        addBlock(blocks, `Round ${idx + 1}`, [
+          round.scenario,
+          correct ? `Best answer: ${correct.text}` : undefined,
+          correct?.explanation,
+        ])
+      })
+    }
+
+    if (slide.type === 'multi-select-quiz') {
+      slide.rounds.forEach((round, idx) => {
+        const correctAnswers = round.options
+          .filter((option) => option.correct)
+          .map((option) => option.text)
+          .join('; ')
+        addBlock(blocks, `Round ${idx + 1}`, [
+          round.scenario,
+          round.question,
+          correctAnswers ? `Best answers: ${correctAnswers}` : undefined,
+          round.explanation,
+        ])
+      })
+    }
+
+    if (slide.type === 'checklist') {
+      addBlock(blocks, 'Checklist', slide.items)
+    }
+
+    if (slide.type === 'visual-formula') {
+      slide.steps.forEach((step, idx) => {
+        addBlock(blocks, `Step ${idx + 1}: ${step.label}`, [step.text, step.example ? `Example: ${step.example}` : undefined])
+      })
+    }
+
+    if (slide.type === 'reflection-choice') {
+      addBlock(blocks, 'Prompt', [
+        slide.prompt,
+        ...slide.options.map((option) => `Option: ${option}`),
+      ])
+    }
+
+    if (slide.type === 'guided-builder') {
+      if (slide.cards) {
+        slide.cards.forEach((card) => addBlock(blocks, card.front, card.back))
+      }
+      slide.fields.forEach((field) => {
+        addBlock(blocks, field.label, [
+          field.placeholder,
+          field.fillBefore || field.fillAfter ? `${field.fillBefore || ''} ____ ${field.fillAfter || ''}`.trim() : undefined,
+          ...(field.options || []).map((option) => `Option: ${option}`),
+        ])
+      })
+      if (slide.outputs) {
+        slide.outputs.forEach((output) => addBlock(blocks, output.label, [output.template]))
+      }
+    }
+
+    return blocks.length ? blocks : [{ lines: ['This slide is part of the interactive course. Redo the course to practice this section again.'] }]
+  }
+
+  function resetCourseForRedo() {
+    resetSlideState()
+    setPhase('confidence-start')
+    setCurrentSlideIndex(0)
+    setPreConfidence(null)
+    setPostConfidence(null)
+    setWrongAnswers([])
+    setCurrentWAIndex(0)
+    setMiniConvo(null)
+    setPracticeMessages([])
+    setPracticeInput('')
+    setPracticeError(null)
+    setRetryMessages(null)
+    setGhosted(false)
+    setShowGhostOverlay(false)
+    setHardIntervention(null)
+    setGhostAnalysis(null)
+    setDebrief(null)
+    setReviewExpanded(new Set())
+    completionSaved.current = false
+    ghostCheckStrikes.current = 0
+  }
+
   // ── Review mode (read-only slide browser) ─────────────────────────────────
   function renderSlideReview() {
-    const courseToolkitItems = toolkitItems.filter((item) => item.course_id === course.id && item.category !== 'collaboration_preference')
-    const usesToolkit = course.savesToToolkit !== false
     return (
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
-          Review skills
+          Review course
         </h1>
         <p className="text-sm text-ink-mid mb-6 leading-relaxed">
-          {usesToolkit ? 'A quick recap of what you built and the core ideas from this course.' : 'A quick recap of the formula and checklist from this course.'}
+          A read-only version of the course. Activities are removed here so you can scan the information without redoing the exercises.
         </p>
-        {usesToolkit ? <ToolkitSummary items={courseToolkitItems} /> : <CourseRecap />}
-        {usesToolkit && (
-          <div className="rounded-card border border-border bg-white p-5 mb-6">
-            <p className="text-sm font-medium text-ink mb-3">Core course reminders</p>
-            <div className="space-y-2">
-              {course.slides
-                .filter((slide) => slide.type === 'visual-formula' || slide.type === 'checklist')
-                .slice(0, 3)
-                .map((slide) => (
-                  <div key={slide.title} className="rounded-card bg-bg px-3 py-2">
-                    <p className="text-sm text-ink">{slide.title}</p>
+
+        <div className="mb-8 space-y-3">
+          {course.slides.map((slide, idx) => {
+            const open = reviewExpanded.has(idx)
+            const blocks = getSlideReviewBlocks(slide)
+            return (
+              <div key={`${slide.title}-${idx}`} className="overflow-hidden rounded-card border border-border bg-white">
+                <button
+                  type="button"
+                  onClick={() => setReviewExpanded(prev => {
+                    const next = new Set(prev)
+                    if (next.has(idx)) next.delete(idx)
+                    else next.add(idx)
+                    return next
+                  })}
+                  className="flex w-full items-center justify-between gap-4 px-4 py-3 text-left hover:bg-bg/70"
+                >
+                  <div>
+                    <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Slide {idx + 1}</p>
+                    <p className="text-sm font-medium text-ink">{slide.title}</p>
                   </div>
-                ))}
-            </div>
-          </div>
-        )}
+                  <span className="text-lg text-ink-light">{open ? '−' : '+'}</span>
+                </button>
+                {open && (
+                  <div className="space-y-4 border-t border-border bg-bg/35 px-4 py-4">
+                    {blocks.map((block, blockIdx) => (
+                      <div key={`${block.heading || 'body'}-${blockIdx}`}>
+                        {block.heading && <p className="mb-1 text-xs font-medium uppercase tracking-wide text-primary">{block.heading}</p>}
+                        <div className="space-y-1.5">
+                          {block.lines.map((line, lineIdx) => (
+                            <p key={`${line}-${lineIdx}`} className="text-sm leading-relaxed text-ink-mid">
+                              {line}
+                            </p>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+
         <div className="flex gap-3">
-          {usesToolkit && (
-            <a href="/dashboard/about" className="flex-1 border border-primary text-primary rounded-pill py-3 text-sm font-medium text-center hover:bg-primary-light transition-colors">
-              Open toolkit
-            </a>
-          )}
           <button
-            onClick={() => setPhase('confidence-start')}
-            className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+            onClick={resetCourseForRedo}
+            className="flex-1 border border-primary text-primary rounded-pill py-3 text-sm font-medium hover:bg-primary-light transition-colors"
           >
             Redo course
           </button>
+          <a
+            href="/dashboard/skills"
+            className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            Back to skills
+          </a>
         </div>
       </div>
     )
@@ -2705,8 +2898,20 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         </div>
 
         <div className="flex gap-3 justify-center">
-          <a href="/dashboard/skills" className="border border-border rounded-pill px-5 py-3 text-sm font-medium text-ink hover:bg-primary-light transition-colors">Back to skills</a>
-          <a href="/dashboard/practice" className="bg-primary text-white rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-dark transition-colors">Practice more</a>
+          <button
+            type="button"
+            onClick={resetCourseForRedo}
+            className="flex-1 border border-primary text-primary rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-light transition-colors"
+          >
+            Redo course
+          </button>
+          <button
+            type="button"
+            onClick={() => setPhase('review')}
+            className="flex-1 bg-primary text-white rounded-pill px-5 py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
+            Review course
+          </button>
         </div>
       </div>
     )
