@@ -74,6 +74,7 @@ export default async function DashboardPage() {
     },
   ];
   const setupCompleteCount = setupItems.filter((item) => item.done).length;
+  const setupComplete = setupCompleteCount === setupItems.length;
   const showWalkthrough = Boolean(
     profile?.first_login_complete && !profile?.dashboard_walkthrough_completed_at
   );
@@ -112,7 +113,7 @@ export default async function DashboardPage() {
         </div>
       </section>
 
-      <section className="mb-6 grid gap-5 lg:grid-cols-[1fr_1fr]">
+      <section className={`mb-6 grid gap-5 ${setupComplete ? "" : "lg:grid-cols-[1fr_1fr]"}`}>
         <div className="rounded-card border border-primary/20 bg-primary-light/40 p-6">
           <p className="text-xs font-medium uppercase tracking-wide text-primary">Start here</p>
           <h2 className="mt-2 text-2xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
@@ -138,27 +139,29 @@ export default async function DashboardPage() {
           </div>
         </div>
 
-        <div className="rounded-card border border-border bg-white p-6">
-          <div className="mb-4 flex items-start justify-between gap-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Beta setup</p>
-              <h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
-                Connect your coaching tools
-              </h2>
+        {!setupComplete && (
+          <div className="rounded-card border border-border bg-white p-6">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Beta setup</p>
+                <h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
+                  Connect your coaching tools
+                </h2>
+              </div>
+              <span className="rounded-pill bg-bg px-3 py-1 text-xs font-medium text-ink-mid">
+                {setupCompleteCount}/3 done
+              </span>
             </div>
-            <span className="rounded-pill bg-bg px-3 py-1 text-xs font-medium text-ink-mid">
-              {setupCompleteCount}/3 done
-            </span>
+            <div className="space-y-3">
+              {setupItems.map((item) => (
+                <SetupChecklistItem key={item.label} {...item} />
+              ))}
+            </div>
           </div>
-          <div className="space-y-3">
-            {setupItems.map((item) => (
-              <SetupChecklistItem key={item.label} {...item} />
-            ))}
-          </div>
-        </div>
+        )}
       </section>
 
-      <section className="mb-6 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+      <section className="mb-6">
         <div className="rounded-card border border-border bg-white p-6">
           <div className="mb-5 flex items-start justify-between gap-4">
             <div>
@@ -185,27 +188,6 @@ export default async function DashboardPage() {
               See professional courses →
             </Link>
           </div>
-        </div>
-
-        <div className="rounded-card border border-border bg-white p-6">
-          <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Quick actions</p>
-          <div className="mt-5 space-y-3">
-            <Link
-              href="/dashboard/practice"
-              className="block w-full rounded-pill bg-primary px-5 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-dark"
-            >
-              Practice a conversation
-            </Link>
-            <Link
-              href="/dashboard/skills"
-              className="block w-full rounded-pill border border-border px-5 py-3 text-center text-sm font-medium text-ink transition-colors hover:bg-bg"
-            >
-              Open skill modules
-            </Link>
-          </div>
-          <p className="mt-5 text-xs leading-relaxed text-ink-light">
-            Start with practice when there is a live conversation coming up. Use skills when you want a coached walkthrough.
-          </p>
         </div>
       </section>
 
