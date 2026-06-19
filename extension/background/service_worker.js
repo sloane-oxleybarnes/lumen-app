@@ -168,6 +168,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       chrome.tabs.create({ url: 'https://meetbeckett.co/dashboard/settings' });
       sendResponse({ ok: true });
       return true;
+
+    case 'OPEN_CONTACTS':
+      chrome.tabs.create({ url: 'https://meetbeckett.co/dashboard/contacts' });
+      sendResponse({ ok: true });
+      return true;
   }
 });
 

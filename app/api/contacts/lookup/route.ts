@@ -16,6 +16,7 @@ export async function GET(req: NextRequest) {
 
   const platform = req.nextUrl.searchParams.get('platform')
   const identifier = req.nextUrl.searchParams.get('identifier')
+  const name = req.nextUrl.searchParams.get('name')?.trim()
 
   if (!platform || !identifier) {
     return NextResponse.json({ error: 'platform and identifier required' }, { status: 400 })
@@ -29,6 +30,19 @@ export async function GET(req: NextRequest) {
     .eq('platform', platform)
     .eq('identifier', identifier.toLowerCase())
     .single()
+
+  if (!data && name) {
+    const { data: nameMatch } = await supabase
+      .from('contacts')
+      .select('id, name, trusted')
+      .eq('user_id', userId)
+      .ilike('name', name)
+      .limit(1)
+      .maybeSingle()
+
+    if (nameMatch) return NextResponse.json({ contact: nameMatch })
+    return NextResponse.json({ contact: null })
+  }
 
   if (!data) return NextResponse.json({ contact: null })
 

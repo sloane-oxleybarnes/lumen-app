@@ -157,7 +157,7 @@
 
     const btn = document.createElement('button');
     btn.className = 'lumen-compose-btn';
-    btn.textContent = '☀ Draft with Beckett';
+    btn.textContent = 'Draft with Beckett';
     Object.assign(btn.style, {
       marginLeft: '8px',
       padding: '4px 10px',

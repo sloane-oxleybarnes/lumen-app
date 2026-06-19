@@ -407,14 +407,21 @@ async function lookupContact() {
   const strip = $('contactStrip');
   const label = $('contactStripLabel');
   const addBtn = $('contactStripAdd');
+  const name = state.currentSender || identifier;
 
   strip.hidden = false;
   label.textContent = '…';
   addBtn.hidden = true;
 
   try {
+    const params = new URLSearchParams({
+      platform,
+      identifier: identifier.toLowerCase(),
+    });
+    if (name) params.set('name', name);
+
     const res = await fetch(
-      `${BECKETT_API}/contacts/lookup?platform=${platform}&identifier=${encodeURIComponent(identifier.toLowerCase())}`,
+      `${BECKETT_API}/contacts/lookup?${params.toString()}`,
       { headers: { Authorization: `Bearer ${state.beckettToken}` } }
     );
     const data = await res.json();
@@ -422,9 +429,10 @@ async function lookupContact() {
       const icon = data.contact.trusted ? '💛' : '◎';
       const suffix = data.contact.trusted ? '— trusted contact' : '— in contacts';
       label.textContent = `${icon} ${data.contact.name} ${suffix}`;
-      addBtn.hidden = true;
+      addBtn.textContent = `See ${data.contact.name}'s Contact Card`;
+      addBtn.hidden = false;
+      addBtn.onclick = () => chrome.runtime.sendMessage({ type: 'OPEN_CONTACTS' });
     } else {
-      const name = state.currentSender || identifier;
       label.textContent = '';
       addBtn.textContent = `+ Add ${name} to contacts`;
       addBtn.hidden = false;

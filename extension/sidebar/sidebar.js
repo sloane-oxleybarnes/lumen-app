@@ -48,7 +48,14 @@ const LUMEN_CSS = `
   user-select: none;
 }
 
-.toggle-btn .lumen-logo { font-size: 16px; }
+.toggle-btn .lumen-logo,
+.header-top .lumen-logo {
+  width: 17px;
+  height: 17px;
+  object-fit: contain;
+  display: inline-block;
+  flex-shrink: 0;
+}
 .toggle-btn .lumen-wordmark {
   writing-mode: vertical-rl;
   font-size: 10px;
@@ -89,7 +96,6 @@ const LUMEN_CSS = `
   margin-bottom: 10px;
 }
 
-.header-top .lumen-logo { font-size: 15px; }
 .header-top .lumen-wordmark { font-size: 13px; font-weight: 700; color: #BA7517; flex: 1; }
 
 .live-indicator {
@@ -348,13 +354,13 @@ const LUMEN_CSS = `
 
 const MESSAGE_TEMPLATE = `
 <div class="toggle-btn" role="button" aria-label="Open Beckett">
-  <span class="lumen-logo">☀</span>
+  <img class="lumen-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="" aria-hidden="true">
   <span class="lumen-wordmark">Beckett</span>
 </div>
 <div class="panel-inner">
   <div class="panel-header">
     <div class="header-top">
-      <span class="lumen-logo">☀</span>
+      <img class="lumen-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="" aria-hidden="true">
       <span class="lumen-wordmark">Beckett</span>
       <button class="close-btn" title="Collapse" aria-label="Collapse Beckett">×</button>
     </div>
@@ -396,7 +402,7 @@ const MESSAGE_TEMPLATE = `
 
 const MEETING_TEMPLATE = `
 <div class="toggle-btn" role="button" aria-label="Open Beckett">
-  <span class="lumen-logo">☀</span>
+  <img class="lumen-logo" src="${chrome.runtime.getURL('icons/icon48.png')}" alt="" aria-hidden="true">
   <span class="lumen-wordmark">Beckett</span>
 </div>
 <div class="panel-inner">

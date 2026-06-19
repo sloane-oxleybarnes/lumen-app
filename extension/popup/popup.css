@@ -47,7 +47,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
-.logo { font-size: 22px; }
+.logo {
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
+  display: inline-block;
+  flex-shrink: 0;
+}
 .header h1 { font-size: 16px; font-weight: 700; color: var(--primary); }
 .tagline { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
 
