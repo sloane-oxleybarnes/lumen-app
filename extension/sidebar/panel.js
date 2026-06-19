@@ -256,14 +256,6 @@ $('analyzeBtn').onclick = async () => {
   state.currentSender = response.sender || null;
   state.currentSenderEmail = response.senderEmail || null;
 
-  if (state.currentSender && state.currentSender.includes('@') && isPro()) {
-    $('contactNameDisplay').textContent = state.currentSender;
-    $('contactHistoryRow').hidden = false;
-    $('historyBadge').hidden = true;
-    $('refreshHistoryBtn').hidden = true;
-    $('seeHistoryBtn').hidden = false;
-  }
-
   // Look up contact in Beckett
   lookupContact();
 };
@@ -280,7 +272,6 @@ function clearResults() {
   $('feedbackRow').hidden = true;
   $('feedbackConfirm').hidden = true;
   $('feedbackImprove').hidden = true;
-  $('contactHistoryRow').hidden = true;
   $('askSection').hidden = true;
   $('askAnswerCard').hidden = true;
   $('contactStrip').hidden = true;
@@ -336,6 +327,10 @@ function renderAnalysisMetadata(metadata) {
     metadata.channelName ? `#${metadata.channelName}` : metadata.channelType || null,
   ].filter(Boolean);
 
+  if (metadata.platform === 'gmail' && metadata.source !== 'gmail_api' && metadata.gmailEnrichmentReason) {
+    details.push(gmailReasonLabel(metadata.gmailEnrichmentReason));
+  }
+
   if (metadata.platform === 'slack' && metadata.slackConnected === false) {
     details.push('Slack not connected locally');
     reconnect.hidden = false;
@@ -345,6 +340,14 @@ function renderAnalysisMetadata(metadata) {
 
   text.textContent = details.join(' · ');
   card.hidden = false;
+}
+
+function gmailReasonLabel(reason) {
+  if (reason === 'google_not_connected') return 'Gmail connection unavailable';
+  if (reason === 'gmail_token_expired') return 'Reconnect Gmail for full threads';
+  if (reason === 'thread_not_found') return 'Full thread not found';
+  if (reason === 'beckett_not_connected') return 'Beckett login unavailable';
+  return 'Full thread unavailable';
 }
 
 // ── Contacts lookup ───────────────────────────────────────────
@@ -464,64 +467,6 @@ document.addEventListener('click', e => {
     logVoiceSample(text);
   }
 });
-
-// ── Contact history ───────────────────────────────────────────
-
-$('seeHistoryBtn').onclick = () => fetchContactHistory(state.currentSender, false);
-$('refreshHistoryBtn').onclick = () => fetchContactHistory(state.currentSender, true);
-
-async function fetchContactHistory(email, forceRefresh) {
-  if (!email || !isPro()) return;
-  $('seeHistoryBtn').textContent = 'Loading…';
-  $('seeHistoryBtn').disabled = true;
-
-  if (forceRefresh) {
-    delete state.contactHistoryCache[email];
-    await chrome.storage.local.remove(`contact_history_${email.replace(/[^a-z0-9]/gi, '_')}`);
-  }
-
-  const res = await msg('FETCH_CONTACT_HISTORY', { email });
-  $('seeHistoryBtn').disabled = false;
-  $('seeHistoryBtn').textContent = 'See history';
-
-  if (res.error) { showError($('errorBox'), `History: ${res.error}`); return; }
-
-  state.contactHistoryCache[email] = res;
-  $('historyBadge').hidden = false;
-  $('refreshHistoryBtn').hidden = false;
-  $('seeHistoryBtn').hidden = true;
-
-  renderContactHistory(res.threads || [], res.slackMessages || []);
-}
-
-function renderContactHistory(threads, slackMessages) {
-  const existing = $('contactHistoryDetail');
-  if (existing) existing.remove();
-
-  if (!threads.length && !slackMessages.length) return;
-
-  const el = document.createElement('div');
-  el.id = 'contactHistoryDetail';
-  el.className = 'card';
-  el.style.marginTop = '8px';
-
-  let html = '';
-  if (threads.length) {
-    html += `<div class="card-label">Gmail — recent threads</div>`;
-    html += threads.slice(0, 5).map(t =>
-      `<p class="card-text" style="margin:2px 0;font-size:12px;">• ${escHtml(t.subject)}</p>`
-    ).join('');
-  }
-  if (slackMessages.length) {
-    html += `<div class="card-label" style="margin-top:8px;">Slack — recent messages</div>`;
-    html += slackMessages.slice(0, 5).map(m =>
-      `<p class="card-text" style="margin:2px 0;font-size:12px;">• ${escHtml(m.text.slice(0, 80))}${m.text.length > 80 ? '…' : ''}</p>`
-    ).join('');
-  }
-
-  el.innerHTML = html;
-  $('contactHistoryRow').after(el);
-}
 
 // ── Meeting live mode ─────────────────────────────────────────
 
@@ -784,6 +729,7 @@ function renderBulletText(el, value) {
   const bullets = text
     .split(/\n+/)
     .map(line => line.trim().replace(/^[-•]\s*/, ''))
+    .map(line => line.replace(/^(?:\d+\s*)?bullet(?:\s*point)?s?\s*:\s*/i, '').trim())
     .filter(Boolean);
 
   if (bullets.length <= 1 && !/^[-•]\s*/.test(text)) {

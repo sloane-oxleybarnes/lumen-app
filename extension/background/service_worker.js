@@ -216,38 +216,45 @@ async function handleTriggerAnalyze(payload, sendResponse) {
     // Enrich Gmail thread via API — fetches all messages including collapsed ones
     let thread = ctx.thread || null;
     let enrichedContext = null;
+    let gmailEnrichmentReason = null;
     if (ctx.platform === 'gmail' && (ctx.threadId || ctx.subject || ctx.senderEmail)) {
       try {
-        // Try silent token first; only prompt if needed to avoid interrupting the user
-        let token = null;
-        try { token = await getGoogleToken(false); } catch (_) {}
-        if (!token) { try { token = await getGoogleToken(true); } catch (_) {} }
-
-        if (token) {
-          const userEmail = await getOrFetchUserEmail(token);
-          const threadData = await resolveGmailThread(token, ctx);
-          const apiThread = parseThreadMessages(threadData).map(m => ({
-            ...m,
-            isCurrentUser: userEmail
-              ? (m.senderEmail ? m.senderEmail === userEmail.toLowerCase() : m.sender.toLowerCase().includes(userEmail.toLowerCase()))
-              : false,
-          }));
-          if (apiThread.length > 0) {
-            thread = apiThread;
-            const latestIncoming = [...apiThread].reverse().find(m => !m.isCurrentUser);
-            if (latestIncoming) ctx.messageText = latestIncoming.body || ctx.messageText;
-            enrichedContext = {
-              ...ctx,
-              thread: apiThread,
-              messageText: latestIncoming?.body || ctx.messageText,
-              sender: latestIncoming?.sender || ctx.sender,
-              senderEmail: latestIncoming?.senderEmail || ctx.senderEmail || null,
-              source: 'gmail_api',
-            };
-          }
+        const backendThread = await fetchBackendGmailThread(ctx);
+        if (backendThread.messages?.length) {
+          thread = backendThread.messages;
+          enrichedContext = buildEnrichedGmailContext(ctx, backendThread.messages);
         }
       } catch (e) {
-        console.warn('Beckett: Gmail API thread fetch failed:', e.message);
+        gmailEnrichmentReason = e.message || 'gmail_backend_unavailable';
+        console.warn('Beckett: backend Gmail thread fetch failed:', e.message);
+      }
+
+      if (!enrichedContext) {
+        try {
+          // Try silent token first; only prompt if needed to avoid interrupting the user
+          let token = null;
+          try { token = await getGoogleToken(false); } catch (_) {}
+          if (!token) { try { token = await getGoogleToken(true); } catch (_) {} }
+
+          if (token) {
+            const userEmail = await getOrFetchUserEmail(token);
+            const threadData = await resolveGmailThread(token, ctx);
+            const apiThread = parseThreadMessages(threadData).map(m => ({
+              ...m,
+              isCurrentUser: userEmail
+                ? (m.senderEmail ? m.senderEmail === userEmail.toLowerCase() : m.sender.toLowerCase().includes(userEmail.toLowerCase()))
+                : false,
+            }));
+            if (apiThread.length > 0) {
+              thread = apiThread;
+              enrichedContext = buildEnrichedGmailContext(ctx, apiThread);
+              gmailEnrichmentReason = null;
+            }
+          }
+        } catch (e) {
+          gmailEnrichmentReason = gmailEnrichmentReason || e.message || 'gmail_api_unavailable';
+          console.warn('Beckett: Gmail API thread fetch failed:', e.message);
+        }
       }
     }
 
@@ -257,15 +264,16 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       email: currentUserEmail || beckettUserEmail || null,
     };
 
+    const analysisContext = enrichedContext || ctx;
     const prompt = buildMessagePrompt({
-      messageText: ctx.messageText,
+      messageText: analysisContext.messageText,
       thread,
-      sender: ctx.sender,
-      platform: ctx.platform,
-      channelType: ctx.channelType,
+      sender: analysisContext.sender,
+      platform: analysisContext.platform,
+      channelType: analysisContext.channelType,
       mode,
       linkedInContext: null,
-      isSafePerson: ctx.isSafePerson || false,
+      isSafePerson: analysisContext.isSafePerson || false,
       voiceContext,
       currentUser,
     });
@@ -275,8 +283,9 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       mode,
       source: ctx.platform === 'slack' ? (ctx.source || 'slack_dom') : (ctx.platform === 'gmail' && thread !== ctx.thread ? 'gmail_api' : 'page_dom'),
       threadCount: Array.isArray(thread) ? thread.length : 0,
-      channelType: ctx.channelType || null,
-      channelName: ctx.channelName || null,
+      channelType: analysisContext.channelType || null,
+      channelName: analysisContext.channelName || null,
+      gmailEnrichmentReason,
       slackConnected: ctx.platform === 'slack' ? !!slackToken : null,
       slackUserId: ctx.platform === 'slack' ? (slackUserId || null) : null,
     };
@@ -286,12 +295,13 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       mode,
       source: analysisMetadata.source,
       threadCount: analysisMetadata.threadCount,
+      gmailEnrichmentReason,
     });
     sendResponse({
       result,
-      isSafePerson: ctx.isSafePerson || false,
-      sender: ctx.sender,
-      senderEmail: ctx.senderEmail || null,
+      isSafePerson: analysisContext.isSafePerson || false,
+      sender: analysisContext.sender,
+      senderEmail: analysisContext.senderEmail || null,
       metadata: analysisMetadata,
       context: enrichedContext,
     });
@@ -313,6 +323,51 @@ function friendlyAnalyzeError(error) {
     return `${message} Reconnect Slack from Settings if this keeps happening.`;
   }
   return message;
+}
+
+function buildEnrichedGmailContext(ctx, messages) {
+  const latestIncoming = [...messages].reverse().find(m => !m.isCurrentUser);
+  return {
+    ...ctx,
+    thread: messages,
+    messageText: latestIncoming?.body || ctx.messageText,
+    sender: latestIncoming?.sender || ctx.sender,
+    senderEmail: latestIncoming?.senderEmail || ctx.senderEmail || null,
+    source: 'gmail_api',
+  };
+}
+
+async function fetchBackendGmailThread(ctx) {
+  const { beckettToken } = await chrome.storage.local.get('beckettToken');
+  if (!beckettToken) throw new Error('beckett_not_connected');
+
+  const params = new URLSearchParams();
+  const threadIds = [
+    ctx.threadId,
+    ...(ctx.threadIds || []),
+    ...(ctx.thread || []).map(m => m.threadId),
+  ].filter(Boolean);
+  const messageIds = [
+    ...(ctx.messageIds || []),
+    ...(ctx.thread || []).map(m => m.messageId),
+  ].filter(Boolean);
+  const visibleText = (ctx.thread || [])
+    .map(m => m.body || m.text || '')
+    .filter(Boolean)
+    .sort((a, b) => b.length - a.length)[0] || ctx.messageText || '';
+
+  if (threadIds.length) params.set('threadIds', [...new Set(threadIds)].join(','));
+  if (messageIds.length) params.set('messageIds', [...new Set(messageIds)].join(','));
+  if (ctx.subject) params.set('subject', ctx.subject);
+  if (ctx.senderEmail) params.set('senderEmail', ctx.senderEmail);
+  if (visibleText) params.set('visibleText', visibleText.slice(0, 500));
+
+  const res = await fetch(`${BECKETT_API}/extension/gmail/thread?${params.toString()}`, {
+    headers: { Authorization: `Bearer ${beckettToken}` },
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `gmail_backend_error_${res.status}`);
+  return data;
 }
 
 async function extractContextFromTab(tab) {

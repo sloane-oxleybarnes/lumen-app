@@ -85,12 +85,13 @@ ${anchor}${contextBlock}
 
 Use the full thread when it is present. If the answer depends on earlier messages, look there before saying you cannot tell.
 Keep every section concise and scannable.
+Each analysis field may use 1-3 short newline-separated bullets. Do not include count labels or meta labels.
 
 Respond ONLY with valid JSON, no markdown:
 {
-  "intent": "- 1 bullet, max 16 words: what ${participantList} likely means or wants — address this directly to you",
-  "tone": "- 1 bullet, max 16 words: the emotional tone — frustration, urgency, passive aggression, warmth, neutrality, etc.",
-  "want": "- 1 bullet, max 16 words: what ${participantList} probably wants you to do or say next",
+  "intent": "- what ${participantList} likely means or wants — address this directly to you",
+  "tone": "- the emotional tone — frustration, urgency, passive aggression, warmth, neutrality, etc.",
+  "want": "- what ${participantList} probably wants you to do or say next",
   "responses": [
     { "label": "Direct and clear", "tag": "direct", "text": "ready-to-send reply, max 35 words" },
     { "label": "Warm and collaborative", "tag": "warm", "text": "ready-to-send reply, max 35 words" },
