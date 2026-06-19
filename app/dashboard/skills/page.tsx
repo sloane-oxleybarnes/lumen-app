@@ -107,8 +107,17 @@ function LineIllustration({ type }: { type: SkillCard['illustration'] }) {
   )
 }
 
-function SkillModuleCard({ card, completedCourseIds }: { card: SkillCard; completedCourseIds: Set<string> }) {
+function SkillModuleCard({
+  card,
+  completedCourseIds,
+  progressCourseIds,
+}: {
+  card: SkillCard
+  completedCourseIds: Set<string>
+  progressCourseIds: Set<string>
+}) {
   const isCompleted = card.courseId ? completedCourseIds.has(card.courseId) : false
+  const isInProgress = Boolean(card.courseId && progressCourseIds.has(card.courseId) && !isCompleted)
   const isLive = card.status === 'live'
 
   const targetHref = isCompleted ? `${card.href}?review=toolkit` : card.href
@@ -133,9 +142,12 @@ function SkillModuleCard({ card, completedCourseIds }: { card: SkillCard; comple
           {isCompleted && (
             <span className="rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs text-green-700">Course completed</span>
           )}
+          {isInProgress && (
+            <span className="rounded-pill border border-primary/30 bg-primary-light px-2 py-0.5 text-xs text-primary">In progress</span>
+          )}
         </div>
         <p className="text-sm leading-relaxed text-ink-mid">{card.description}</p>
-        <p className="mt-3 text-xs text-ink-light">{isCompleted ? 'Review skills' : `${card.estimatedMinutes} min`}</p>
+        <p className="mt-3 text-xs text-ink-light">{isCompleted ? 'Review skills' : isInProgress ? 'Resume course' : `${card.estimatedMinutes} min`}</p>
       </div>
       <span className={`mt-1 text-lg ${isLive ? 'text-ink-light group-hover:text-primary' : 'text-ink-light/40'}`}>→</span>
     </div>
@@ -147,16 +159,21 @@ function SkillModuleCard({ card, completedCourseIds }: { card: SkillCard; comple
 
 export default function SkillsPage() {
   const [completedCourseIds, setCompletedCourseIds] = useState<Set<string>>(new Set())
+  const [progressCourseIds, setProgressCourseIds] = useState<Set<string>>(new Set())
   const supabase = createClient()
 
   useEffect(() => {
-    async function loadCompletions() {
+    async function loadCourseStatus() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
-      const { data } = await supabase.from('course_completions').select('course_id').eq('user_id', user.id)
-      if (data) setCompletedCourseIds(new Set(data.map((r: { course_id: string }) => r.course_id)))
+      const [{ data: completions }, { data: progressRows }] = await Promise.all([
+        supabase.from('course_completions').select('course_id').eq('user_id', user.id),
+        supabase.from('course_progress').select('course_id').eq('user_id', user.id),
+      ])
+      if (completions) setCompletedCourseIds(new Set(completions.map((r: { course_id: string }) => r.course_id)))
+      if (progressRows) setProgressCourseIds(new Set(progressRows.map((r: { course_id: string }) => r.course_id)))
     }
-    loadCompletions()
+    loadCourseStatus()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -176,7 +193,12 @@ export default function SkillsPage() {
           </div>
           <div className="grid gap-4">
             {section.cards.slice(0, 2).map(card => (
-              <SkillModuleCard key={card.id} card={card} completedCourseIds={completedCourseIds} />
+              <SkillModuleCard
+                key={card.id}
+                card={card}
+                completedCourseIds={completedCourseIds}
+                progressCourseIds={progressCourseIds}
+              />
             ))}
           </div>
         </section>

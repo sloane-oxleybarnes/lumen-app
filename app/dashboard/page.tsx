@@ -25,26 +25,28 @@ export default async function DashboardPage() {
     session.user.email?.split("@")[0] ||
     "there";
 
-  // Skills started — count distinct skill_ids from practice_sessions
-  let skillsStarted = 0;
-  try {
-    const { data: sessions } = await supabase
-      .from("practice_sessions")
-      .select("skill_id")
-      .eq("user_id", session.user.id)
-      .not("skill_id", "is", null);
-    if (sessions) {
-      skillsStarted = new Set(sessions.map((s: { skill_id: string }) => s.skill_id)).size;
-    }
-  } catch { /* table may not exist yet */ }
-
   let skillsCompleted = 0;
+  const completedCourseIds = new Set<string>();
   try {
     const { data: completions } = await supabase
       .from("course_completions")
       .select("course_id")
+      .eq("user_id", session.user.id)
+    if (completions) {
+      skillsCompleted = completions.length;
+      completions.forEach((completion: { course_id: string }) => completedCourseIds.add(completion.course_id));
+    }
+  } catch { /* table may not exist yet */ }
+
+  let skillsStarted = 0;
+  try {
+    const { data: progressRows } = await supabase
+      .from("course_progress")
+      .select("course_id")
       .eq("user_id", session.user.id);
-    if (completions) skillsCompleted = completions.length;
+    if (progressRows) {
+      skillsStarted = progressRows.filter((row: { course_id: string }) => !completedCourseIds.has(row.course_id)).length;
+    }
   } catch { /* table may not exist yet */ }
 
   const extensionConnected = Boolean(profile?.extension_connected_at);
@@ -176,7 +178,7 @@ export default async function DashboardPage() {
           </div>
           <div className="mb-5 grid gap-3 sm:grid-cols-2">
             <MetricCard label="Skills completed" value={skillsCompleted} detail={skillsCompleted === 1 ? "course finished" : "courses finished"} />
-            <MetricCard label="Skills in progress" value={skillsStarted} detail={skillsStarted === 1 ? "practice started" : "practice sessions started"} />
+            <MetricCard label="Skills in progress" value={skillsStarted} detail={skillsStarted === 1 ? "course saved" : "courses saved"} />
           </div>
           <div className="rounded-card border border-primary/20 bg-primary-light/50 p-5">
             <p className="text-xs font-medium uppercase tracking-wide text-primary">Recommended next course</p>

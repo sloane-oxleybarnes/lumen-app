@@ -14,6 +14,13 @@ import type {
 type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion' | 'review'
 type Message = { role: 'user' | 'assistant'; content: string; timestamp?: string }
 type CourseApiError = Error & { status?: number; data?: { error?: string; limit?: number; remaining?: number } }
+type CourseProgressRow = {
+  phase: Phase
+  current_slide_index: number | null
+  pre_confidence: number | null
+  progress_percent: number | null
+  saved_at: string | null
+}
 type WrongAnswer = {
   slideIndex: number
   itemIndex: number
@@ -73,6 +80,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [isCompleted, setIsCompleted] = useState(false)
   const [completedAt, setCompletedAt] = useState<string | null>(null)
   const [profileName, setProfileName] = useState('')
+  const [savedProgress, setSavedProgress] = useState<CourseProgressRow | null>(null)
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
+  const [saveMessage, setSaveMessage] = useState('')
   useEffect(() => {
     async function checkAccess() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -91,6 +101,12 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           setCompletedAt(completion.completed_at)
           if (searchParams.get('review') === 'toolkit') setPhase('review')
         }
+        const { data: progressRow } = await supabase.from('course_progress')
+          .select('phase,current_slide_index,pre_confidence,progress_percent,saved_at')
+          .eq('user_id', user.id)
+          .eq('course_id', maybeCourse.id)
+          .maybeSingle()
+        if (progressRow && !completion) setSavedProgress(progressRow as CourseProgressRow)
       }
       loadToolkit()
     }
@@ -265,6 +281,79 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const progress = phase === 'review'
     ? 100
     : Math.round((currentStep() / TOTAL_STEPS) * 100)
+  const canSaveProgress = phase !== 'review' && phase !== 'completion'
+
+  function resumeSavedProgress() {
+    if (!savedProgress) return
+    const validPhases: Phase[] = ['confidence-start', 'slides', 'guided-practice', 'open-practice', 'debrief', 'confidence-end']
+    const nextPhase = validPhases.includes(savedProgress.phase) ? savedProgress.phase : 'confidence-start'
+    const nextSlideIndex = Math.min(
+      Math.max(savedProgress.current_slide_index ?? 0, 0),
+      Math.max(course.slides.length - 1, 0)
+    )
+    resetSlideState()
+    setPhase(nextPhase)
+    setCurrentSlideIndex(nextSlideIndex)
+    setPreConfidence(savedProgress.pre_confidence)
+    setSaveStatus('idle')
+    setSaveMessage('')
+  }
+
+  async function saveProgress() {
+    if (!canSaveProgress) return
+    setSaveStatus('saving')
+    setSaveMessage('')
+
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setSaveStatus('error')
+      setSaveMessage('Log in again to save progress.')
+      return
+    }
+
+    const savedAt = new Date().toISOString()
+    const payload = {
+      user_id: user.id,
+      course_id: course.id,
+      phase,
+      current_slide_index: currentSlideIndex,
+      pre_confidence: preConfidence,
+      progress_percent: progress,
+      saved_at: savedAt,
+    }
+
+    const { error } = await supabase
+      .from('course_progress')
+      .upsert(payload, { onConflict: 'user_id,course_id' })
+
+    if (error) {
+      setSaveStatus('error')
+      setSaveMessage('Could not save progress.')
+      return
+    }
+
+    setSavedProgress({
+      phase,
+      current_slide_index: currentSlideIndex,
+      pre_confidence: preConfidence,
+      progress_percent: progress,
+      saved_at: savedAt,
+    })
+    setSaveStatus('saved')
+    setSaveMessage('Progress saved.')
+  }
+
+  async function discardSavedProgress() {
+    setSavedProgress(null)
+    setSaveStatus('idle')
+    setSaveMessage('')
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase.from('course_progress')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('course_id', course.id)
+  }
 
   // ── Slide state reset ──────────────────────────────────────────────────────
   function resetSlideState() {
@@ -833,6 +922,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       pre_confidence: preConfidence, post_confidence: postConfidence,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'user_id,course_id' })
+    await supabase.from('course_progress')
+      .delete()
+      .eq('user_id', user.id)
+      .eq('course_id', course.id)
+    setSavedProgress(null)
 
     fetch('/api/beta-events', {
       method: 'POST',
@@ -2619,13 +2713,31 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       {/* Sticky course title header */}
       <div className="sticky top-0 z-20 bg-white border-b border-border px-4 py-3">
         <div className="max-w-3xl mx-auto">
-          <div className="flex items-center gap-2">
-            {course.id === 'ask-someone-out' && (
-              <span className="rounded-pill bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
-                Personal Preview
-              </span>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              {course.id === 'ask-someone-out' && (
+                <span className="shrink-0 rounded-pill bg-primary-light px-2 py-0.5 text-xs font-medium text-primary">
+                  Personal Preview
+                </span>
+              )}
+              <p className="truncate text-sm font-medium text-ink">{course.title}</p>
+            </div>
+            {canSaveProgress && (
+              <div className="flex shrink-0 items-center gap-2">
+                {saveMessage && (
+                  <span className={`hidden text-xs sm:inline ${saveStatus === 'error' ? 'text-red-600' : 'text-ink-light'}`}>
+                    {saveMessage}
+                  </span>
+                )}
+                <button
+                  onClick={saveProgress}
+                  disabled={saveStatus === 'saving'}
+                  className="rounded-pill border border-primary/30 bg-white px-3 py-1.5 text-xs font-medium text-primary transition-colors hover:bg-primary-light disabled:opacity-50"
+                >
+                  {saveStatus === 'saving' ? 'Saving...' : 'Save progress'}
+                </button>
+              </div>
             )}
-            <p className="text-sm font-medium text-ink truncate">{course.title}</p>
           </div>
         </div>
       </div>
@@ -2634,6 +2746,34 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       {phase === 'review' && (
         <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-center">
           <p className="text-xs text-amber-700">Reviewing completed course — read-only</p>
+        </div>
+      )}
+
+      {savedProgress && !isCompleted && phase === 'confidence-start' && (
+        <div className="border-b border-primary/20 bg-primary-light/40 px-4 py-3">
+          <div className="mx-auto flex max-w-3xl flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink">Saved progress available</p>
+              <p className="text-xs text-ink-mid">
+                {savedProgress.progress_percent ?? 0}% saved
+                {savedProgress.saved_at ? ` on ${new Date(savedProgress.saved_at).toLocaleDateString()}` : ''}.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={resumeSavedProgress}
+                className="rounded-pill bg-primary px-4 py-2 text-xs font-medium text-white transition-colors hover:bg-primary-dark"
+              >
+                Resume
+              </button>
+              <button
+                onClick={discardSavedProgress}
+                className="rounded-pill border border-border bg-white px-4 py-2 text-xs font-medium text-ink-mid transition-colors hover:border-primary hover:text-ink"
+              >
+                Start over
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
