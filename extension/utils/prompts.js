@@ -38,6 +38,13 @@ function buildSystem(mode, isSafePerson, linkedInContext, voiceContext, userCont
 
   parts.push(toneInstruction(mode, isSafePerson));
 
+  parts.push(
+    `Evidence rules: Only describe what is visible in the provided messages. ` +
+    `Do not invent replies, reactions, comfort, agreement, intent, or relationship dynamics that are not shown. ` +
+    `If someone has not responded to a message yet, say that directly instead of describing how they received it. ` +
+    `When evidence is limited, use uncertainty language such as "I cannot tell yet" or "based only on what is visible."`
+  );
+
   if (linkedInContext) {
     parts.push(`User professional context: ${linkedInContext}. Calibrate vocabulary, tone, and terminology to feel natural in their professional world.`);
   }
@@ -84,6 +91,8 @@ export function buildMessagePrompt({ messageText, thread, sender, platform, chan
 ${anchor}${contextBlock}
 
 Use the full thread when it is present. If the answer depends on earlier messages, look there before saying you cannot tell.
+Only use evidence from messages that actually appear in the thread. Do not infer that someone "rolled with," accepted, ignored, liked, disliked, or responded well to a message unless a later visible message from that person supports it.
+If the latest message has not received a reply yet, say there is no response yet rather than analyzing the other person's reaction.
 Keep every section concise and scannable.
 Each analysis field may use 1-3 short newline-separated bullets. Do not include count labels or meta labels.
 

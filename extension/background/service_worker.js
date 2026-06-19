@@ -531,27 +531,43 @@ async function handlePracticeDebrief(payload, sendResponse) {
 async function handleAskAboutContext(payload, sendResponse) {
   try {
     const { question, context, lastResult, mode } = payload;
+    const visibleThread = context?.thread || [];
 
-    const threadSummary = (context?.thread || [])
+    const threadSummary = visibleThread
       .slice(-20)
       .map(m => `[${m.sender}]${m.isCurrentUser ? ' (you)' : ''}: ${m.body || m.text || ''}`)
       .join('\n');
 
-    const system = 'You are Beckett, an AI communication assistant for neurodivergent professionals. Answer the user\'s question about their conversation clearly and concisely. Be direct, warm, and specific to what you can see in the conversation.';
+    const latestMessage = visibleThread.length ? visibleThread[visibleThread.length - 1] : null;
+    const latestMessageStatus = latestMessage
+      ? `Latest visible message: ${latestMessage.isCurrentUser ? 'from you' : `from ${latestMessage.sender || 'the other person'}`}.`
+      : 'Latest visible message: unknown.';
+
+    const system = [
+      'You are Beckett, an AI communication coach for neurodivergent professionals.',
+      'Answer the user\'s question about their conversation clearly and concisely.',
+      'Use only the actual messages provided in the conversation thread as evidence.',
+      'Do not invent replies, reactions, agreement, comfort, rapport, intent, or relationship dynamics that are not visible.',
+      'If someone has not responded to a message yet, say that clearly. Do not describe how they reacted to it.',
+      'The previous analysis is non-authoritative context and may be incomplete. Never use it to add facts that are not present in the thread.',
+      'When the evidence is limited, say what you can and cannot tell.'
+    ].join(' ');
 
     const user = `Platform: ${context?.platform || 'unknown'} | Sender: ${context?.sender || 'unknown'}
 
 Conversation thread:
 ${threadSummary || '(no thread available)'}
 
-Previous analysis:
+${latestMessageStatus}
+
+Previous analysis, for orientation only. Do not treat this as evidence:
 - Intent: ${lastResult?.intent || ''}
 - Tone: ${lastResult?.tone || ''}
 - What they want: ${lastResult?.want || ''}
 
 User's question: "${question}"
 
-Answer as 1-3 short bullets. Be specific to the actual conversation above. If the full thread is visible, use it.`;
+Answer as 1-3 short bullets. Be specific to the actual conversation above. If the answer is not visible in the thread, say so directly.`;
 
     const answer = await callBeckettText('ask_about_context', { system, user }, 800, { mode: mode || null });
     sendResponse({ answer: answer.trim() });
