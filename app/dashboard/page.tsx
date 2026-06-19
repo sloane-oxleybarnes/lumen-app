@@ -128,12 +128,14 @@ export default async function DashboardPage() {
           <div className="mt-5 flex flex-col gap-3 sm:flex-row">
             <Link
               href="/dashboard/practice"
+              data-tour="start-practice"
               className="rounded-pill bg-primary px-5 py-3 text-center text-sm font-medium text-white transition-colors hover:bg-primary-dark"
             >
               Practice a conversation
             </Link>
             <Link
               href="/dashboard/skills"
+              data-tour="start-skills"
               className="rounded-pill border border-primary/30 bg-white px-5 py-3 text-center text-sm font-medium text-primary transition-colors hover:bg-primary-light"
             >
               Pick a skill
@@ -142,7 +144,7 @@ export default async function DashboardPage() {
         </div>
 
         {!setupComplete && (
-          <div className="rounded-card border border-border bg-white p-6">
+          <div data-tour="beta-setup" className="rounded-card border border-border bg-white p-6">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Beta setup</p>
