@@ -18,7 +18,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Homepage headline",
     group: "Homepage",
     defaultValue:
-      "Your workplace communication coach,\nright where the conversation happens.",
+      "A communication coach built\nfor neurodivergent workdays.",
     inputType: "textarea",
   },
   {
@@ -26,7 +26,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Homepage subheadline",
     group: "Homepage",
     defaultValue:
-      "Beckett is a neurodivergent communication coach for ADHD workplace communication, autism workplace support, clearer replies, and practice for difficult conversations in Gmail, Slack, and coached beta courses.",
+      "Beckett helps you decode tone, draft clearer replies, and practice the conversations that get harder when work runs on subtext.",
     inputType: "textarea",
   },
   {
@@ -45,7 +45,7 @@ export const SITE_CONTENT_FIELDS = [
     key: "home.beta.title",
     label: "Homepage beta headline",
     group: "Homepage beta",
-    defaultValue: "You're in beta.\nEverything included. No limits.",
+    defaultValue: "Help shape Beckett\nfor neurodivergent adults.",
     inputType: "textarea",
   },
   {
@@ -78,14 +78,14 @@ export const SITE_CONTENT_FIELDS = [
     key: "beta.hero.title",
     label: "Beta page headline",
     group: "Beta page",
-    defaultValue: "Join the Beckett beta",
+    defaultValue: "Help build the coach we needed sooner",
   },
   {
     key: "beta.hero.subtitle",
     label: "Beta page subheadline",
     group: "Beta page",
     defaultValue:
-      "We're building Beckett with a small group of early members who want workplace communication coaching for Gmail, Slack, practice, and skill modules. Beta access is free - no credit card, no commitment.",
+      "We're building Beckett with a small group of neurodivergent adults who want clearer support for workplace communication in Gmail, Slack, practice, and skill modules. Beta access is free - no credit card, no commitment.",
     inputType: "textarea",
   },
   {
@@ -98,14 +98,14 @@ export const SITE_CONTENT_FIELDS = [
     key: "features.hero.title",
     label: "Features page headline",
     group: "Features page",
-    defaultValue: "Everything Beckett can do",
+    defaultValue: "Tools for the parts other apps miss",
   },
   {
     key: "features.hero.subtitle",
     label: "Features page subheadline",
     group: "Features page",
     defaultValue:
-      "Tools for neurodivergent workplace communication: decode messages, draft replies, practice difficult conversations, and build repeatable skills.",
+      "Decode messages, draft replies, practice difficult conversations, and build repeatable skills with coaching designed around neurodivergent communication.",
     inputType: "textarea",
   },
   {
@@ -125,14 +125,14 @@ export const SITE_CONTENT_FIELDS = [
     key: "integrations.hero.title",
     label: "Integrations page headline",
     group: "Integrations page",
-    defaultValue: "Works where you work",
+    defaultValue: "Support where work gets ambiguous",
   },
   {
     key: "integrations.hero.subtitle",
     label: "Integrations page subheadline",
     group: "Integrations page",
     defaultValue:
-      "Beckett brings workplace communication coaching into Gmail, Slack, and Chrome for beta, with meeting tools planned after the core flows are stable.",
+      "Beckett brings neurodivergent-aware coaching into Gmail, Slack, and Chrome for beta, with meeting tools planned after the core flows are stable.",
     inputType: "textarea",
   },
   {
@@ -152,14 +152,14 @@ export const SITE_CONTENT_FIELDS = [
     key: "pricing.hero.title",
     label: "Pricing page headline",
     group: "Pricing page",
-    defaultValue: "Beta access",
+    defaultValue: "Beta access for the people we are building with",
   },
   {
     key: "pricing.hero.subtitle",
     label: "Pricing page subheadline",
     group: "Pricing page",
     defaultValue:
-      "Beckett is free during beta. No credit card, no pricing tiers, and no surprise checkout.",
+      "Beckett is free during beta for early users helping us shape neurodivergent communication coaching. No credit card, no pricing tiers, and no surprise checkout.",
     inputType: "textarea",
   },
   {

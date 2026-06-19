@@ -146,7 +146,7 @@ export default function HomePage() {
 
   const scenarios = mode === "personal" ? personalScenarios : professionalScenarios;
   const professionalHeroTitleLines = copy("home.hero.title").split("\n").filter(Boolean);
-  const personalHeroTitleLines = ["Your personal communication coach,", "right where conversations happen."];
+  const personalHeroTitleLines = ["A personal communication coach", "for neurodivergent social life."];
   const heroTitleLines = mode === "personal" ? personalHeroTitleLines : professionalHeroTitleLines;
   const heroSubtitle = mode === "personal"
     ? "Personal coaching is in preview during beta. Beckett can help you practice dating conversations and decode confusing social signals now, with mobile and message integrations coming later."
@@ -333,7 +333,7 @@ export default function HomePage() {
       <section id="features">
         <div className="container">
           <div className="sec-label">What Beckett does</div>
-          <h2>Things that make<br /><em>communication easier.</em></h2>
+          <h2>Support for the parts<br /><em>other tools miss.</em></h2>
           <div className="feat-grid feat-grid-5">
             {features.map((f) => (
               <div key={f.n} className="feat-card">
@@ -351,7 +351,7 @@ export default function HomePage() {
       <section className="triggers-section" id="triggers">
         <div className="container">
           <div className="sec-label">Your brain, your rules</div>
-          <h2>Everyone&apos;s brain has<br /><em>its own patterns.</em></h2>
+          <h2>Built around the way<br /><em>your brain actually works.</em></h2>
           <p className="sec-sub">Maybe you overthink replies, miss the tone of text messages, or go silent when you&apos;re overwhelmed. Beckett doesn&apos;t give you a generic script. It learns what you need and meets you there.</p>
           <div className="trigger-grid">
             {(mode === "personal" ? triggers : professionalTriggers).map((t) => (
@@ -369,7 +369,7 @@ export default function HomePage() {
         <div className="apps-wrap">
           <div className="container">
             <div className="sec-label">Personal Preview</div>
-            <h2>Personal coaching is<br /><em>coming carefully.</em></h2>
+            <h2>Personal support for<br /><em>the social gray areas.</em></h2>
             <p className="sec-sub">For beta, Beckett is workplace-first. Personal mode stays available for practice and the dating course preview while phone, DM, and dating-app integrations come later.</p>
             <div className="apps-grid">
               {[
@@ -390,7 +390,7 @@ export default function HomePage() {
         <div className="plat-wrap">
           <div className="container">
             <div className="sec-label">Platforms</div>
-            <h2>Your coach lives<br /><em>inside every app.</em></h2>
+            <h2>Coaching where work<br /><em>gets ambiguous.</em></h2>
             <p className="sec-sub">For beta, Beckett focuses on Gmail, Slack, the Chrome extension, courses, and practice. Meeting support is next, but not live yet.</p>
             <div className="plat-grid">
               {[
@@ -415,7 +415,7 @@ export default function HomePage() {
       <section id="skills">
         <div className="container">
           <div className="sec-label">Skill scenarios</div>
-          <h2>Practice the conversations<br />that actually <em>matter.</em></h2>
+          <h2>Practice before the words<br /><em>have to count.</em></h2>
           <p className="sec-sub">
             {mode === "personal"
               ? "The real ones. Not hypotheticals — situations you actually find yourself in. Beckett plays the other person realistically and debriefs you on what worked."
@@ -437,7 +437,7 @@ export default function HomePage() {
       <section>
         <div className="container">
           <div className="sec-label">What people say</div>
-          <h2>People who think differently<br />and <em>communicate brilliantly.</em></h2>
+          <h2>For people who think differently<br />and still need to <em>be understood.</em></h2>
           <div className="quote-grid">
             {(mode === "personal" ? personalTestimonials : professionalTestimonials).map((q) => (
               <div key={q.name} className="q-card">

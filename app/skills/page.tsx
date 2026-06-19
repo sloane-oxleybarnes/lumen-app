@@ -80,11 +80,11 @@ export default function SkillsPage() {
             className="text-4xl sm:text-5xl text-ink mb-4"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
           >
-            Skill modules
+            Skills for neurodivergent work communication
           </h1>
           <p className="text-ink-mid max-w-xl mx-auto text-lg">
-            Structured coaching programs for the communication challenges that
-            show up most in real work.
+            Structured coaching for the workplace moments where subtext, pressure,
+            and unwritten rules make communication harder than it should be.
           </p>
         </div>
 
@@ -123,7 +123,7 @@ export default function SkillsPage() {
             className="text-2xl text-ink mb-3"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
           >
-            Available on Pro
+            Built for beta access
           </h2>
           <p className="text-ink-mid mb-6">
             All skill modules are included in Pro. Join the beta for full
