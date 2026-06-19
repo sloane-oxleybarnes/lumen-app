@@ -10,8 +10,6 @@ import {
 } from '../utils/prompts.js';
 import { getGmailMessage, getGmailProfile, getGmailThread, parseThreadMessages, searchGmailMessages } from '../utils/gmail.js';
 
-// Slack OAuth worker — deploy workers/slack-oauth.js to this URL
-const SLACK_OAUTH_WORKER = 'https://lumen-slack.sloane-oxleyhase.workers.dev';
 const BECKETT_SITE = 'https://www.meetbeckett.co';
 const BECKETT_API = `${BECKETT_SITE}/api`;
 
@@ -206,8 +204,8 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       return;
     }
 
-    const { lumenMode, plan, voice_samples, currentUserEmail, slackUserName, beckettUserName, beckettUserEmail, slackToken, slackUserId } = await chrome.storage.local.get([
-      'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName', 'beckettUserName', 'beckettUserEmail', 'slackToken', 'slackUserId',
+    const { lumenMode, plan, voice_samples, currentUserEmail, slackUserName, beckettUserName, beckettUserEmail, slackToken, slackUserId, beckettSlackConnected, beckettSlackUserId } = await chrome.storage.local.get([
+      'lumenMode', 'plan', 'voice_samples', 'currentUserEmail', 'slackUserName', 'beckettUserName', 'beckettUserEmail', 'slackToken', 'slackUserId', 'beckettSlackConnected', 'beckettSlackUserId',
     ]);
     const mode = payload.mode || lumenMode || 'business';
     const isPro = plan === 'pro' || plan === 'beta';
@@ -286,8 +284,8 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       channelType: analysisContext.channelType || null,
       channelName: analysisContext.channelName || null,
       gmailEnrichmentReason,
-      slackConnected: ctx.platform === 'slack' ? !!slackToken : null,
-      slackUserId: ctx.platform === 'slack' ? (slackUserId || null) : null,
+      slackConnected: ctx.platform === 'slack' ? (!!slackToken || !!beckettSlackConnected) : null,
+      slackUserId: ctx.platform === 'slack' ? (slackUserId || beckettSlackUserId || null) : null,
     };
 
     const result = await callBeckettJson('analyze_message', prompt, 1000, {
@@ -860,50 +858,8 @@ function getGoogleToken(interactive = true) {
 // ── Slack OAuth ───────────────────────────────────────────────
 
 async function connectSlack() {
-  const redirectUri = chrome.identity.getRedirectURL('slack');
-  const authRes = await fetch(`${SLACK_OAUTH_WORKER}/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`);
-  if (!authRes.ok) throw new Error(`Slack setup error ${authRes.status}`);
-  const authData = await authRes.json();
-  if (!authData.auth_url) throw new Error(authData.error || 'Slack authorization is not configured.');
-
-  const responseUrl = await new Promise((resolve, reject) => {
-    chrome.identity.launchWebAuthFlow({ url: authData.auth_url, interactive: true }, url => {
-      if (chrome.runtime.lastError) reject(new Error(chrome.runtime.lastError.message));
-      else resolve(url);
-    });
-  });
-
-  const params = new URL(responseUrl).searchParams;
-  const code = params.get('code');
-  if (!code) throw new Error('Authorization cancelled.');
-
-  // Exchange code for token via Cloudflare Worker (workers/slack-oauth.js)
-  const res = await fetch(SLACK_OAUTH_WORKER, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ code, redirect_uri: redirectUri }),
-  });
-
-  if (!res.ok) throw new Error(`Token exchange error ${res.status}`);
-  const data = await res.json();
-  if (!data.ok) throw new Error(data.error || 'Slack authorization failed.');
-
-  const token = data.authed_user?.access_token;
-  const userId = data.authed_user?.id || '';
-  if (!token) throw new Error('No access token returned from Slack.');
-
-  // Fetch display name for identity context
-  let slackUserName = null;
-  try {
-    const profileRes = await fetch(`https://slack.com/api/users.info?user=${userId}`, {
-      headers: { Authorization: `Bearer ${token}` },
-    });
-    const profileData = await profileRes.json();
-    slackUserName = profileData?.user?.profile?.real_name || profileData?.user?.name || null;
-  } catch (_) {}
-
-  await chrome.storage.local.set({ slackToken: token, slackUserId: userId, ...(slackUserName && { slackUserName }) });
-  return { ok: true, userId, slackUserName };
+  await chrome.tabs.create({ url: `${BECKETT_SITE}/api/slack/connect` });
+  return { ok: true, opened: true };
 }
 
 async function connectBeckett() {
@@ -950,15 +906,18 @@ async function getSettings() {
   const keys = [
     'plan', 'lumenMode',
     'safe_people', 'voice_samples',
-    'slackToken', 'slackUserId', 'slackUserName', 'currentUserEmail', 'beckettToken', 'beckettUserName', 'beckettUserEmail',
+    'slackToken', 'slackUserId', 'slackUserName', 'beckettSlackConnected', 'beckettSlackUserId', 'beckettSlackTeamName', 'currentUserEmail', 'beckettToken', 'beckettUserName', 'beckettUserEmail',
   ];
   const data = await chrome.storage.local.get(keys);
-  if (data.beckettToken && (!data.beckettUserName || !data.beckettUserEmail)) {
+  if (data.beckettToken) {
     const profile = await syncBeckettProfile(data.beckettToken).catch(() => null);
     if (profile) {
       data.beckettUserName = profile.name || data.beckettUserName;
       data.beckettUserEmail = profile.email || data.beckettUserEmail;
       if (profile.plan) data.plan = profile.plan;
+      data.beckettSlackConnected = !!profile.integrations?.slack?.connected;
+      data.beckettSlackUserId = profile.integrations?.slack?.userId || '';
+      data.beckettSlackTeamName = profile.integrations?.slack?.teamName || '';
     }
   }
   const samples = data.voice_samples || [];
@@ -971,9 +930,10 @@ async function getSettings() {
       personal: samples.filter(s => s.mode === 'personal').length,
       business: samples.filter(s => s.mode === 'business').length,
     },
-    slackConnected: !!data.slackToken,
-    slackUserId: data.slackUserId || '',
+    slackConnected: !!data.slackToken || !!data.beckettSlackConnected,
+    slackUserId: data.slackUserId || data.beckettSlackUserId || '',
     slackUserName: data.slackUserName || '',
+    slackTeamName: data.beckettSlackTeamName || '',
     gmailUserEmail: data.currentUserEmail || '',
     beckettToken: data.beckettToken || null,
     beckettUserName: data.beckettUserName || '',
@@ -991,6 +951,9 @@ async function syncBeckettProfile(token) {
     ...(profile.name && { beckettUserName: profile.name }),
     ...(profile.email && { beckettUserEmail: profile.email }),
     ...(profile.plan && { plan: profile.plan }),
+    beckettSlackConnected: !!profile.integrations?.slack?.connected,
+    beckettSlackUserId: profile.integrations?.slack?.userId || '',
+    beckettSlackTeamName: profile.integrations?.slack?.teamName || '',
   });
   return profile;
 }
