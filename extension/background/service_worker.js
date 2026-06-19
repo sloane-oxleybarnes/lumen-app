@@ -25,12 +25,51 @@ chrome.runtime.onStartup.addListener(() => {
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true }).catch(() => {});
 });
 
-// Auto-open side panel on Gmail and Slack
+function isBeckettAppUrl(url = '') {
+  try {
+    const parsed = new URL(url);
+    const isProduction =
+      parsed.hostname === 'meetbeckett.co' ||
+      parsed.hostname === 'www.meetbeckett.co';
+    const isLocalDev =
+      (parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1') &&
+      (parsed.pathname.startsWith('/dashboard') || parsed.pathname.startsWith('/auth'));
+    return isProduction || isLocalDev;
+  } catch (_) {
+    return false;
+  }
+}
+
+function isSupportedWorkSurface(url = '') {
+  return url.includes('mail.google.com') || url.includes('app.slack.com');
+}
+
+async function updateSidePanelForTab(tabId, url = '') {
+  if (!tabId || !url) return;
+
+  if (isBeckettAppUrl(url)) {
+    await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+    return;
+  }
+
+  if (isSupportedWorkSurface(url)) {
+    await chrome.sidePanel.setOptions({ tabId, path: 'sidebar/sidebar.html', enabled: true }).catch(() => {});
+    await chrome.sidePanel.open({ tabId }).catch(() => {});
+    return;
+  }
+
+  await chrome.sidePanel.setOptions({ tabId, enabled: false }).catch(() => {});
+}
+
+// Auto-open side panel on Gmail and Slack, and disable it inside Beckett.
 chrome.tabs.onUpdated.addListener((tabId, info, tab) => {
   if (info.status !== 'complete' || !tab.url) return;
-  const isTarget = tab.url.includes('mail.google.com') ||
-                   tab.url.includes('app.slack.com');
-  if (isTarget) chrome.sidePanel.open({ tabId }).catch(() => {});
+  updateSidePanelForTab(tabId, tab.url);
+});
+
+chrome.tabs.onActivated.addListener(async ({ tabId }) => {
+  const tab = await chrome.tabs.get(tabId).catch(() => null);
+  if (tab?.url) updateSidePanelForTab(tabId, tab.url);
 });
 
 // Stored context per tab
