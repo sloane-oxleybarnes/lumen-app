@@ -242,7 +242,7 @@ Rules:
           ? 'text message'
           : 'Slack or chat'
 
-    const system = `You are Beckett, a practical communication coach preparing someone for a realistic practice conversation. Return only valid JSON.`
+    const system = `You are Beckett, a practical communication coach preparing someone for a realistic practice conversation. Your guidance should feel like a smart friend who has seen this exact kind of conversation before. Return only valid JSON.`
     const user = `Generate tailored "before you start" prep notes for this practice scenario.
 
 Mode: ${mode || 'not specified'}
@@ -265,15 +265,24 @@ Return ONLY valid JSON in this shape:
 
 Rules:
 - Use exactly those three titles, in that order.
-- Each text field should be 1-2 concise, natural sentences.
-- Infer the conversation type from the situation. For example, a raise conversation often involves evidence, timing, budget, or performance questions; a coverage handoff may involve priorities, ownership, and ambiguity.
-- Explain the likely shape of the conversation, including realistic pushback or questions the other person may ask.
+- Each text field should be 2-4 natural sentences. No one-sentence cards.
+- The user should immediately recognize their specific situation in the advice. Reuse concrete details from the situation instead of giving abstract coaching principles.
+- "How to start" should include the first move and, when useful, one example phrase the user could adapt.
+- "How this might go" should describe the likely shape of this type of conversation, including 2-3 realistic reactions, questions, objections, or forms of pushback the other person may have.
+- "What to watch for" should name the user's most likely trap in this scenario and give a concrete recovery move if the conversation gets awkward.
+- Infer the conversation type from the situation. For example, a raise conversation often involves evidence, timing, budget, performance examples, or the manager needing to check with someone else; a coverage handoff often involves priorities, ownership, what can wait, and who decides when something is unclear.
 - If the context suggests the other person responds poorly, defensively, dismissively, vaguely, intensely, or under pressure, name that pattern and give the user a grounded way to prepare.
-- Avoid generic advice unless it is tied to this specific scenario.`
+- Avoid generic advice like "be clear," "stay calm," or "listen actively" unless you tie it to this exact situation.
 
-    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 500)
+Quality bar:
+- Too vague: "Be direct and explain what you need."
+- Better: "Start by making the handoff practical, not apologetic: 'Before you're out, I want to make sure I'm covering the right things. What should I prioritize this week if anything urgent comes up?'"`
+
+    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 900)
     try {
-      const parsed = JSON.parse(result.trim()) as { tips?: { title?: string; text?: string }[] }
+      const cleaned = result.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
+      const jsonText = cleaned.startsWith('{') ? cleaned : cleaned.match(/\{[\s\S]*\}/)?.[0] || cleaned
+      const parsed = JSON.parse(jsonText) as { tips?: { title?: string; text?: string }[] }
       const expectedTitles = ['How to start', 'How this might go', 'What to watch for']
       const tips = expectedTitles.map((title, index) => ({
         title,
