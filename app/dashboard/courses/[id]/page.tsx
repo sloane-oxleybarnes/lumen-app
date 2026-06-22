@@ -8,18 +8,22 @@ import type {
   MatchingSlide, InteractiveReadSlide, DraftPracticeSlide,
   SideBySideSlide, SortingSlide, MultipleChoiceSlide, ChecklistSlide,
   VisualFormulaSlide, ReflectionChoiceSlide, GuidedBuilderSlide,
-  MultiSelectQuizSlide,
+  MultiSelectQuizSlide, ScenarioMessage,
 } from '@/lib/courses'
 
-type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion' | 'review'
+type Phase = 'confidence-start' | 'slides' | 'guided-practice' | 'open-practice-intro' | 'open-practice' | 'debrief' | 'confidence-end' | 'completion' | 'review'
 type Message = { role: 'user' | 'assistant'; content: string; timestamp?: string }
 type CourseApiError = Error & { status?: number; data?: { error?: string; limit?: number; remaining?: number } }
+type CourseActivityState = {
+  completedSlides?: Record<string, true>
+}
 type CourseProgressRow = {
   phase: Phase
   current_slide_index: number | null
   pre_confidence: number | null
   progress_percent: number | null
   saved_at: string | null
+  activity_state: CourseActivityState | null
 }
 type ReviewBlock = {
   heading?: string
@@ -87,6 +91,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const [savedProgress, setSavedProgress] = useState<CourseProgressRow | null>(null)
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [saveMessage, setSaveMessage] = useState('')
+  const [completedSlides, setCompletedSlides] = useState<Record<string, true>>({})
   useEffect(() => {
     async function checkAccess() {
       const { data: { user } } = await supabase.auth.getUser()
@@ -106,7 +111,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           if (searchParams.get('review') === 'toolkit') setPhase('review')
         }
         const { data: progressRow } = await supabase.from('course_progress')
-          .select('phase,current_slide_index,pre_confidence,progress_percent,saved_at')
+          .select('phase,current_slide_index,pre_confidence,progress_percent,saved_at,activity_state')
           .eq('user_id', user.id)
           .eq('course_id', maybeCourse.id)
           .maybeSingle()
@@ -278,30 +283,50 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   const course = maybeCourse
 
   // ── Progress ───────────────────────────────────────────────────────────────
-  const TOTAL_STEPS = course.slides.length + 6
-  function currentStep(): number {
-    if (phase === 'confidence-start') return 1
-    if (phase === 'slides') return 2 + currentSlideIndex
-    if (phase === 'guided-practice') return 2 + course.slides.length
-    if (phase === 'open-practice') return 3 + course.slides.length
-    if (phase === 'debrief') return 4 + course.slides.length
-    if (phase === 'confidence-end') return 5 + course.slides.length
+  const TOTAL_STEPS = course.slides.length + 7
+  function stepFor(nextPhase = phase, slideIndex = currentSlideIndex): number {
+    if (nextPhase === 'confidence-start') return 1
+    if (nextPhase === 'slides') return 2 + slideIndex
+    if (nextPhase === 'guided-practice') return 2 + course.slides.length
+    if (nextPhase === 'open-practice-intro') return 3 + course.slides.length
+    if (nextPhase === 'open-practice') return 4 + course.slides.length
+    if (nextPhase === 'debrief') return 5 + course.slides.length
+    if (nextPhase === 'confidence-end') return 6 + course.slides.length
     return TOTAL_STEPS
   }
+
+  function progressFor(nextPhase = phase, slideIndex = currentSlideIndex) {
+    return Math.round((stepFor(nextPhase, slideIndex) / TOTAL_STEPS) * 100)
+  }
+
   const progress = phase === 'review'
     ? 100
-    : Math.round((currentStep() / TOTAL_STEPS) * 100)
+    : progressFor()
   const canSaveProgress = phase !== 'review' && phase !== 'completion'
+
+  function slideKey(index = currentSlideIndex) {
+    const slide = course.slides[index]
+    return `${course.id}:${index}:${slide?.title || 'slide'}`
+  }
+
+  function activityStateFor(nextCompletedSlides = completedSlides): CourseActivityState {
+    return { completedSlides: nextCompletedSlides }
+  }
+
+  function isSlideCompleted(index = currentSlideIndex) {
+    return Boolean(completedSlides[slideKey(index)])
+  }
 
   function resumeSavedProgress() {
     if (!savedProgress) return
-    const validPhases: Phase[] = ['confidence-start', 'slides', 'guided-practice', 'open-practice', 'debrief', 'confidence-end']
+    const validPhases: Phase[] = ['confidence-start', 'slides', 'guided-practice', 'open-practice-intro', 'open-practice', 'debrief', 'confidence-end']
     const nextPhase = validPhases.includes(savedProgress.phase) ? savedProgress.phase : 'confidence-start'
     const nextSlideIndex = Math.min(
       Math.max(savedProgress.current_slide_index ?? 0, 0),
       Math.max(course.slides.length - 1, 0)
     )
     resetSlideState()
+    setCompletedSlides(savedProgress.activity_state?.completedSlides || {})
     setPhase(nextPhase)
     setCurrentSlideIndex(nextSlideIndex)
     setPreConfidence(savedProgress.pre_confidence)
@@ -309,26 +334,37 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setSaveMessage('')
   }
 
-  async function saveProgress() {
+  async function persistProgress(
+    nextCompletedSlides = completedSlides,
+    showStatus = false,
+    phaseOverride = phase,
+    slideIndexOverride = currentSlideIndex,
+  ) {
     if (!canSaveProgress) return
-    setSaveStatus('saving')
-    setSaveMessage('')
+    if (showStatus) {
+      setSaveStatus('saving')
+      setSaveMessage('')
+    }
 
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) {
-      setSaveStatus('error')
-      setSaveMessage('Log in again to save progress.')
+      if (showStatus) {
+        setSaveStatus('error')
+        setSaveMessage('Log in again to save progress.')
+      }
       return
     }
 
     const savedAt = new Date().toISOString()
+    const nextProgress = progressFor(phaseOverride, slideIndexOverride)
     const payload = {
       user_id: user.id,
       course_id: course.id,
-      phase,
-      current_slide_index: currentSlideIndex,
+      phase: phaseOverride,
+      current_slide_index: slideIndexOverride,
       pre_confidence: preConfidence,
-      progress_percent: progress,
+      progress_percent: nextProgress,
+      activity_state: activityStateFor(nextCompletedSlides),
       saved_at: savedAt,
     }
 
@@ -337,24 +373,50 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       .upsert(payload, { onConflict: 'user_id,course_id' })
 
     if (error) {
-      setSaveStatus('error')
-      setSaveMessage('Could not save progress.')
+      if (showStatus) {
+        setSaveStatus('error')
+        setSaveMessage('Could not save progress.')
+      }
       return
     }
 
     setSavedProgress({
-      phase,
-      current_slide_index: currentSlideIndex,
+      phase: phaseOverride,
+      current_slide_index: slideIndexOverride,
       pre_confidence: preConfidence,
-      progress_percent: progress,
+      progress_percent: nextProgress,
       saved_at: savedAt,
+      activity_state: activityStateFor(nextCompletedSlides),
     })
-    setSaveStatus('saved')
-    setSaveMessage('Progress saved.')
+    if (showStatus) {
+      setSaveStatus('saved')
+      setSaveMessage('Progress saved.')
+    }
+  }
+
+  async function saveProgress() {
+    await persistProgress(completedSlides, true)
+  }
+
+  function markSlideComplete(index = currentSlideIndex) {
+    const key = slideKey(index)
+    if (completedSlides[key]) {
+      persistProgress(completedSlides)
+      return completedSlides
+    }
+    const next = { ...completedSlides, [key]: true as const }
+    setCompletedSlides(next)
+    persistProgress(next)
+    return next
+  }
+
+  function markCurrentSlideComplete() {
+    return markSlideComplete(currentSlideIndex)
   }
 
   async function discardSavedProgress() {
     setSavedProgress(null)
+    setCompletedSlides({})
     setSaveStatus('idle')
     setSaveMessage('')
     const { data: { user } } = await supabase.auth.getUser()
@@ -416,17 +478,21 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   // ── Advance slide ──────────────────────────────────────────────────────────
-  function advanceSlide() {
+  function advanceSlide(nextCompletedSlides = completedSlides) {
     resetSlideState()
     if (currentSlideIndex < course.slides.length - 1) {
-      setCurrentSlideIndex(i => i + 1)
+      const nextIndex = currentSlideIndex + 1
+      setCurrentSlideIndex(nextIndex)
+      persistProgress(nextCompletedSlides, false, 'slides', nextIndex)
     } else {
       if (course.reviewWrongAnswers && wrongAnswers.length > 0) {
         setCurrentWAIndex(0)
         setMiniConvo(null)
         setPhase('guided-practice')
+        persistProgress(nextCompletedSlides, false, 'guided-practice', currentSlideIndex)
       } else {
-        setPhase('open-practice')
+        setPhase('open-practice-intro')
+        persistProgress(nextCompletedSlides, false, 'open-practice-intro', currentSlideIndex)
       }
     }
   }
@@ -448,6 +514,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     })
     setSortingChecked(true)
     setSortingErrors(errors)
+    if (errors.size === 0) markCurrentSlideComplete()
     errors.forEach(i => {
       recordWrong({
         slideIndex: currentSlideIndex, itemIndex: i, slideTitle: slide.title,
@@ -485,9 +552,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setMcIsWrong(false)
     } else {
       if (slide.suppressDoneScreen) {
-        advanceSlide()
+        const nextCompletedSlides = markCurrentSlideComplete()
+        advanceSlide(nextCompletedSlides)
         return
       }
+      markCurrentSlideComplete()
       setMcRound(slide.rounds.length)
     }
   }
@@ -532,9 +601,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setMsHasError(false)
     } else {
       if (slide.suppressDoneScreen) {
-        advanceSlide()
+        const nextCompletedSlides = markCurrentSlideComplete()
+        advanceSlide(nextCompletedSlides)
         return
       }
+      markCurrentSlideComplete()
       setMsRound(slide.rounds.length)
     }
   }
@@ -590,6 +661,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       setMatchRevealed(true)
       setMatchErrors(new Set())
       setMatchConns(shuffledRight.map((_, visualIdx) => ({ left: shuffledRight[visualIdx], right: visualIdx })))
+      markCurrentSlideComplete()
+    } else if (errors.size === 0) {
+      markCurrentSlideComplete()
     }
   }
 
@@ -815,7 +889,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     if (currentWAIndex < wrongAnswers.length - 1) {
       setCurrentWAIndex(i => i + 1)
     } else {
-      setPhase('open-practice')
+      setPhase('open-practice-intro')
+      persistProgress(completedSlides, false, 'open-practice-intro', currentSlideIndex)
     }
   }
 
@@ -913,7 +988,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         courseId: course.id,
         matchDescription: course.openPractice.matchDescription,
       }) as DebriefData & { error?: string }
-      if (!data.error) { setDebrief(data); setPhase('debrief') }
+      if (!data.error) {
+        setDebrief(data)
+        setPhase('debrief')
+        persistProgress(completedSlides, false, 'debrief', currentSlideIndex)
+      }
     } catch (error) {
       setPracticeError(formatCourseApiError(error))
     } finally {
@@ -988,7 +1067,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   function NextButton({ disabled = false, onClick, label = 'Next →' }: { disabled?: boolean; onClick?: () => void; label?: string }) {
     return (
       <button
-        onClick={onClick || advanceSlide}
+        onClick={onClick || (() => {
+          const nextCompletedSlides = markCurrentSlideComplete()
+          advanceSlide(nextCompletedSlides)
+        })}
         disabled={disabled}
         className="mt-8 w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
       >
@@ -1004,6 +1086,61 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {title}
         </h1>
         {description && <p className="text-sm text-ink-mid mt-2 leading-relaxed">{description}</p>}
+      </div>
+    )
+  }
+
+  function ScenarioMessageCard({ message, fallback }: { message?: ScenarioMessage; fallback?: string }) {
+    if (!message) {
+      if (!fallback) return null
+      return (
+        <div className="bg-bg border border-border rounded-card p-4 mb-5">
+          <p className="text-sm text-ink leading-relaxed">{fallback}</p>
+        </div>
+      )
+    }
+
+    const channelLabel = message.roleLabel || (message.channel === 'email' ? 'Email' : message.channel === 'text' ? 'Text message' : 'Slack message')
+    return (
+      <div className={`mb-5 overflow-hidden rounded-card border ${
+        message.channel === 'email' ? 'border-sky-200 bg-sky-50/70' : 'border-border bg-white'
+      }`}>
+        <div className="flex items-center justify-between gap-3 border-b border-border/70 bg-bg px-4 py-2">
+          <div>
+            <p className="text-sm font-semibold text-ink">{message.sender}</p>
+            <p className="text-xs text-ink-light">{channelLabel}</p>
+          </div>
+          {message.timestamp && <p className="text-xs text-ink-light">{message.timestamp}</p>}
+        </div>
+        <div className="px-4 py-4">
+          <p className="text-sm leading-relaxed text-ink">{message.content}</p>
+        </div>
+      </div>
+    )
+  }
+
+  function CompletedActivityState({
+    title,
+    description,
+    formulaStep,
+    label = 'All done',
+  }: {
+    title: string
+    description?: string
+    formulaStep?: number
+    label?: string
+  }) {
+    return (
+      <div>
+        <BackButton idx={currentSlideIndex} />
+        <FormulaProgress {...formulaPropsForSlide(formulaStep)} />
+        <SlideTitle title={title} description={description} />
+        <div className="rounded-card border border-green-200 bg-green-50 p-5 text-center">
+          <p className="mb-2 text-2xl text-green-700">✓</p>
+          <p className="text-sm font-medium text-ink">{label}</p>
+          <p className="mt-1 text-xs text-green-700">Your answer for this activity is saved.</p>
+        </div>
+        <NextButton label="Continue →" />
       </div>
     )
   }
@@ -1188,7 +1325,14 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           <span>Not at all</span>
           <span>Very confident</span>
         </div>
-        <NextButton disabled={!preConfidence} onClick={() => setPhase('slides')} label="Start the course →" />
+        <NextButton
+          disabled={!preConfidence}
+          onClick={() => {
+            setPhase('slides')
+            persistProgress(completedSlides, false, 'slides', 0)
+          }}
+          label="Start the course →"
+        />
       </div>
     )
   }
@@ -1434,11 +1578,16 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function renderMatching(slide: MatchingSlide) {
+    const slideCompleted = isSlideCompleted()
     const allConnected = matchConns.length === slide.pairs.length
     const canCheck = allConnected && !matchChecked
-    const allCorrect = (matchChecked && matchErrors.size === 0 && allConnected) || matchRevealed
+    const allCorrect = slideCompleted || (matchChecked && matchErrors.size === 0 && allConnected) || matchRevealed
     const hasErrors = matchChecked && matchErrors.size > 0
     const formulaProps = formulaPropsForSlide(formulaStepFromTitle(slide.title))
+
+    if (slideCompleted) {
+      return <CompletedActivityState title={slide.title} description={slide.description} formulaStep={formulaStepFromTitle(slide.title)} />
+    }
 
     return (
       <div>
@@ -1447,9 +1596,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <SlideTitle title={slide.title} description={slide.description} />
         <p className="text-xs text-ink-light mb-5">{slide.instruction}</p>
 
-        <div className="grid grid-cols-2 gap-3 mb-4">
+        <div className="grid gap-4 mb-4 sm:grid-cols-2">
           {/* Left column */}
-          <div className="space-y-3">
+          <div className="space-y-3 rounded-card border border-border bg-bg p-3">
             <p className="text-xs font-medium text-ink-light uppercase tracking-wide text-center">{slide.leftLabel || 'People'}</p>
             {slide.pairs.map((pair, i) => {
               const color = getLeftColor(i)
@@ -1471,7 +1620,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                   }`}
                 >
                   {!slide.hideCardNames && !slide.hideLeftCardNames && <p className="font-medium text-ink text-xs mb-1">{pair.left.name}</p>}
-                  <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.left.description}</p>
+                  <p className="text-ink-mid" style={{ fontSize: '13px', lineHeight: '1.45' }}>{pair.left.description}</p>
                   {isCorrectChecked && (
                     <span className="mt-2 inline-flex rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">✓ Correct</span>
                   )}
@@ -1486,7 +1635,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </div>
 
           {/* Right column (shuffled) */}
-          <div className="space-y-3">
+          <div className="space-y-3 rounded-card border border-border bg-bg p-3">
             <p className="text-xs font-medium text-ink-light uppercase tracking-wide text-center">{slide.rightLabel || 'Matches'}</p>
             {shuffledRight.map((pairIdx, visualIdx) => {
               const pair = slide.pairs[pairIdx]
@@ -1511,7 +1660,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     }`}
                   >
                     {!slide.hideCardNames && <p className="font-medium text-ink text-xs mb-1">{pair.right.name}</p>}
-                    <p className="text-ink-mid" style={{ fontSize: '11px', lineHeight: '1.4' }}>{pair.right.description}</p>
+                    <p className="text-ink-mid" style={{ fontSize: '13px', lineHeight: '1.45' }}>{pair.right.description}</p>
                     {isCorrectChecked && (
                       <span className="mt-2 inline-flex rounded-pill border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-medium text-green-700">✓ Correct</span>
                     )}
@@ -1686,6 +1835,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       <div>
         <BackButton idx={currentSlideIndex} />
         <SlideTitle title={slide.title} description={slide.description} />
+        {slide.scenarioMessage && <ScenarioMessageCard message={slide.scenarioMessage} />}
         {slide.scenario && <p className="text-sm text-ink-mid mb-6 leading-relaxed">{slide.scenario}</p>}
         <div className="grid grid-cols-2 gap-4 mb-8">
           <div className="border-2 border-red-200 bg-red-50 rounded-xl p-4">
@@ -1709,9 +1859,21 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function renderSorting(slide: SortingSlide) {
+    const slideCompleted = isSlideCompleted()
     const allSorted = Object.keys(sortedItems).length === slide.items.length
-    const allCorrect = sortingChecked && sortingErrors.size === 0 && allSorted
+    const allCorrect = slideCompleted || (sortingChecked && sortingErrors.size === 0 && allSorted)
     const formulaProps = formulaPropsForSlide(slide.formulaStep || formulaStepFromTitle(slide.title))
+
+    if (slideCompleted) {
+      return (
+        <CompletedActivityState
+          title={slide.title}
+          description={slide.description}
+          formulaStep={slide.formulaStep || formulaStepFromTitle(slide.title)}
+        />
+      )
+    }
+
     return (
       <div>
         <BackButton idx={currentSlideIndex} />
@@ -1781,9 +1943,19 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function renderMultipleChoice(slide: MultipleChoiceSlide) {
-    const allDone = mcRound >= slide.rounds.length
+    const slideCompleted = isSlideCompleted()
+    const allDone = slideCompleted || mcRound >= slide.rounds.length
     const formulaProps = formulaPropsForSlide(formulaStepFromTitle(slide.title))
     if (allDone) {
+      if (slideCompleted) {
+        return (
+          <CompletedActivityState
+            title={slide.title}
+            description={slide.description}
+            formulaStep={formulaStepFromTitle(slide.title)}
+          />
+        )
+      }
       if (slide.suppressDoneScreen) {
         return (
           <div>
@@ -1819,9 +1991,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           {slide.compactHelper && <CompactTips items={slide.helperChecklist} />}
         </div>
         {!slide.compactHelper && <HelperChecklist items={slide.helperChecklist} />}
-        <div className="bg-bg border border-border rounded-card p-4 mb-5">
-          <p className="text-sm text-ink leading-relaxed">{round.scenario}</p>
-        </div>
+        <ScenarioMessageCard message={round.scenarioMessage} fallback={round.scenario} />
+        {round.question && <p className="mb-4 text-sm font-medium text-ink">{round.question}</p>}
         <div className="space-y-3 mb-6">
           {round.options.map((opt, i) => {
             const isSelected = mcSelected === i
@@ -1832,9 +2003,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 <button
                   onClick={() => {
                     if (!mcShowFeedback) handleMCSelect(i)
-                    else if (mcIsWrong && isCorrect) advanceMCRound()
+                    else if (mcIsWrong && isCorrect) handleMCSelect(i)
                   }}
-                  disabled={mcShowFeedback && !mcIsWrong}
+                  disabled={mcShowFeedback && (!mcIsWrong || !isCorrect)}
                   className={`w-full text-left border-2 rounded-xl px-4 py-3 text-sm transition-colors ${
                     showResult && !mcIsWrong ? 'border-green-400 bg-green-50 text-ink' :
                     showResult && mcIsWrong ? 'border-red-400 bg-red-50 text-ink' :
@@ -1845,7 +2016,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 >
                   {opt.text}
                   {mcShowFeedback && mcIsWrong && isCorrect && !isSelected && (
-                    <span className="ml-2 text-xs text-primary">← tap to continue</span>
+                    <span className="ml-2 text-xs text-primary">← choose this answer</span>
                   )}
                 </button>
                 {showResult && (
@@ -1879,8 +2050,18 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function renderMultiSelectQuiz(slide: MultiSelectQuizSlide) {
-    const allDone = msRound >= slide.rounds.length
+    const slideCompleted = isSlideCompleted()
+    const allDone = slideCompleted || msRound >= slide.rounds.length
     if (allDone) {
+      if (slideCompleted) {
+        return (
+          <CompletedActivityState
+            title={slide.title}
+            description={slide.description}
+            formulaStep={slide.formulaStep}
+          />
+        )
+      }
       return (
         <div>
           <BackButton idx={currentSlideIndex} />
@@ -1904,10 +2085,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <BackButton idx={currentSlideIndex} />
         <FormulaProgress activeStep={slide.formulaStep} />
         <SlideTitle title={slide.title} description={slide.description} />
-        <div className="bg-bg border border-border rounded-card p-4 mb-5">
-          <p className="text-sm text-ink leading-relaxed mb-3">{round.scenario}</p>
-          <p className="text-xs font-medium text-ink-light uppercase tracking-wide">{round.question}</p>
-        </div>
+        <ScenarioMessageCard message={round.scenarioMessage} fallback={round.scenario} />
+        <p className="mb-4 text-sm font-medium text-ink">{round.question}</p>
         <div className="space-y-2 mb-5">
           {optionOrder.map((idx) => {
             const option = round.options[idx]
@@ -2263,7 +2442,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <button
           onClick={async () => {
             if (shouldSave) await saveBuilderOutputs(slide)
-            advanceSlide()
+            const nextCompletedSlides = markCurrentSlideComplete()
+            advanceSlide(nextCompletedSlides)
           }}
           disabled={!canSave || toolkitSaving}
           className="mt-4 w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors disabled:opacity-40"
@@ -2319,16 +2499,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       slide.cards.forEach((card) => addBlock(blocks, card.front, card.back))
     }
 
-    if (slide.type === 'matching') {
-      addBlock(blocks, 'Prompt', [slide.instruction])
-      slide.pairs.forEach((pair) => {
-        addBlock(blocks, pair.left.name || 'Example', [
-          pair.left.description,
-          pair.left.mismatchNote ? `Watch for: ${pair.left.mismatchNote}` : undefined,
-          `${pair.right.name}: ${pair.right.description}`,
-        ])
-      })
-    }
+    if (slide.type === 'matching') return blocks
 
     if (slide.type === 'interactive-read') {
       slide.sections.forEach((section) => {
@@ -2337,7 +2508,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           ...(section.examples || []).map((example) => `Example: ${example}`),
         ])
       })
-      addBlock(blocks, slide.draftPrompt ? 'Practice prompt' : undefined, [slide.draftPrompt, slide.draftContext])
       if (slide.comparison) {
         addBlock(blocks, 'Spot the difference', [slide.comparison.scenario])
         addBlock(blocks, slide.comparison.bad.label, [slide.comparison.bad.message, slide.comparison.bad.note])
@@ -2345,9 +2515,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       }
     }
 
-    if (slide.type === 'draft-practice') {
-      addBlock(blocks, 'Prompt', [slide.prompt, slide.draftContext])
-    }
+    if (slide.type === 'draft-practice') return blocks
 
     if (slide.type === 'side-by-side') {
       addBlock(blocks, 'Scenario', [slide.scenario])
@@ -2355,42 +2523,13 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       addBlock(blocks, slide.good.label, [slide.good.message, slide.good.note])
     }
 
-    if (slide.type === 'sorting') {
-      addBlock(blocks, 'Prompt', [slide.instruction])
-      slide.items.forEach((item) => {
-        addBlock(blocks, item.message, [`Best category: ${item.correct}`, item.explanation])
-      })
-    }
+    if (slide.type === 'sorting') return blocks
 
-    if (slide.type === 'multiple-choice') {
-      slide.rounds.forEach((round, idx) => {
-        const correct = round.options.find((option) => option.correct)
-        addBlock(blocks, `Round ${idx + 1}`, [
-          round.scenario,
-          correct ? `Best answer: ${correct.text}` : undefined,
-          correct?.explanation,
-        ])
-      })
-    }
+    if (slide.type === 'multiple-choice') return blocks
 
-    if (slide.type === 'multi-select-quiz') {
-      slide.rounds.forEach((round, idx) => {
-        const correctAnswers = round.options
-          .filter((option) => option.correct)
-          .map((option) => option.text)
-          .join('; ')
-        addBlock(blocks, `Round ${idx + 1}`, [
-          round.scenario,
-          round.question,
-          correctAnswers ? `Best answers: ${correctAnswers}` : undefined,
-          round.explanation,
-        ])
-      })
-    }
+    if (slide.type === 'multi-select-quiz') return blocks
 
-    if (slide.type === 'checklist') {
-      addBlock(blocks, 'Checklist', slide.items)
-    }
+    if (slide.type === 'checklist') return blocks
 
     if (slide.type === 'visual-formula') {
       slide.steps.forEach((step, idx) => {
@@ -2398,28 +2537,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       })
     }
 
-    if (slide.type === 'reflection-choice') {
-      addBlock(blocks, 'Prompt', [
-        slide.prompt,
-        ...slide.options.map((option) => `Option: ${option}`),
-      ])
-    }
+    if (slide.type === 'reflection-choice') return blocks
 
-    if (slide.type === 'guided-builder') {
-      if (slide.cards) {
-        slide.cards.forEach((card) => addBlock(blocks, card.front, card.back))
-      }
-      slide.fields.forEach((field) => {
-        addBlock(blocks, field.label, [
-          field.placeholder,
-          field.fillBefore || field.fillAfter ? `${field.fillBefore || ''} ____ ${field.fillAfter || ''}`.trim() : undefined,
-          ...(field.options || []).map((option) => `Option: ${option}`),
-        ])
-      })
-      if (slide.outputs) {
-        slide.outputs.forEach((output) => addBlock(blocks, output.label, [output.template]))
-      }
-    }
+    if (slide.type === 'guided-builder') return blocks
 
     return blocks.length ? blocks : [{ lines: ['This slide is part of the interactive course. Redo the course to practice this section again.'] }]
   }
@@ -2443,12 +2563,19 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     setGhostAnalysis(null)
     setDebrief(null)
     setReviewExpanded(new Set())
+    setCompletedSlides({})
     completionSaved.current = false
     ghostCheckStrikes.current = 0
   }
 
   // ── Review mode (read-only slide browser) ─────────────────────────────────
   function renderSlideReview() {
+    const reviewSlides = course.slides.filter((slide) => {
+      if (['matching', 'draft-practice', 'checklist', 'guided-builder'].includes(slide.type)) return false
+      if (slide.type === 'multiple-choice' && slide.title === 'Put It All Together') return false
+      return true
+    })
+
     return (
       <div className="max-w-2xl mx-auto">
         <h1 className="text-2xl text-ink mb-2" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
@@ -2458,8 +2585,25 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           A read-only version of the course. Activities are removed here so you can scan the information without redoing the exercises.
         </p>
 
+        {course.reviewSummary && (
+          <div className="mb-6 rounded-card border border-primary/20 bg-primary/5 p-5">
+            <p className="mb-1 text-sm font-medium text-ink">{course.reviewSummary.title}</p>
+            <p className="mb-4 text-sm leading-relaxed text-ink-mid">{course.reviewSummary.description}</p>
+            {course.reviewSummary.formulas && (
+              <div className="space-y-2">
+                {course.reviewSummary.formulas.map((item) => (
+                  <div key={item.label} className="rounded-card border border-border bg-white px-3 py-2">
+                    <p className="text-xs font-medium uppercase tracking-wide text-primary">{item.label}</p>
+                    <p className="text-sm leading-relaxed text-ink-mid">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="mb-8 space-y-3">
-          {course.slides.map((slide, idx) => {
+          {reviewSlides.map((slide, idx) => {
             const open = reviewExpanded.has(idx)
             const blocks = getSlideReviewBlocks(slide)
             return (
@@ -2510,7 +2654,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </button>
           <a
             href="/dashboard/skills"
-            className="flex-1 bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+            className="flex-1 bg-primary text-white rounded-pill py-3 text-center text-sm font-medium hover:bg-primary-dark transition-colors"
           >
             Back to skills
           </a>
@@ -2522,7 +2666,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Guided practice ────────────────────────────────────────────────────────
   function renderGuidedPractice() {
     if (wrongAnswers.length === 0) {
-      setPhase('open-practice')
+      setPhase('open-practice-intro')
+      persistProgress(completedSlides, false, 'open-practice-intro', currentSlideIndex)
       return null
     }
     const wa = wrongAnswers[currentWAIndex]
@@ -2585,6 +2730,136 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   // ── Open practice ──────────────────────────────────────────────────────────
+  function openPracticeChecklistStatus(messages: Message[]) {
+    const checklist = course.openPractice.progressChecklist || []
+    const transcript = messages.map((message) => message.content.toLowerCase()).join('\n')
+    return checklist.map((item) => ({
+      ...item,
+      complete: item.patterns.some((pattern) => transcript.includes(pattern.toLowerCase())),
+    }))
+  }
+
+  function OpenPracticeChecklist({ messages }: { messages: Message[] }) {
+    const items = openPracticeChecklistStatus(messages)
+    if (items.length === 0) return null
+    const completeCount = items.filter((item) => item.complete).length
+    const enough = completeCount / items.length >= 0.8
+    const close = !enough && completeCount >= Math.max(1, items.length - 2)
+    return (
+      <aside className="rounded-card border border-border bg-white p-4">
+        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-light">Clarity checklist</p>
+        <p className="mb-4 text-xs leading-relaxed text-ink-mid">
+          Use the formula: name what you understand, ask for the missing detail, then connect the answer to the work.
+        </p>
+        <div className="space-y-2">
+          {items.map((item) => (
+            <div
+              key={item.key}
+              className={`flex items-center gap-2 rounded-card border px-3 py-2 text-xs ${
+                item.complete
+                  ? 'border-green-200 bg-green-50 text-green-800'
+                  : 'border-border bg-bg text-ink-mid'
+              }`}
+            >
+              <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[10px] ${
+                item.complete ? 'bg-green-600 text-white' : 'border border-border text-transparent'
+              }`}>
+                ✓
+              </span>
+              <span>{item.label}</span>
+            </div>
+          ))}
+        </div>
+        <div className={`mt-4 rounded-card border px-3 py-2 text-xs ${
+          enough
+            ? 'border-primary/30 bg-primary-light text-primary'
+            : close
+              ? 'border-amber-200 bg-amber-50 text-amber-800'
+              : 'border-border bg-bg text-ink-light'
+        }`}>
+          {enough ? 'Enough clarity collected to draft.' : close ? 'You are close. One or two details may still help.' : `${completeCount} of ${items.length} details collected.`}
+        </div>
+      </aside>
+    )
+  }
+
+  function renderOpenPracticeIntro() {
+    const { introTitle, introDescription, contextPanel, starterMessages, matchName } = course.openPractice
+    return (
+      <div className="mx-auto max-w-2xl">
+        <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-light">Open practice</p>
+        <h1 className="mb-4 text-3xl text-ink" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+          {introTitle || `Practice with ${matchName}`}
+        </h1>
+        {introDescription && <p className="mb-6 text-sm leading-relaxed text-ink-mid">{introDescription}</p>}
+
+        <div className="mb-4 rounded-card border border-border bg-white p-5">
+          <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-light">Who you are talking to</p>
+          <p className="text-sm leading-relaxed text-ink">
+            {matchName} is {course.openPractice.matchDescription}.
+          </p>
+        </div>
+
+        {contextPanel && (
+          <div className="mb-4 rounded-card border border-amber-200 bg-amber-50 p-5">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-amber-800">{contextPanel.title}</p>
+            <ul className="space-y-2">
+              {contextPanel.items.map((item) => (
+                <li key={item} className="flex gap-2 text-sm leading-relaxed text-ink-mid">
+                  <span className="text-amber-600">·</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {starterMessages?.length ? (
+          <div className="mb-4 rounded-card border border-border bg-bg p-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-ink-light">Starter messages from {matchName}</p>
+            <div className="space-y-2">
+              {starterMessages.map((message, idx) => (
+                <div key={`${message.content}-${idx}`} className="rounded-card border border-border bg-white px-4 py-3">
+                  {message.timestamp && <p className="mb-1 text-[10px] text-ink-light">{message.timestamp}</p>}
+                  <p className="text-sm leading-relaxed text-ink">{message.content}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        {course.openPractice.helperChecklist && (
+          <div className="mb-6 rounded-card border border-primary/20 bg-primary/5 p-4">
+            <p className="mb-3 text-xs font-medium uppercase tracking-wide text-primary">What to practice</p>
+            <ul className="space-y-2">
+              {course.openPractice.helperChecklist.map((item) => (
+                <li key={item} className="flex gap-2 text-sm leading-relaxed text-ink-mid">
+                  <span className="text-primary">✓</span>
+                  <span>{item}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() => {
+            setPracticeMessages([])
+            setPracticeInput('')
+            setPracticeError(null)
+            setRetryMessages(null)
+            setPhase('open-practice')
+            persistProgress(completedSlides, false, 'open-practice', currentSlideIndex)
+          }}
+          className="w-full rounded-pill bg-primary py-3 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
+        >
+          Start practice →
+        </button>
+      </div>
+    )
+  }
+
   function renderOpenPractice() {
     const { matchName, channel = 'chat' } = course.openPractice
     const canEnd = practiceMessages.length >= 2 && !debriefLoading
@@ -2596,9 +2871,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       .filter((content) => course.id !== 'ask-someone-out' || /\bcoffee|cafe|shop\b/i.test(content))
     const starterOptions = builtStarterOptions.length > 0 ? builtStarterOptions : (course.openPractice.starterOptions || [])
     const displayedMessages = practiceMessages.length === 0 ? starterMessages : practiceMessages
+    const checklistMessages = practiceMessages.length === 0 ? starterMessages : practiceMessages
 
     return (
-      <div className="max-w-lg mx-auto flex flex-col" style={{ height: 'calc(100vh - 160px)' }}>
+      <div className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
+      <div className="flex min-w-0 flex-col" style={{ height: 'calc(100vh - 160px)' }}>
         <div className="flex items-center gap-3 pb-3 mb-3 border-b border-border shrink-0">
           <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-semibold text-sm shrink-0">
             {matchName[0]}
@@ -2763,6 +3040,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
           </div>
         )}
       </div>
+      <div className="hidden lg:block">
+        <OpenPracticeChecklist messages={checklistMessages} />
+      </div>
+      </div>
     )
   }
 
@@ -2802,12 +3083,19 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               setDebrief(null)
               ghostCheckStrikes.current = 0
               setPhase('open-practice')
+              persistProgress(completedSlides, false, 'open-practice', currentSlideIndex)
             }}
             className="w-full border border-primary text-primary rounded-pill py-3 text-sm font-medium hover:bg-primary-light transition-colors"
           >
             Try again with Beckett&apos;s advice
           </button>
-          <button onClick={() => setPhase('confidence-end')} className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors">
+          <button
+            onClick={() => {
+              setPhase('confidence-end')
+              persistProgress(completedSlides, false, 'confidence-end', currentSlideIndex)
+            }}
+            className="w-full bg-primary text-white rounded-pill py-3 text-sm font-medium hover:bg-primary-dark transition-colors"
+          >
             Continue →
           </button>
         </div>
@@ -2991,6 +3279,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         {phase === 'confidence-start' && renderConfidenceStart()}
         {phase === 'slides' && renderSlide()}
         {phase === 'guided-practice' && renderGuidedPractice()}
+        {phase === 'open-practice-intro' && renderOpenPracticeIntro()}
         {phase === 'open-practice' && renderOpenPractice()}
         {phase === 'debrief' && renderDebrief()}
         {phase === 'confidence-end' && renderConfidenceEnd()}
