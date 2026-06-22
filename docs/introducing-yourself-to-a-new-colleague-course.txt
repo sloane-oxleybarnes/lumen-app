@@ -1,0 +1,431 @@
+Introducing Yourself to a New Colleague
+
+Course description:
+A workplace course where Beckett helps you introduce yourself clearly, warmly, and usefully without overexplaining.
+
+Estimated time:
+35 minutes
+
+Confidence check-in:
+How confident do you feel introducing yourself to a new colleague?
+
+Course intro:
+In this course, Beckett will help you build introductions you can reuse when a new colleague joins your work world.
+
+End note:
+Your intro phrases are saved in your Communication toolkit.
+
+--
+
+Slide 1: Strengths You Bring To Work
+
+**Description:**
+Neurodivergent people are often told — implicitly or directly — that the way their brain works is a problem to be managed. At work, that narrative can follow you into every meeting, every email, and every introduction. But this isn't true. The traits that have been framed as too much, too intense, too detail-oriented, or too blunt are often exactly what makes neurodivergent people exceptional colleagues. You do not need to hide them or qualify them. Select the strengths that feel true for you.
+
+**Prompt:**
+Which strengths do you want a new colleague to understand about you?
+
+**Options:**
+- Organizing messy information
+- Spotting user confusion
+- Deep focus
+- Direct communication
+- Creative problem-solving
+- Careful follow-through
+- Other (write in)
+
+--
+
+##Slide 2: Some Common Mistakes
+
+**Description:**
+Most introduction mistakes do not come from saying the wrong thing — they come from a habit of making yourself smaller before you have even started. Over-explaining, softening, or leaving out the most useful context are all ways of stepping back when stepping forward would serve you better. These cards show the patterns that get in the way most often and what to do instead.
+
+**Cards:**
+
+Too vague:
+The other person does not know what you do or why you are reaching out.
+
+Too apologetic:
+You spend more time softening yourself than giving useful context.
+
+Too much personal context:
+You disclose things that do not need to be part of a first work intro.
+
+--
+
+##Slide 3: Warmth Without Overdoing It
+
+**Instruction:**
+Knowing the patterns is different from seeing them. Sort each line below by what it actually signals to the other person — and notice how small differences in wording can change the whole impression.
+
+**Categories:**
+- Too vague
+- Too much personal context
+- Balanced
+
+Item:
+"I work on onboarding."
+
+Correct category:
+Too vague
+
+Explanation:
+Technically useful, but not very connective.
+
+Item:
+"I promise I am easy to work with once you get to know me!"
+
+Correct category:
+Too much personal context
+
+Explanation:
+It asks the other person to reassure you before they know you.
+
+Item:
+"I am excited to work together and can help with the onboarding flow context."
+
+Correct category:
+Balanced
+
+Explanation:
+Warm and useful without overselling.
+
+--
+
+##Slide 4: The Formula to a Good Introduction
+
+**Description:**
+A good introduction does not need to be impressive — it just needs to give the other person enough to work with. When you know what each part is doing and why it is there, the whole thing feels less like a performance and more like a conversation. Open each piece below to see what it adds — then see what it looks like when it all comes together.
+
+**Sections — model after formula slide in clarity slide:**
+
+Who you are:
+
+A name and role gives the other person somewhere to place you.
+
+Example: I am Sloane, and I am working on the onboarding flow.
+Why you are connected:
+
+Name the project, team, or reason you are in the same work world.
+
+Example: I joined the product team last week and will be working closely with your group.
+What you bring:
+
+A useful strength or work style helps them collaborate with you.
+
+Example: I am usually helpful with organizing messy pieces.
+What happens next:
+
+A simple next step keeps the intro from becoming awkwardly open-ended.
+
+Example: Written next steps help me stay aligned — happy to send a quick recap after we connect.
+
+--
+
+##Slide 5: Step 1: Who You Are
+
+**Format: flip cards**
+
+**Description:**
+
+Most people rush past Step 1 without thinking about what it is actually doing. A name and role is not just a formality — it is the foundation everything else builds on. Without it the other person has no frame of reference for anything you say next. This step is about giving them somewhere to place you before you ask them to take in anything else.Instruction:
+
+Open each section to see what to include, what to leave out, and why it matters.
+
+What to include
+What belongs in Step 1:
+
+Your first name — last name is optional depending on the context
+Your role or title — keep it simple and free of jargon
+The team or project you are connected to — gives the other person a frame of reference immediately
+How long you have been there if it is relevant — being new changes the context of the introduction
+
+Example: I am Sloane. I am working on the onboarding flow with the product team — I joined last week.
+
+What to leave out
+What does not belong in Step 1:
+
+Your full job history or how you got the role
+Qualifications or credentials unless they are directly relevant to the work
+Anything that sounds like you are justifying your presence
+Over-explaining why you are reaching out before you have said who you are
+
+Why it matters: Too much information in Step 1 puts the other person in the position of sorting through context they did not ask for before they even know who is talking to them. Less is almost always more here.
+
+Why neurodivergent people sometimes struggle here
+What tends to get in the way:
+
+A pull to over-explain — giving more context than the other person needs before they have asked
+Uncertainty about how formal or informal to be
+Not knowing where Step 1 ends and the next step begins
+Defaulting to credentials or achievements rather than connection-relevant information
+
+This is one of the most common patterns Beckett sees. Knowing it is a pattern — not a flaw — makes it easier to catch before it shapes the whole introduction.
+
+Tone
+The tone of Step 1 sets the tone for everything that follows. Warm and direct works in almost every professional context. Overly formal can create distance. Overly casual before you know the person can land wrong.
+Examples across a range of tones:
+
+Simple: I am Sloane. I am working on the onboarding flow.
+With team context: I am Sloane from the product team — I just joined last week.
+More detailed: I am Sloane. I work on the content side of the product team and will be collaborating with your group on the launch.
+
+
+**Activity**
+
+Fill in the blank — complete your own Step 1 using the template below before moving on.
+Template: I am [name], and I [role or project or team].
+Placeholder text: I am Sloane, and I am working on the onboarding flow with the product team.
+Button copy: Save and continue
+
+Design note:
+
+The fill-in-the-blank fields should be simple text inputs, not dropdowns. The saved response carries forward into the full intro builder later in the course so the user does not have to repeat themselves.
+
+--
+
+
+##Slide 6: Step 2: What You Do
+
+**Description:**
+Knowing your name and team tells the other person who you are. Knowing what you actually do tells them how you fit into their world and whether your work will intersect with theirs. Without this step the introduction stays surface level — polite but not particularly useful to either person.
+
+**Sections — flip cards:**
+
+What to include
+
+The kind of work you do day to day — not your job title, but what you actually spend your time on
+The problem your work solves or the thing you are responsible for moving forward
+How your work connects to theirs if that is already clear
+One specific thing you are currently working on if it is relevant to the context
+
+What to leave out
+
+A full list of responsibilities — this is an introduction, not a job description
+Technical language or acronyms the other person may not know yet
+Anything that sounds like you are proving your value rather than simply explaining your role
+
+Why neurodivergent people sometimes struggle here
+
+A tendency to either undersell — saying something vague like I just work on the product stuff — or oversell by listing every responsibility at once
+Difficulty knowing which part of the work is most relevant to name in this particular context
+Defaulting to the job title on paper rather than describing what the work actually looks like day to day
+Uncertainty about whether what you do sounds interesting or important enough to say out loud
+
+A note on specificity
+
+The more specific this step is the more useful it is. I work on content is harder to connect with than I write the help docs users see when they get stuck. Specificity gives the other person something to respond to — and makes the introduction feel like the start of a real conversation rather than an exchange of business cards.
+
+Activity idea for this slide
+
+A fill-in-the-blank where the user completes their own Step 2 using a simple template — I work on [what you do], and right now I am focused on [current project or priority]. Saved response carries forward into the full intro builder later in the course.
+
+--
+
+##Slide 7: Step 3: How Do You Like to Collaborate
+
+**Description:**
+How you work best with other people is not something you need to hide or apologize for. Neurodivergent people often have very specific and very reasonable preferences around communication — needing things in writing, preferring async over real-time, wanting clear expectations before starting. These are not high-maintenance requests. They are the conditions under which you do your best work. This step is about naming one of them so the person you are introducing yourself to actually has something useful to work with.
+
+What to include
+What belongs in Step 3:
+
+One specific preference around how you communicate best — written over verbal, async over real-time, direct feedback over open-ended questions
+One preference around how you receive information — context up front, clear priorities, structured next steps
+A simple next step if one is relevant — happy to send a recap after we connect, feel free to Slack me if anything comes up
+A framing that makes the preference sound useful rather than limiting
+
+Example: Written next steps help me stay on track — I am happy to send a quick recap after we connect so we both have it.
+
+What to leave out
+What does not belong in Step 3:
+
+An apology before or after naming the preference
+An explanation of why the preference exists — you do not need to justify it
+More than one preference at a time — one clear cue is more useful than a list
+Anything that frames the preference as a problem the other person needs to manage
+
+Why it matters: Naming a preference is an act of clarity, not a request for special treatment. The other person benefits from knowing how to work with you well — and so do you.
+
+Why neurodivergent people sometimes struggle here
+What tends to get in the way:
+
+Worrying that naming a preference will make you seem difficult or demanding
+Not knowing which preference to name first or how to phrase it without over-explaining
+Defaulting to nothing — leaving the other person to figure out how you work through trial and error
+Framing the preference around what does not work rather than what does
+
+This is one of the most valuable steps in a work introduction — and one of the most commonly skipped. A single sentence here can prevent weeks of miscommunication.
+
+Activity
+
+Fill in the blank — complete your own Step 3 using the template below before moving on.
+Template: [Preference] helps me [outcome or benefit]. [Optional next step].
+Placeholder text: Written next steps help me stay aligned — I am happy to send a recap after we connect.
+Button copy: Save and continue
+
+Design note:
+
+The saved response carries forward into the full intro builder later in the course so the user does not have to repeat themselves. The examples above the fill-in-the-blank should be displayed in a lighter visual treatment — consistent with how examples are shown in slides 1 and 2.
+
+--
+
+##Slide 8: Translate The Preference
+
+**Description:**
+There is usually a gap between how you naturally think about your collaboration preferences and how you describe them to someone new. The honest version in your head is real and valid — it just needs a small translation to land well in a work introduction. This activity shows what that gap looks like and what it sounds like when you close it. Match each initial thought to the work-ready version that says the same thing in a way that is clear and easy to act on.
+
+**Instruction:**
+Tap an initial thought on the left, then tap the work version on the right that says the same thing. A line will connect them when you match correctly. All pairs must be matched correctly before moving on.
+
+Left label:
+What I am actually thinking
+
+Right label:
+What I can say at work
+
+Pair 1
+Initial thought:
+
+I freeze when people ask me questions live.
+Work version:
+
+I usually give better answers when I have a few minutes to think — I will always follow up in writing.
+Mismatch note:
+
+Look for the version that makes processing time sound useful and professional rather than like a limitation.
+
+Pair 2
+Initial thought:
+
+Please do not make me guess what you mean.
+Work version:
+
+Direct feedback is easiest for me to act on, especially when the priority is clear.
+Mismatch note:
+
+Look for the version that asks for direct feedback without sounding frustrated or demanding.
+
+Pair 3
+Initial thought:
+
+I need the whole story or I will miss something.
+Work version:
+
+A little context up front helps me avoid rework and move faster.
+Mismatch note:
+
+Look for the version that frames the need for context as a benefit to the work rather than a personal requirement.
+
+Initial thought:
+
+I hate being interrupted mid-thought.
+Work version:
+
+I tend to do my best thinking when I can finish a thought before we discuss — async works really well for me.
+Mismatch note:
+
+Look for the version that names the preference around interruptions without sounding defensive or difficult to work with.
+
+Pair 5
+Initial thought:
+
+I need things written down or I will forget.
+Work version:
+
+Written next steps help me stay aligned — I am happy to send a recap after we connect.
+Mismatch note:
+
+Look for the version that makes the need for written confirmation sound like something that benefits both people, not just the asker.
+
+--
+
+##Slide 9: Build Your Intro
+
+**Description:**
+You have done the thinking. Now this slide pulls it together. The fields below draw on everything you named in the steps before — your role, what you bring, and how you work best. Fill them in and Beckett will generate a few versions of your introduction and save them to your Communication toolkit so they are ready when you need them.
+
+Show the intro they built on step 1-3 and this is an opportunity for them to create a new one
+
+Field 1:
+What is your role or project context?
+
+Placeholder:
+working on the beta onboarding flow
+
+Field 2:
+What strength do you want to include?
+
+Placeholder:
+organizing messy pieces
+
+Options:
+- organizing messy pieces
+- spotting user confusion
+- turning ideas into next steps
+- careful follow-through
+
+Field 3:
+What collaboration preference helps?
+
+Placeholder:
+written next steps help me stay aligned
+
+Options:
+- written next steps help me stay aligned
+- direct feedback is easiest for me
+- I do best when owners are clear
+
+--
+
+##Open Practice
+
+Practice setting:
+Slack DM - new colleague
+
+Person:
+Maya, a new cross-functional colleague joining your project.
+
+Goal:
+Introduce yourself, give Maya useful context, and make the next collaboration step clear.
+
+Starter messages:
+Maya, 9:42 AM:
+Hi! I am Maya - Jordan said we will both be on the beta onboarding work.
+
+Maya, 9:43 AM:
+Wanted to say hi before I jump into the project doc.
+
+Practice behavior:
+Maya is friendly but busy. If the user introduces themselves clearly, Maya responds warmly and asks one practical follow-up. If the user is vague, Maya asks what part of the project they own. If the user overshares or apologizes heavily, Maya stays kind and redirects to collaboration.
+
+Saved output 1:
+Direct intro
+
+Category:
+new_colleague_intro
+
+Template:
+Hi, I am Sam. I am {role}. I am usually helpful with {strength}, and {preference}.
+
+Saved output 2:
+Warm intro
+
+Category:
+new_colleague_intro
+
+Template:
+Hi, nice to meet you. I am Sloane, and I am {role}. I am excited to work together - I am usually helpful with {strength}.
+
+Saved output 3:
+Collaboration preference
+
+Category:
+collaboration_preference
+
+Template:
+One thing that helps me collaborate well: {preference}.
+
+Save button:
+Save intro phrases and continue

@@ -25,19 +25,17 @@ Your clarity questions are saved in your Communication toolkit.
 **Description:**  
 Clarity is shared alignment, not needing extra help.
 
-Asking for clarity at work should be simple. But, for many neurodivergent people it is not — and there are very specific reasons why. This course covers what makes clarifying questions feel so loaded, how to identify exactly what information you are missing, how to ask in a way that is direct and confident, and how to leave the apology out of it entirely.
+Asking for clarity at work should be simple, but, for many neurodivergent people it's not. This course covers why asking for clarity can be so difficult, how to identify the information you need, and how to ask in a way that is direct and confident.
 
-### The goal
+### Why ask for clarification? 
 
-Make sure you are solving the right problem before you spend energy on it.
+A clear understanding of what's asked of you and how to execute on it ensures that you're solving the right problem at the right level before you spend your energy on it.
 
-### What can be unclear
+### What can be unclear? 
 
-Timeline (deadline & priority), definition of done, the audience and who the decision maker is.
+When something is asked of us there are many factors that dictate what is actually needed: Timeline (deadline & priority), definition of done, the audience and who the decision maker is are a few.
 
-### The reframe
 
-You are not bothering someone; you are preventing avoidable rework.
 
 ---
 
@@ -46,28 +44,35 @@ You are not bothering someone; you are preventing avoidable rework.
 **Format:** Select-multiple reflection
 
 **Description:**  
-Asking for clarification is harder than it should be. Not because the question is difficult — but because of everything that surrounds it. The worry that you should already know. Not being sure what information you are even missing. The sense that you are asking too much, taking too long, being annoying. The impulse to apologize before you have said anything at all. These are not character flaws. They are patterns — and patterns can be changed.
+Asking for clarification can be harder than it should be. Not because you don't understand or can't do the work — but because of everything that surrounds it. 
+- The worry that you should already know. Not being sure what information you are even missing. 
+- The sense that you are asking too much, taking too long, being annoying. 
+- The impulse to apologize before you have said anything at all.
+
+These are not character flaws. They are thought patterns — and these can be changed.
 
 **Prompt:**  
-What part tends to be hardest for you?
+What concerns come up for you?
 
 **Options:**
 
 - Worrying that I should already know
-- Not knowing what information I'm missing
+- Not knowing what information I need
 - Fear of sounding annoying
 - Needing more specificity than others
 - Knowing that I process spoken instructions slowly
-- Feeling like I should apologize before I ask
+- Feeling guilty for having to ask
 
 ---
 
-## 3. Asking Without Over-Apologizing
+## 3. Lets Talk About Over-Apologizing
 
 **Format:** Spot the difference (Add click to flip over on the cards)
 
 **Description:**  
-Many neurodivergent people grow up feeling like their questions are a burden — being told to stop asking, to just figure it out, or that they should already know. If that sounds familiar, it makes sense that asking for help now feels like something you need to apologize for. It is not. Asking clarifying questions is not a weakness. It is one of the clearest, most direct ways to communicate — and that is something to be proud of. This section will help you notice when you are over-apologizing and give you tools to ask for what you need without shrinking yourself to do it.
+Many neurodivergent people grow up feeling like their questions are a burden — being told to stop asking, to just figure it out, or that they should already know. If that sounds familiar, it makes sense that asking for help now feels like something you need to apologize for. It is not (bold). 
+
+Asking clarifying questions is not a weakness. It is one of the clearest, most direct ways to communicate - and you don't need to apologize for it. This section will help you notice when you are over-apologizing and give you tools to ask for what you need without shrinking yourself to do it.
 
 **Scenario:**  
 You need to ask what "clean this up" means.
@@ -77,11 +82,11 @@ You need to ask what "clean this up" means.
 Sorry, this is probably annoying, but can you explain what you meant by clean this up?
 
 **Why it is weaker:**  
-The apology makes the question feel heavier than it needs to be.
+The apology makes you seem less confident.
 
 ### Stronger version
 
-Quick clarification: when you say clean this up, do you mean copy edits, structure, or both?
+Quick clarification: when you say clean this up, do you mean copy edits, structure, or both? 
 
 **Why it is stronger:**  
 Specific, neutral, and easy to answer.
@@ -94,24 +99,21 @@ Specific, neutral, and easy to answer.
 **Format:** Matching activity
 
 **Description:**  
-Time to practice, match each over-apologetic question to a cleaner workplace version.
+Time to practice, match each over-apologetic question to a more direct version.
 
 **Instruction:**  
-Tap an original, then tap the improved version.
+Tap an original question, then match it to the improved version.
 
 Section Headings: Original (###), Improved (**)
 
-### Sorry, this is probably annoying, but can you explain what you meant?
-
-** Quick clarification: do you mean copy edits, structure, or both?
 
 ### Sorry if this is obvious, but when is this due?
 
-** I want to confirm the deadline before I prioritize this. Do you need it today or later this week?
+** I want to confirm the deadline before I prioritize this. When do you need this by?
 
 ### I am probably overthinking this, but should I make this polished?
 
-** To avoid overbuilding it, should this be a rough internal draft or a polished version?
+** Does this need to be fully polished or are you expecting a rough internal draft?
 
 ### Sorry, who am I supposed to ask about this?
 
@@ -128,31 +130,31 @@ Section Headings: Original (###), Improved (**)
 **Format:** Visual formula
 
 **Description:**  
-Knowing you need clarification and knowing how to ask for it are two different things. This formula bridges that gap — giving your brain a clear structure to work from so the question feels less overwhelming and more like a tool you actually want to use.
+Knowing you need clarification and knowing how and what to ask for it are two different things. This formula bridges that gap — giving your brain a clear structure to work from so asking feels less overwhelming.
 
 ### Step 1: What I understand
 
 Start with what you think is true.
 
-Example: I understand the goal is to clean up onboarding before review.
+Example: I understand the goal is to finalize the onboarding process by next Friday.
 
 ### Step 2: What is unclear
 
 Name the missing piece.
 
-Example: I am not sure whether clean up means copy, structure, or both.
+Example: I am not sure what need to be finalized: the copy, format, or something else.
 
 ### Step 3: Specific question
 
 Ask an answerable question.
 
-Example: Should I prioritize the signup steps or the handoff notes?
+Example: Should I prioritize the copy or the format?
 
 ### Step 4: Why it helps
 
-Connect it to better work.
+Connect it to an improved outcome.
 
-Example: That will help me avoid rework.
+Example: That will ensure I deliver this on time and to the right standards.
 
 ---
 
@@ -173,11 +175,11 @@ Question: Do you need this today or before Friday?
 
 What does finished mean?
 
-Questions: Do you mean copy edits, structure, or both? Should this be rough, clean, or ready to send?
+Questions: Do you mean copy edits, format, or something else? Should this be rough, clean, or ready for final approval?
 
 ### Audience
 
-Who is this for: internal team, leadership, or beta users?
+Who is this for: internal team, leadership, or customers?
 
 Question: Will this be an internal or external facing document? 
 
@@ -219,20 +221,20 @@ What do you already know from this message? Select all that apply.
 - The work needs to be done before Thursday
 
 **Why:**  
-You already have more than you think. You know the document, the deadline, and the event it is for. What is missing is the definition of done — and that is the one question worth asking. Starting your message with what you know makes the gap much easier to name.
+You already have more than you think. You know the document, the deadline, and the event it is for. What is missing is the definition of done. 
 
 **Incorrect options:**
 
-- What clean it up means
+- Whether anyone need to approve the updates before the team review
 - How polished the final version needs to be
-- Whether to focus on copy, structure, or both
+- The specific parts of the document need to be "cleaned up"
 - Whether anyone else is also working on the doc
 
 ### Round 2
 
 Slack message from a teammate:
 
-Can you take over the client email for the Halford account? I have a conflict this afternoon.
+Can you sent the client email for the Halford account? I have a conflict this afternoon.
 Question:
 
 What do you already know from this message? Select all that apply.
@@ -244,7 +246,7 @@ What do you already know from this message? Select all that apply.
 - The account is Halford
 
 **Why:**  
-You know what needs doing and why your teammate cannot do it — that is a solid starting point. What is missing is almost everything you need to actually do the work: timing, content, audience, and whether there is anything already drafted. Naming what you know first makes asking for all of that feel much less overwhelming.
+You know you need to send an email and why your teammate cannot do it. What is missing is the timing, content, audience, and whether there is a draft started.
 
 **Incorrect options:**
 
@@ -283,19 +285,21 @@ You know the document exists, where it is headed, and that your input is wanted.
 ## 8. Step 2 - What Information Is Missing?
 
 **Description:)**
-Step 2 of the Clarity formula is to identify the missing information. Not everything that feels unclear actually is — usually there is one specific piece of missing information that is creating the confusion. Name that, and the question almost writes itself.
+Not everything that feels unclear actually is — usually there is a primary piece of information missing that is creating the confusion. Name that, and the question almost writes itself.
 
 **Format:** Multiple choice
 
 ### Round 1
 
-Your manager says, "Can you clean up the onboarding doc?" What information is most missing?
+Your manager says, "Can you clean up the onboarding doc?" 
+
+What information is most missing?
 
 **Correct answer:**  
 Definition of done: what clean up means.
 
 **Why:**  
-You need to know whether this means copy, structure, polish, or all of it.
+You need to know whether this means copy, format, polish, or all of it.
 
 **Incorrect options:**
 
@@ -304,7 +308,9 @@ You need to know whether this means copy, structure, polish, or all of it.
 
 ### Round 2
 
-A teammate says, "Can you help with the launch issue?" What information is most missing?
+A teammate says, "Can you help with the launch issue?" 
+
+What information is most missing?
 
 **Correct answer:**  
 Ownership and urgency.
@@ -334,15 +340,15 @@ Scope and purpose
 
 ---
 
-## 9. Step 3 - Asking Specific Questions
+## 9. Step 3 - How to Ask
 
 **Description:**
-The third step in the Clarity Formula is making sure the questions you ask are specific and not vague. A question like "can you clarify?" puts the work back on them. A question like "do you mean copy edits, structure, or both?" gives them something to respond to immediately — and gets you what you need faster.
+The third step in the Clarity Formula is making sure the questions you ask are specific and not vague. hA question like "can you clarify?" puts the work back on them. A question like "do you need this by end of day or can it wait until end of week?" gives them something to respond to immediately — and gets you what you need faster.
 
 **Format:** Sorting activity
 
 **Instruction:**  
-Sort each message by what kind of clarity question it is.
+Sort each message by the type of question. 
 
 **Categories:**
 
@@ -383,7 +389,7 @@ Should I focus first on the headline copy or the form steps?
 ## 10. Step 4 - Why This Helps You
 
 **Description:**
-The last step in the Clarity Formula is explaining why this information is important. Explaining why the information matters — even in one sentence — turns a question into a reason. It signals that you are not asking for the sake of asking. You are asking because it will make the outcome better. That changes how it lands.
+The last step in the Clarity Formula is explaining why this information is important and how it improves the shared outcome. It signals that you are thinking critically and want to deliver the best work. That changes how it lands.
 
 **Instruction:**  
 Drag each closing line into the correct column — connects to the work or does not connect to the work.
@@ -480,7 +486,11 @@ The tooltip should have a light background with a subtle border — consistent w
 The icon and tooltip should appear on every round of the activity, not just the first one
 
 **Description:**  
-You have learned what clarity is, why asking for it feels hard, and how to build a question that actually works. Now it is time to use everything at once. Each round below shows a real workplace message and three possible responses. Only one response puts the full Clarity Formula together correctly — it grounds itself in what is already known, names the specific gap, asks an answerable question, and connects it to the work. The other two are close but fall short in ways that matter. Read carefully before you choose.
+You have learned what clarity is, why asking for it feels hard, and how to build a question that actually works. Now it is time to use everything at once. 
+
+Each round below shows a real workplace message and three possible responses. Only one response puts the full Clarity Formula together correctly — it grounds itself in what is already known, names the specific gap, asks an answerable question, and connects it to the work. The other two are close but fall short in ways that matter. 
+
+Read carefully before you choose.
 
 **Instructions:**
 Read the message and select the response that best applies the Clarity Formula. Think about what each option gets right and what it is missing before you choose.
@@ -564,13 +574,13 @@ It names what is already known (the three active workstreams), identifies the mo
 
 **Person:** Jordan  
 **Context:** A busy manager who gave you an unclear task  
-**Channel:** Slack DM - vague work request  
+**Channel:** Slack DM  
 **Goal:** Ask Jordan for the missing information you need before you start the work.
 
 ### Starting Slack messages from Jordan
 
 Jordan, 10:12 AM:  
-Can you clean up the onboarding flow before the team review?
+Can you clean up the onboarding document before the team review?
 
 Jordan, 10:12 AM:  
 Mainly just make sure it is in better shape.
