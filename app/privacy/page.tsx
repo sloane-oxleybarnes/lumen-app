@@ -12,11 +12,28 @@ const sections = [
     ],
   },
   {
-    title: "What Beckett stores",
+    title: "What Beckett collects and stores",
     body: [
       "Beckett stores account details, beta access status, onboarding answers, connection status, usage counts, timestamps, contacts you choose to add, and coaching settings.",
+      "This can include personal information such as your name and email address, authentication and connection information, user-provided communication preferences, and workplace communication context you choose to send for coaching.",
       "Beckett does not store full Gmail or Slack message history by default. For product analytics and CRM, Beckett uses counts, timestamps, connection status, and safe event names, not raw message content.",
       "Beckett may store short summaries or metadata when needed to make the product work, debug beta issues, or remember your preferences.",
+    ],
+  },
+  {
+    title: "How Beckett uses your data",
+    body: [
+      "Beckett uses user data to provide and improve its single purpose: workplace communication coaching in Gmail, Slack, the Chrome extension, practice sessions, and skill modules.",
+      "That includes authenticating your account, enforcing beta access and usage limits, generating coaching responses, remembering your preferences, connecting Gmail or Slack when you ask, troubleshooting bugs, responding to support requests, and improving coaching quality.",
+      "Beckett does not use or transfer user data for purposes unrelated to workplace communication coaching.",
+    ],
+  },
+  {
+    title: "Who Beckett shares data with",
+    body: [
+      "Beckett shares user data only with service providers and systems needed to run, secure, support, and improve Beckett.",
+      "These may include authentication and database providers such as Supabase, AI providers such as Anthropic for generating coaching responses, Google and Slack APIs when you connect those services, hosting and infrastructure providers, analytics and debugging tools, email delivery tools, and beta/customer-support tools such as HubSpot and Loops.",
+      "Service providers receive only the information needed for their role. Beckett does not sell personal data or transfer user data to advertising platforms, data brokers, or other information resellers.",
     ],
   },
   {
@@ -24,8 +41,19 @@ const sections = [
     body: [
       "Beckett does not sell your personal data.",
       "Beckett does not use Gmail or Slack content for advertising.",
+      "Beckett does not use or transfer user data to determine creditworthiness or for lending purposes.",
+      "Beckett does not collect payment card information through the Chrome extension during beta.",
+      "Beckett does not collect health information, precise location, or general web browsing history for its Chrome extension.",
       "Beckett does not connect to LinkedIn, Google Calendar, Zoom, or Google Meet during beta.",
       "Beckett does not ask for or store your personal Anthropic API key.",
+    ],
+  },
+  {
+    title: "Chrome Web Store and Google API Limited Use",
+    body: [
+      "The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.",
+      "Beckett uses Google API data only to provide or improve user-facing workplace communication coaching features requested by the user.",
+      "Beckett does not use Google API data for advertising, does not sell Google API data, and does not transfer Google API data except as needed to provide or improve Beckett, comply with applicable law, protect against abuse or security threats, or complete a merger, acquisition, or sale of assets with user consent where required.",
     ],
   },
   {
@@ -90,8 +118,10 @@ export default function PrivacyPage() {
         <p className="max-w-3xl text-base leading-relaxed text-ink-mid">
           Beckett is a workplace communication coach for beta users. It works best with real
           communication context, so the rules below explain what Beckett reads, what it stores,
-          what feedback can include, and where the coaching boundaries are.
+          how it uses and shares data, what feedback can include, and where the coaching
+          boundaries are.
         </p>
+        <p className="mt-4 text-sm text-ink-light">Last updated: June 22, 2026</p>
       </section>
 
       <section className="mx-auto grid w-full max-w-4xl gap-5 px-5 pb-12">
