@@ -25,12 +25,20 @@ function daysAgo(days: number) {
   return date.toISOString();
 }
 
+function buildPasswordSetupLink(origin: string, tokenHash: string, type: "invite" | "recovery") {
+  const url = new URL("/auth/callback", origin);
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", type);
+  url.searchParams.set("next", "/auth/set-password");
+  return url.toString();
+}
+
 async function createSetupLink(email: string, origin: string) {
   const { data, error } = await supabaseAdmin.auth.admin.generateLink({
     type: "recovery",
     email,
     options: {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/auth/set-password")}`,
     },
   });
 
@@ -38,7 +46,9 @@ async function createSetupLink(email: string, origin: string) {
     throw new Error(error?.message || "Could not generate setup link.");
   }
 
-  return data.properties.action_link;
+  return data.properties.hashed_token
+    ? buildPasswordSetupLink(origin, data.properties.hashed_token, "recovery")
+    : data.properties.action_link;
 }
 
 async function runEmailAutomations(req: NextRequest, dryRun: boolean) {

@@ -10,7 +10,14 @@ export async function GET(request: NextRequest) {
   const code       = searchParams.get('code')
   const token_hash = searchParams.get('token_hash')
   const type       = searchParams.get('type') as EmailOtpType | null
-  const next       = searchParams.get('next') ?? '/dashboard'
+  const requestedNext = searchParams.get('next')
+  const isPasswordAction = type === 'recovery' || type === 'invite'
+  const next =
+    requestedNext?.startsWith('/')
+      ? requestedNext
+      : isPasswordAction
+        ? '/auth/set-password'
+        : '/dashboard'
   const integration = searchParams.get('integration')
   const errorParam = searchParams.get('error')
   const errorDesc  = searchParams.get('error_description')
@@ -57,7 +64,7 @@ export async function GET(request: NextRequest) {
       }
 
       return NextResponse.redirect(
-        new URL(type === 'recovery' ? '/auth/set-password' : next, origin)
+        new URL(isPasswordAction ? '/auth/set-password' : next, origin)
       )
     }
     return NextResponse.redirect(
@@ -69,7 +76,7 @@ export async function GET(request: NextRequest) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
     if (!error) {
       return NextResponse.redirect(
-        new URL(type === 'recovery' || type === 'invite' ? '/auth/set-password' : next, origin)
+        new URL(isPasswordAction ? '/auth/set-password' : next, origin)
       )
     }
     return NextResponse.redirect(

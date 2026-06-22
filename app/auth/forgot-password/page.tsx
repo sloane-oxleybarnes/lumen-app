@@ -16,7 +16,7 @@ export default function ForgotPasswordPage() {
 
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://meetbeckett.co'
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${siteUrl}/auth/callback`,
+      redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/auth/set-password')}`,
     })
 
     if (error) {

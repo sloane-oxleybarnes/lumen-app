@@ -5,6 +5,14 @@ import { trackBetaEvent } from "@/lib/beta-events";
 import { triggerLoopsEvent } from "@/lib/loops";
 import { sendBetaInviteEmail } from "@/lib/beta-emails";
 
+function buildPasswordSetupLink(origin: string, tokenHash: string, type: "invite" | "recovery") {
+  const url = new URL("/auth/callback", origin);
+  url.searchParams.set("token_hash", tokenHash);
+  url.searchParams.set("type", type);
+  url.searchParams.set("next", "/auth/set-password");
+  return url.toString();
+}
+
 export async function POST(req: NextRequest) {
   const cookieStore = cookies();
   if (cookieStore.get("admin_auth")?.value !== process.env.ADMIN_PASSWORD) {
@@ -46,14 +54,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const actionLink = linkData.properties.hashed_token
+      ? buildPasswordSetupLink(origin, linkData.properties.hashed_token, "invite")
+      : linkData.properties.action_link;
+
     await sendBetaInviteEmail({
       email: normalizedEmail,
       name: signup?.name || null,
-      actionLink: linkData.properties.action_link,
+      actionLink,
     });
   } else {
     const { error: inviteError } = await supabase.auth.admin.inviteUserByEmail(normalizedEmail, {
-      redirectTo: `${origin}/auth/callback`,
+      redirectTo: `${origin}/auth/callback?next=${encodeURIComponent("/auth/set-password")}`,
       data: { plan: 'beta' },
     });
 
