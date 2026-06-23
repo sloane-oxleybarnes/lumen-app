@@ -9,7 +9,6 @@ features:
   slash_commands:
     - command: /beckett
       description: Ask Beckett for workplace communication coaching.
-      usage_hint: is this too direct? "I need this by Friday."
       url: https://beckett-git-staging-sloane-s-projects1.vercel.app/api/slack/commands
       should_escape: false
   shortcuts:
