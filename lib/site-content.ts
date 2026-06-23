@@ -18,7 +18,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Homepage headline",
     group: "Homepage",
     defaultValue:
-      "A communication coach built\nfor neurodivergent workdays.",
+      "Neurodivergent communication coaching\nfor the conversations that matter most at work.",
     inputType: "textarea",
   },
   {
