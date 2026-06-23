@@ -1,0 +1,37 @@
+display_information:
+  name: Beckett Staging
+  description: Workplace communication coaching for Slack testing.
+  background_color: "#f3e6cf"
+features:
+  bot_user:
+    display_name: Beckett Staging
+    always_online: false
+  slash_commands:
+    - command: /beckett
+      description: Ask Beckett for workplace communication coaching.
+      usage_hint: is this too direct? "I need this by Friday."
+      url: https://YOUR-STAGING-URL/api/slack/commands
+      should_escape: false
+  shortcuts:
+    - name: Ask Beckett about this message
+      type: message
+      callback_id: beckett_message_context
+      description: Get private coaching on this Slack message.
+oauth_config:
+  redirect_urls:
+    - https://YOUR-STAGING-URL/api/slack/callback
+  scopes:
+    bot:
+      - commands
+      - chat:write
+    user:
+      - channels:history
+      - im:history
+      - users:read
+settings:
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR-STAGING-URL/api/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
