@@ -176,7 +176,7 @@ export default function ProfileSetupForm() {
       await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          scopes: "https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/calendar.readonly",
+          scopes: "https://www.googleapis.com/auth/gmail.readonly",
           redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/settings")}&integration=google`,
           queryParams: { access_type: "offline", prompt: "consent" },
         },

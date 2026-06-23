@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
             metadata: {
               provider: 'google',
               email: data.session.user.email || null,
-              scopes: 'gmail.readonly calendar.readonly',
+              scopes: 'gmail.readonly',
             },
             connected_at: now,
             updated_at: now,
