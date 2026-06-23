@@ -9,6 +9,7 @@ import {
   slackErrorResponse,
   SlackBlock,
   SlackCoachingIntent,
+  slackAskedLabel,
   SLACK_SLASH_LONGER_ACTION_ID,
   SLACK_SLASH_QUICK_ACTION_ID,
   slackTextResponse,
@@ -124,7 +125,9 @@ function buildChoiceBlocks(prompt: string, requestId: string, intent: SlackCoach
       type: "section",
       text: {
         type: "mrkdwn",
-        text: [`*You asked:*`, `>${formatAskedPrompt(prompt)}`, "", "*How much help do you want?*"].join("\n"),
+        text: [`*${slackAskedLabel(intent)}*`, `>${formatAskedPrompt(prompt)}`, "", "*How much help do you want?*"].join(
+          "\n"
+        ),
       },
     },
     {
@@ -202,7 +205,7 @@ export async function POST(req: NextRequest) {
     return slackErrorResponse("I could not save this Slack request. Please try /beckett again.");
   }
 
-  return slackMessageResponse(`You asked: ${parsed.prompt}\n\nHow much help do you want?`, {
+  return slackMessageResponse(`${slackAskedLabel(parsed.intent)} ${parsed.prompt}\n\nHow much help do you want?`, {
     blocks: buildChoiceBlocks(parsed.prompt, requestId, parsed.intent),
   });
 }

@@ -9,6 +9,7 @@ import {
   postSlackResponse,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
+  slackAskedLabel,
   slackConnectText,
   slackMessageResponse,
   SlackBlock,
@@ -122,14 +123,18 @@ function detailLabel(responseDetail: SlackResponseDetail) {
   return responseDetail === "longer" ? "longer explanation" : "quick answer";
 }
 
-function buildPreparingBlocks(prompt: string, responseDetail: SlackResponseDetail): SlackBlock[] {
+function buildPreparingBlocks(
+  prompt: string,
+  responseDetail: SlackResponseDetail,
+  intent: SlackCoachingIntent = "general"
+): SlackBlock[] {
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
         text: [
-          "*You asked:*",
+          `*${slackAskedLabel(intent)}*`,
           `>${formatAskedPrompt(prompt)}`,
           "",
           `Beckett is preparing your ${detailLabel(responseDetail)}...`,
@@ -258,7 +263,7 @@ async function sendPendingSlashResponse({
       intent,
     });
 
-    await replaceSlackInteraction(responseUrl, formatAskedResponse(pending.prompt, response));
+    await replaceSlackInteraction(responseUrl, formatAskedResponse(pending.prompt, response, intent));
   } catch (error) {
     await replaceSlackInteraction(
       initialResponseUrl,
@@ -300,12 +305,12 @@ export async function POST(req: NextRequest) {
       await replaceSlackInteraction(
         responseUrl,
         `Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`,
-        buildPreparingBlocks(existing.prompt, detailAction.responseDetail)
+        buildPreparingBlocks(existing.prompt, detailAction.responseDetail, detailAction.intent)
       );
     } else {
       return slackMessageResponse(`Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`, {
         replaceOriginal: true,
-        blocks: buildPreparingBlocks(existing.prompt, detailAction.responseDetail),
+        blocks: buildPreparingBlocks(existing.prompt, detailAction.responseDetail, detailAction.intent),
       });
     }
 

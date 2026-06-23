@@ -190,8 +190,27 @@ export function formatAskedPrompt(prompt: string) {
   return escapeSlackMrkdwn(truncated);
 }
 
-export function formatAskedResponse(prompt: string, response: string) {
-  const header = [`*You asked:*`, `>${formatAskedPrompt(prompt)}`, ""].join("\n");
+export function slackAskedLabel(intent: SlackCoachingIntent = "general") {
+  switch (intent) {
+    case "rewrite":
+      return "You asked Beckett to rewrite:";
+    case "decode":
+      return "You asked Beckett to decode:";
+    case "draft":
+      return "You asked Beckett to draft:";
+    case "prep":
+      return "You asked Beckett to help you prep:";
+    case "tone":
+      return "You asked Beckett to check tone:";
+    case "followup":
+      return "You asked Beckett to follow up:";
+    default:
+      return "You asked:";
+  }
+}
+
+export function formatAskedResponse(prompt: string, response: string, intent: SlackCoachingIntent = "general") {
+  const header = [`*${slackAskedLabel(intent)}*`, `>${formatAskedPrompt(prompt)}`, ""].join("\n");
   const availableAnswerLength = Math.max(800, MAX_SLACK_TEXT_LENGTH - header.length - 2);
   return `${header}\n${fitSlackAnswer(response, availableAnswerLength)}`;
 }
