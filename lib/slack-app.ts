@@ -354,6 +354,8 @@ Do not claim certainty about another person's intent. Use phrases like "may" or 
 Avoid generic encouragement. Give concrete language the user could use.
 Format with short headings and bullets. Do not use markdown tables.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
+Do not add generic privacy or shared-channel warnings just because Slack context includes both personal and work topics.
+Only mention privacy, shared-channel, or workplace policy risk when the user's request is about posting in a public/shared channel, the context clearly includes sensitive personal information, or the requested message could create a concrete workplace safety or policy concern.
 ${beckettBoundaryPrompt()}`;
 
   const preferenceLine = user.communicationPreferences.length
