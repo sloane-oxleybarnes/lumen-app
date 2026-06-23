@@ -17,6 +17,7 @@ export const SLACK_SLASH_QUICK_ACTION_ID = "beckett_slash_quick";
 export const SLACK_SLASH_LONGER_ACTION_ID = "beckett_slash_longer";
 
 export type SlackResponseDetail = "quick" | "longer";
+export type SlackCoachingIntent = "general" | "rewrite" | "decode" | "draft" | "prep" | "tone" | "followup";
 export type SlackBlock = Record<string, unknown>;
 
 type SlackMessageOptions = {
@@ -195,6 +196,25 @@ export function formatAskedResponse(prompt: string, response: string) {
   return `${header}\n${fitSlackAnswer(response, availableAnswerLength)}`;
 }
 
+function slackIntentInstruction(intent: SlackCoachingIntent) {
+  switch (intent) {
+    case "rewrite":
+      return "Slack task: Rewrite or improve the user's draft. Preserve the meaning, make it natural for workplace Slack/email, and briefly explain the main tone choice.";
+    case "decode":
+      return "Slack task: Decode the pasted message or recent context. Explain likely tone/subtext as possibilities, what to pay attention to, and a useful next move.";
+    case "draft":
+      return "Slack task: Draft a message from the user's goal. Provide ready-to-use wording and briefly name any assumptions.";
+    case "prep":
+      return "Slack task: Help the user prepare for a workplace conversation. Cover how to start, how it might go, likely pushback, and what to watch for.";
+    case "tone":
+      return "Slack task: Check how the wording may land. Identify tone risks, then offer a cleaner version if useful.";
+    case "followup":
+      return "Slack task: Help write or improve a follow-up. Keep it specific, low-pressure, and clear about the next step.";
+    default:
+      return "Slack task: General Beckett coaching. Answer the user's specific request directly.";
+  }
+}
+
 export async function lookupSlackConnectedUser(teamId: string, slackUserId: string) {
   const { data: integration, error } = await supabaseAdmin
     .from("user_integrations")
@@ -329,6 +349,7 @@ export async function runSlackCoaching({
   sourceLabel,
   messageText,
   responseDetail,
+  intent = "general",
 }: {
   user: SlackConnectedUser;
   action: "slash_command" | "message_shortcut";
@@ -336,6 +357,7 @@ export async function runSlackCoaching({
   sourceLabel: string;
   messageText?: string | null;
   responseDetail?: SlackResponseDetail;
+  intent?: SlackCoachingIntent;
 }) {
   await recordAiUsage(user.id, {
     source: "slack_desktop",
@@ -344,6 +366,7 @@ export async function runSlackCoaching({
       sourceLabel,
       teamName: user.teamName,
       responseDetail: responseDetail || null,
+      intent,
     },
   });
 
@@ -372,6 +395,7 @@ ${beckettBoundaryPrompt()}`;
   const userPrompt = `${preferenceLine}
 ${toneLine}
 ${responseDetailLine}
+${slackIntentInstruction(intent)}
 
 User request:
 ${prompt}${messageLine}`;
@@ -389,6 +413,7 @@ ${prompt}${messageLine}`;
       sourceLabel,
       teamName: user.teamName,
       responseDetail: responseDetail || null,
+      intent,
     },
   });
 

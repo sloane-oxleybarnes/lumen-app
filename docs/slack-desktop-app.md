@@ -32,12 +32,16 @@ This is the staging-first Slack app path for using Beckett inside Slack Desktop.
 Use Slack Desktop or the Slack web app:
 
 1. Run `/beckett` with no text.
-   - Expected: Beckett returns usage examples.
-2. Run `/beckett help me rewrite: "Any update on this?"`.
-   - Expected: Beckett returns an ephemeral coaching response.
-3. Use the message shortcut on a real Slack message.
+   - Expected: Beckett returns subcommand examples.
+2. Run `/beckett rewrite "Any update on this?"`.
+   - Expected: Beckett shows Quick answer and Longer explanation buttons, then returns rewrite-focused coaching after a button click.
+3. Run `/beckett decode "Sure, sounds fine."`, `/beckett draft ask my manager for clearer priorities this week`, `/beckett prep I need to give a teammate feedback`, `/beckett tone "I need this by Friday."`, and `/beckett followup remind Avery about the readout`.
+   - Expected: Each command keeps the same private Quick/Longer flow and returns coaching that matches the selected task.
+4. Run `/beckett is this too direct? "I need this by Friday."`.
+   - Expected: Freeform prompts still work.
+5. Use the message shortcut on a real Slack message.
    - Expected: Beckett returns an ephemeral note about tone, context, and what to say next.
-4. Test with a Slack account that has not connected Slack in Beckett Settings.
+6. Test with a Slack account that has not connected Slack in Beckett Settings.
    - Expected: Beckett asks the user to connect Slack first.
 
 ## Production Notes

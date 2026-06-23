@@ -8,6 +8,7 @@ import {
   slackConnectText,
   slackErrorResponse,
   SlackBlock,
+  SlackCoachingIntent,
   SLACK_SLASH_LONGER_ACTION_ID,
   SLACK_SLASH_QUICK_ACTION_ID,
   slackTextResponse,
@@ -28,6 +29,46 @@ type SlashCommandPayload = {
   ssl_check?: string;
 };
 
+type ParsedSlackCommand = {
+  intent: SlackCoachingIntent;
+  prompt: string;
+  missingText?: string;
+};
+
+const slashSubcommands: Record<
+  string,
+  { intent: Exclude<SlackCoachingIntent, "general">; missingText: string }
+> = {
+  rewrite: {
+    intent: "rewrite",
+    missingText: 'Add the draft message after `/beckett rewrite`, like `/beckett rewrite "Any update on this?"`.',
+  },
+  decode: {
+    intent: "decode",
+    missingText: 'Add the message you want Beckett to decode, like `/beckett decode "Sure, sounds fine."`.',
+  },
+  draft: {
+    intent: "draft",
+    missingText: "Add what you need to say after `/beckett draft`, like `/beckett draft ask my manager for clearer priorities this week`.",
+  },
+  prep: {
+    intent: "prep",
+    missingText: "Add the conversation you want to prepare for after `/beckett prep`.",
+  },
+  tone: {
+    intent: "tone",
+    missingText: 'Add the wording you want Beckett to check, like `/beckett tone "I need this by Friday."`.',
+  },
+  followup: {
+    intent: "followup",
+    missingText: "Add the follow-up you need after `/beckett followup`.",
+  },
+  "follow-up": {
+    intent: "followup",
+    missingText: "Add the follow-up you need after `/beckett follow-up`.",
+  },
+};
+
 function parseSlashCommand(rawBody: string): SlashCommandPayload {
   const params = new URLSearchParams(rawBody);
   return {
@@ -42,18 +83,42 @@ function parseSlashCommand(rawBody: string): SlashCommandPayload {
   };
 }
 
+function parseBeckettText(rawText: string): ParsedSlackCommand {
+  const text = rawText.trim();
+  const match = text.match(/^([a-z][a-z-]*):?\s*([\s\S]*)$/i);
+  const command = match?.[1]?.toLowerCase();
+  const definition = command ? slashSubcommands[command] : null;
+
+  if (!definition) return { intent: "general", prompt: text };
+
+  const prompt = (match?.[2] || "").trim();
+  return {
+    intent: definition.intent,
+    prompt,
+    missingText: prompt ? undefined : definition.missingText,
+  };
+}
+
+function buildButtonValue(requestId: string, intent: SlackCoachingIntent) {
+  return JSON.stringify({ requestId, intent });
+}
+
 function helpText(command = "/beckett") {
   return [
     "*Beckett is ready in Slack.*",
     "",
-    `Try \`${command} is this too direct? "I need this by Friday."\``,
-    `Try \`${command} help me rewrite: "Any update on this?"\``,
+    `Try \`${command} rewrite "Any update on this?"\``,
+    `Try \`${command} decode "Sure, sounds fine."\``,
+    `Try \`${command} draft ask my manager for clearer priorities this week\``,
+    `Try \`${command} prep I need to tell a teammate their handoffs are too vague\``,
+    `Try \`${command} tone "I need this by Friday."\``,
+    `Try \`${command} followup remind Avery about the readout\``,
     "",
     "For help with a specific Slack message, use the message shortcut: *Ask Beckett about this message*.",
   ].join("\n");
 }
 
-function buildChoiceBlocks(prompt: string, requestId: string): SlackBlock[] {
+function buildChoiceBlocks(prompt: string, requestId: string, intent: SlackCoachingIntent): SlackBlock[] {
   return [
     {
       type: "section",
@@ -73,7 +138,7 @@ function buildChoiceBlocks(prompt: string, requestId: string): SlackBlock[] {
           },
           style: "primary",
           action_id: SLACK_SLASH_QUICK_ACTION_ID,
-          value: requestId,
+          value: buildButtonValue(requestId, intent),
         },
         {
           type: "button",
@@ -82,7 +147,7 @@ function buildChoiceBlocks(prompt: string, requestId: string): SlackBlock[] {
             text: "Longer explanation",
           },
           action_id: SLACK_SLASH_LONGER_ACTION_ID,
-          value: requestId,
+          value: buildButtonValue(requestId, intent),
         },
       ],
     },
@@ -106,6 +171,9 @@ export async function POST(req: NextRequest) {
 
   if (!text) return slackTextResponse(helpText(payload.command));
 
+  const parsed = parseBeckettText(text);
+  if (parsed.missingText) return slackTextResponse(parsed.missingText);
+
   if (!payload.response_url) {
     return slackErrorResponse("Slack did not include a response URL for this command.");
   }
@@ -125,7 +193,7 @@ export async function POST(req: NextRequest) {
     slack_user_id: payload.user_id,
     slack_channel_id: payload.channel_id || null,
     slack_channel_name: payload.channel_name || null,
-    prompt: text,
+    prompt: parsed.prompt,
     response_url: payload.response_url,
     expires_at: expiresAt,
   });
@@ -134,7 +202,7 @@ export async function POST(req: NextRequest) {
     return slackErrorResponse("I could not save this Slack request. Please try /beckett again.");
   }
 
-  return slackMessageResponse(`You asked: ${text}\n\nHow much help do you want?`, {
-    blocks: buildChoiceBlocks(text, requestId),
+  return slackMessageResponse(`You asked: ${parsed.prompt}\n\nHow much help do you want?`, {
+    blocks: buildChoiceBlocks(parsed.prompt, requestId, parsed.intent),
   });
 }

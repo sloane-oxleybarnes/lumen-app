@@ -12,6 +12,7 @@ import {
   slackConnectText,
   slackMessageResponse,
   SlackBlock,
+  SlackCoachingIntent,
   SLACK_SLASH_LONGER_ACTION_ID,
   SLACK_SLASH_QUICK_ACTION_ID,
   SlackResponseDetail,
@@ -82,15 +83,39 @@ function extractMessageText(payload: SlackInteractionPayload) {
   return attachmentText || "";
 }
 
+function parseSlashActionValue(value: string): { requestId: string; intent: SlackCoachingIntent } | null {
+  try {
+    const parsed = JSON.parse(value) as { requestId?: unknown; intent?: unknown };
+    if (typeof parsed.requestId !== "string") return null;
+    const intent =
+      parsed.intent === "rewrite" ||
+      parsed.intent === "decode" ||
+      parsed.intent === "draft" ||
+      parsed.intent === "prep" ||
+      parsed.intent === "tone" ||
+      parsed.intent === "followup"
+        ? parsed.intent
+        : "general";
+
+    return { requestId: parsed.requestId, intent };
+  } catch {
+    return { requestId: value, intent: "general" };
+  }
+}
+
 function getSlashDetailAction(payload: SlackInteractionPayload) {
   const action = payload.actions?.find((item) =>
     item.action_id === SLACK_SLASH_QUICK_ACTION_ID || item.action_id === SLACK_SLASH_LONGER_ACTION_ID
   );
   if (!action?.value || !action.action_id) return null;
+  const parsedValue = parseSlashActionValue(action.value);
+  if (!parsedValue) return null;
+
   return {
-    requestId: action.value,
+    requestId: parsedValue.requestId,
+    intent: parsedValue.intent,
     responseDetail: action.action_id === SLACK_SLASH_LONGER_ACTION_ID ? "longer" : "quick",
-  } satisfies { requestId: string; responseDetail: SlackResponseDetail };
+  } satisfies { requestId: string; responseDetail: SlackResponseDetail; intent: SlackCoachingIntent };
 }
 
 function detailLabel(responseDetail: SlackResponseDetail) {
@@ -181,11 +206,13 @@ async function sendPendingSlashResponse({
   payload,
   requestId,
   responseDetail,
+  intent,
 }: {
   origin: string;
   payload: SlackInteractionPayload;
   requestId: string;
   responseDetail: SlackResponseDetail;
+  intent: SlackCoachingIntent;
 }) {
   const teamId = payload.team?.id || "";
   const slackUserId = payload.user?.id || "";
@@ -225,9 +252,10 @@ async function sendPendingSlashResponse({
       user,
       action: "slash_command",
       prompt: pending.prompt,
-      sourceLabel: `/beckett:${responseDetail}`,
+      sourceLabel: `/beckett:${intent}:${responseDetail}`,
       messageText: channelContext,
       responseDetail,
+      intent,
     });
 
     await replaceSlackInteraction(responseUrl, formatAskedResponse(pending.prompt, response));
@@ -288,6 +316,7 @@ export async function POST(req: NextRequest) {
         payload,
         requestId: detailAction.requestId,
         responseDetail: detailAction.responseDetail,
+        intent: detailAction.intent,
       })
     );
 
