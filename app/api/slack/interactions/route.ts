@@ -114,6 +114,13 @@ function buildPreparingBlocks(prompt: string, responseDetail: SlackResponseDetai
   ];
 }
 
+async function replaceSlackInteraction(responseUrl: string, text: string, blocks?: SlackBlock[]) {
+  await postSlackResponse(responseUrl, text, {
+    replaceOriginal: true,
+    blocks,
+  });
+}
+
 async function loadPendingRequest(requestId: string) {
   const { data, error } = await supabaseAdmin
     .from("slack_pending_requests")
@@ -186,13 +193,13 @@ async function sendPendingSlashResponse({
 
   try {
     if (!teamId || !slackUserId) {
-      await postSlackResponse(initialResponseUrl, "Beckett could not read the Slack workspace and user context.");
+      await replaceSlackInteraction(initialResponseUrl, "Beckett could not read the Slack workspace and user context.");
       return;
     }
 
     const claim = await claimPendingRequest({ requestId, teamId, slackUserId });
     if (!claim.pending) {
-      await postSlackResponse(initialResponseUrl, claim.message || "Please run `/beckett` again.");
+      await replaceSlackInteraction(initialResponseUrl, claim.message || "Please run `/beckett` again.");
       return;
     }
 
@@ -200,12 +207,12 @@ async function sendPendingSlashResponse({
     const responseUrl = initialResponseUrl || pending.response_url || "";
     const user = await lookupSlackConnectedUser(teamId, slackUserId);
     if (!user) {
-      await postSlackResponse(responseUrl, slackConnectText(origin));
+      await replaceSlackInteraction(responseUrl, slackConnectText(origin));
       return;
     }
 
     if (!isAllowedSlackPlan(user)) {
-      await postSlackResponse(responseUrl, "Beckett Slack coaching is available for beta and pro users.");
+      await replaceSlackInteraction(responseUrl, "Beckett Slack coaching is available for beta and pro users.");
       return;
     }
 
@@ -223,9 +230,12 @@ async function sendPendingSlashResponse({
       responseDetail,
     });
 
-    await postSlackResponse(responseUrl, formatAskedResponse(pending.prompt, response));
+    await replaceSlackInteraction(responseUrl, formatAskedResponse(pending.prompt, response));
   } catch (error) {
-    await postSlackResponse(initialResponseUrl, `Beckett could not finish that request: ${handleSlackAiError(error)}`);
+    await replaceSlackInteraction(
+      initialResponseUrl,
+      `Beckett could not finish that request: ${handleSlackAiError(error)}`
+    );
   }
 }
 
@@ -245,8 +255,29 @@ export async function POST(req: NextRequest) {
 
     const existing = await loadPendingRequest(detailAction.requestId);
     if (!existing) {
+      if (payload.response_url) {
+        await replaceSlackInteraction(
+          payload.response_url,
+          "That Beckett request is no longer available. Please run `/beckett` again."
+        );
+        return NextResponse.json({ ok: true });
+      }
       return slackMessageResponse("That Beckett request is no longer available. Please run `/beckett` again.", {
         replaceOriginal: true,
+      });
+    }
+
+    const responseUrl = payload.response_url || existing.response_url || "";
+    if (responseUrl) {
+      await replaceSlackInteraction(
+        responseUrl,
+        `Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`,
+        buildPreparingBlocks(existing.prompt, detailAction.responseDetail)
+      );
+    } else {
+      return slackMessageResponse(`Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`, {
+        replaceOriginal: true,
+        blocks: buildPreparingBlocks(existing.prompt, detailAction.responseDetail),
       });
     }
 
@@ -260,10 +291,7 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    return slackMessageResponse(`Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`, {
-      replaceOriginal: true,
-      blocks: buildPreparingBlocks(existing.prompt, detailAction.responseDetail),
-    });
+    return NextResponse.json({ ok: true });
   }
 
   if (payload.type !== "message_action" || payload.callback_id !== "beckett_message_context") {
