@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { triggerLoopsEvent } from "@/lib/loops";
 import { sendBetaInviteEmail } from "@/lib/beta-emails";
-import { canSendLifecycleMessages, lifecycleMessagesDisabledReason } from "@/lib/deployment-env";
+import { canSendLifecycleMessages, getPublicSiteUrl, lifecycleMessagesDisabledReason } from "@/lib/deployment-env";
 
 function buildPasswordSetupLink(origin: string, tokenHash: string, type: "invite" | "recovery") {
   const url = new URL("/auth/callback", origin);
@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   );
 
-  const origin = req.headers.get('origin') || process.env.NEXT_PUBLIC_SITE_URL || 'https://meetbeckett.co'
+  const origin = getPublicSiteUrl(req.headers.get("origin"))
   const { data: signup } = await supabase
     .from("beta_signups")
     .select("name")

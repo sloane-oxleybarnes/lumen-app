@@ -3,6 +3,14 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase'
 import Link from 'next/link'
 
+function getSiteUrl() {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim()
+  if (!raw) return 'https://meetbeckett.co'
+  const value = /^[A-Z0-9_]+=/.test(raw) ? raw.slice(raw.indexOf('=') + 1).trim() : raw
+  if (/^https?:\/\//i.test(value)) return value.replace(/\/+$/, '')
+  return `https://${value.replace(/\/+$/, '')}`
+}
+
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent'>('idle')
@@ -14,7 +22,7 @@ export default function ForgotPasswordPage() {
     setStatus('loading')
     setError('')
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://meetbeckett.co'
+    const siteUrl = getSiteUrl()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${siteUrl}/auth/callback?next=${encodeURIComponent('/auth/set-password')}`,
     })

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { DM_Sans, DM_Serif_Display } from "next/font/google";
 import AnalyticsScripts from "@/components/analytics/AnalyticsScripts";
 import StagingBanner from "@/components/StagingBanner";
+import { getPublicSiteUrl } from "@/lib/deployment-env";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -18,7 +19,7 @@ const dmSerif = DM_Serif_Display({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://meetbeckett.co"),
+  metadataBase: new URL(getPublicSiteUrl()),
   title: {
     default: "Beckett - Neurodivergent Workplace Communication Coach",
     template: "%s | Beckett",

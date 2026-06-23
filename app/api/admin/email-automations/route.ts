@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { sendBetaInviteReminderEmail, sendSetupNudgeEmail } from "@/lib/beta-emails";
 import { trackBetaEvent } from "@/lib/beta-events";
-import { canSendLifecycleMessages, lifecycleMessagesDisabledReason } from "@/lib/deployment-env";
+import { canSendLifecycleMessages, getPublicSiteUrl, lifecycleMessagesDisabledReason } from "@/lib/deployment-env";
 
 type AutomationResult = {
   inviteReminders: number;
@@ -53,7 +53,7 @@ async function createSetupLink(email: string, origin: string) {
 }
 
 async function runEmailAutomations(req: NextRequest, dryRun: boolean) {
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;
+  const origin = getPublicSiteUrl(req.nextUrl.origin);
   const result: AutomationResult = {
     inviteReminders: 0,
     setupNudges: 0,

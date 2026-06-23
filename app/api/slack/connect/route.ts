@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { getPublicSiteUrl } from "@/lib/deployment-env";
 
 const SLACK_OAUTH_WORKER =
   process.env.SLACK_OAUTH_WORKER_URL || "https://lumen-slack.sloane-oxleyhase.workers.dev";
@@ -14,7 +15,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/auth/login?next=/dashboard/settings", req.url));
   }
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;
+  const origin = getPublicSiteUrl(req.nextUrl.origin);
   const redirectUri = `${origin}/api/slack/callback`;
   const state = crypto.randomUUID();
   const authRes = await fetch(
@@ -43,4 +44,3 @@ export async function GET(req: NextRequest) {
   });
   return response;
 }
-

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { trackBetaEvent } from "@/lib/beta-events";
+import { getPublicSiteUrl } from "@/lib/deployment-env";
 
 const SLACK_OAUTH_WORKER =
   process.env.SLACK_OAUTH_WORKER_URL || "https://lumen-slack.sloane-oxleyhase.workers.dev";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL("/dashboard/settings?slack=auth_error", req.url));
   }
 
-  const origin = process.env.NEXT_PUBLIC_SITE_URL || req.nextUrl.origin;
+  const origin = getPublicSiteUrl(req.nextUrl.origin);
   const redirectUri = `${origin}/api/slack/callback`;
   const tokenRes = await fetch(SLACK_OAUTH_WORKER, {
     method: "POST",
