@@ -2,12 +2,13 @@
 
 import { useState } from "react";
 import UpgradeModal from "./UpgradeModal";
+import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 
 const gettingStarted = [
   {
     label: "Add Beckett to Chrome",
     done: false,
-    href: "https://chrome.google.com/webstore",
+    href: CHROME_WEB_STORE_URL,
     proOnly: false,
   },
   { label: "Connect Gmail", done: false, href: "#", proOnly: false },

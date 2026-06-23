@@ -3,6 +3,7 @@ import Footer from "@/components/marketing/Footer";
 import Link from "next/link";
 import { contentValue } from "@/lib/site-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -38,7 +39,9 @@ export default async function IntegrationsPage() {
     "integrations.hero.subtitle",
     "integrations.cta.copy",
     "integrations.cta.button",
+    "extension.chrome_store_url",
   ]);
+  const chromeStoreUrl = contentValue(content, "extension.chrome_store_url") || CHROME_WEB_STORE_URL;
 
   return (
     <div className="min-h-screen bg-bg">
@@ -82,6 +85,16 @@ export default async function IntegrationsPage() {
                   Live
                 </span>
               </div>
+              {item.name === "Chrome extension" && (
+                <Link
+                  href={chromeStoreUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-block text-xs font-medium text-primary hover:underline"
+                >
+                  Install from Chrome Web Store →
+                </Link>
+              )}
             </div>
           ))}
         </div>

@@ -9,6 +9,7 @@ import {
   communicationPreferenceOptions,
   type CoachingTone,
 } from "@/lib/onboarding";
+import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 
 function ConnectRow({
   icon,
@@ -751,10 +752,22 @@ export default function SettingsPage() {
           requests go through Beckett&apos;s backend so beta access, limits, and safety rules can apply.
         </p>
         <div className="rounded-sm border border-primary/20 bg-primary-light p-4">
-          <p className="text-sm font-medium text-ink">Included in beta access</p>
-          <p className="text-xs text-ink-mid mt-1">
-            Reload the extension and use “Log in with Beckett” in the side panel if it is not connected.
-          </p>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-sm font-medium text-ink">Included in beta access</p>
+              <p className="text-xs text-ink-mid mt-1">
+                Install Beckett from the Chrome Web Store, then use “Log in with Beckett” in the side panel if it is not connected.
+              </p>
+            </div>
+            <a
+              href={CHROME_WEB_STORE_URL}
+              target="_blank"
+              rel="noreferrer"
+              className="shrink-0 rounded-pill bg-primary px-4 py-2 text-center text-xs font-medium text-white transition-colors hover:bg-primary-dark"
+            >
+              Install extension
+            </a>
+          </div>
         </div>
       </section>
 

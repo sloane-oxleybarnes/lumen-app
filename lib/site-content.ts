@@ -173,7 +173,8 @@ export const SITE_CONTENT_FIELDS = [
     key: "extension.chrome_store_url",
     label: "Chrome Web Store URL",
     group: "Links",
-    defaultValue: "",
+    defaultValue:
+      "https://chromewebstore.google.com/detail/beckett/calejchnmkljjkgchnodpdojmammmddk",
     inputType: "url",
   },
 ] satisfies SiteContentField[];

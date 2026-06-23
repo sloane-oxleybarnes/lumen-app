@@ -12,6 +12,7 @@ import {
   workplaceTriggerOptions,
   type CoachingTone,
 } from "@/lib/onboarding";
+import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 
 const steps = [
   "Name",
@@ -22,7 +23,7 @@ const steps = [
   "Extension",
 ];
 
-const chromeExtensionUrl = process.env.NEXT_PUBLIC_CHROME_EXTENSION_URL;
+const chromeExtensionUrl = process.env.NEXT_PUBLIC_CHROME_EXTENSION_URL || CHROME_WEB_STORE_URL;
 
 function toggleValue(list: string[], value: string, max?: number) {
   if (list.includes(value)) return list.filter((item) => item !== value);

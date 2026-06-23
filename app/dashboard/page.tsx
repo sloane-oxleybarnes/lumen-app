@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import MoodSelector from "@/components/dashboard/MoodSelector";
 import CoachWalkthrough from "@/components/dashboard/CoachWalkthrough";
+import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 
 type DashboardPageProps = {
   searchParams?: {
@@ -63,8 +64,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       label: "Chrome extension",
       description: "Use Beckett inside Gmail and Slack.",
       done: extensionConnected,
-      href: "/dashboard/settings",
-      action: extensionConnected ? "Connected" : "Set up",
+      href: extensionConnected ? "/dashboard/settings" : CHROME_WEB_STORE_URL,
+      action: extensionConnected ? "Connected" : "Install",
     },
     {
       label: "Gmail",
@@ -219,6 +220,7 @@ function SetupChecklistItem({
   href: string;
   action: string;
 }) {
+  const isExternal = href.startsWith("http");
   return (
     <div className="flex items-start justify-between gap-3 rounded-sm border border-border bg-bg/50 p-3">
       <div className="flex min-w-0 gap-3">
@@ -237,6 +239,8 @@ function SetupChecklistItem({
       </div>
       <Link
         href={href}
+        target={isExternal ? "_blank" : undefined}
+        rel={isExternal ? "noreferrer" : undefined}
         className={`shrink-0 rounded-pill px-3 py-1.5 text-xs font-medium transition-colors ${
           done
             ? "bg-primary-light text-primary"
