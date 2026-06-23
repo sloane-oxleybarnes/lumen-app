@@ -15,7 +15,7 @@ The app shows a visible staging banner whenever the deployment is staging-like. 
 ## Supabase staging setup
 
 1. Create a separate Supabase project named `Beckett Staging`.
-2. Apply every SQL migration in `supabase/migrations` in filename order.
+2. Apply every SQL migration in `supabase/migrations` in filename order, starting with `20260601_base_schema.sql`.
 3. Use the staging project URL, anon key, and service role key in Vercel Preview.
 4. Configure Auth URL and redirects for:
    - the staging site URL
@@ -25,6 +25,8 @@ The app shows a visible staging banner whenever the deployment is staging-like. 
    - `/auth/extension-connect`
 
 Do not point staging at the production Supabase project unless you are intentionally testing against beta data.
+
+If Supabase shows `relation "beta_signups" does not exist`, the base schema has not been run yet. Run `20260601_base_schema.sql` first, then continue with `20260602_add_approved_to_beta_signups.sql` and the rest of the migration files in order.
 
 ## Local staging extension
 
