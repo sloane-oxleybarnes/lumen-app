@@ -5,6 +5,7 @@ import { trackBetaEvent } from "@/lib/beta-events";
 import { triggerLoopsEvent } from "@/lib/loops";
 import { sendBetaInviteEmail } from "@/lib/beta-emails";
 import { canSendLifecycleMessages, getPublicSiteUrl, lifecycleMessagesDisabledReason } from "@/lib/deployment-env";
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-env";
 
 function buildPasswordSetupLink(origin: string, tokenHash: string, type: "invite" | "recovery") {
   const url = new URL("/auth/callback", origin);
@@ -34,8 +35,8 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    getSupabaseUrl(),
+    getSupabaseServiceRoleKey()
   );
 
   const origin = getPublicSiteUrl(req.headers.get("origin"))

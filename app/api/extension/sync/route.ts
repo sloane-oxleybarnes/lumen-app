@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createOrUpdateHubSpotContact } from "@/lib/hubspot";
 import { triggerLoopsEvent, updateLoopsContact } from "@/lib/loops";
 import { trackBetaEvent } from "@/lib/beta-events";
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-env";
 
 export async function POST(req: NextRequest) {
   const { user_id, email, event } = await req.json();
@@ -15,8 +16,8 @@ export async function POST(req: NextRequest) {
   }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    getSupabaseUrl(),
+    getSupabaseServiceRoleKey()
   );
 
   const normalizedEmail = email.trim().toLowerCase();

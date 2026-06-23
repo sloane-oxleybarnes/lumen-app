@@ -1,8 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { CoachingTone } from './onboarding'
+import { getSupabaseAnonKey, getSupabaseUrl } from './supabase-env'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabaseUrl = getSupabaseUrl()
+const supabaseAnonKey = getSupabaseAnonKey()
 
 export function createClient() {
   return createBrowserClient(supabaseUrl, supabaseAnonKey)

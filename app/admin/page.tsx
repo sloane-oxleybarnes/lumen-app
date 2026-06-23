@@ -9,6 +9,7 @@ import AdminBetaTracker, { type BetaTrackerRow } from "./BetaTracker";
 import AdminFeedbackViewer, { type AdminFeedbackRow } from "./FeedbackViewer";
 import { getCourseStudioItems } from "@/lib/course-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import { getSupabaseServiceRoleKey, getSupabaseUrl } from "@/lib/supabase-env";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,8 @@ export default async function AdminPage() {
   }
 
   const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    getSupabaseUrl(),
+    getSupabaseServiceRoleKey()
   );
 
   const [

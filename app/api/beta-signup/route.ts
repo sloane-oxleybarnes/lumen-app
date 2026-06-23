@@ -4,6 +4,7 @@ import { createOrUpdateHubSpotContact } from "@/lib/hubspot";
 import { addLoopsContact, triggerLoopsEvent } from "@/lib/loops";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { sendBetaSignupConfirmation } from "@/lib/beta-emails";
+import { getSupabaseServiceRoleKey, normalizeSupabaseUrl } from "@/lib/supabase-env";
 
 type SupabaseError = {
   code?: string;
@@ -31,8 +32,11 @@ export async function POST(req: NextRequest) {
   const normalizedEmail = email.trim().toLowerCase();
   const sourceValue = source || "landing_page";
   const planValue = plan || "beta";
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const supabaseUrl = normalizeSupabaseUrl(process.env.NEXT_PUBLIC_SUPABASE_URL);
+  let serviceRoleKey = "";
+  try {
+    serviceRoleKey = getSupabaseServiceRoleKey();
+  } catch {}
 
   if (!supabaseUrl || !serviceRoleKey) {
     console.error("Beta signup config error: Supabase admin credentials are missing.");
