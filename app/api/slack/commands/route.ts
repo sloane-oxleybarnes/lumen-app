@@ -1,16 +1,19 @@
+import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import {
-  fetchSlackConversationContext,
-  handleSlackAiError,
   isAllowedSlackPlan,
+  formatAskedPrompt,
   lookupSlackConnectedUser,
-  postSlackResponse,
-  runSlackCoaching,
+  slackMessageResponse,
   slackConnectText,
   slackErrorResponse,
+  SlackBlock,
+  SLACK_SLASH_LONGER_ACTION_ID,
+  SLACK_SLASH_QUICK_ACTION_ID,
   slackTextResponse,
   verifySlackRequest,
 } from "@/lib/slack-app";
+import { supabaseAdmin } from "@/lib/server-admin";
 
 export const runtime = "nodejs";
 
@@ -23,14 +26,6 @@ type SlashCommandPayload = {
   command?: string;
   response_url?: string;
   ssl_check?: string;
-};
-
-type VercelRequestContext = {
-  get?: () =>
-    | {
-        waitUntil?: (task: Promise<unknown>) => void;
-      }
-    | undefined;
 };
 
 function parseSlashCommand(rawBody: string): SlashCommandPayload {
@@ -58,64 +53,40 @@ function helpText(command = "/beckett") {
   ].join("\n");
 }
 
-function scheduleBackgroundTask(task: Promise<void>) {
-  const handledTask = task.catch((error) => {
-    console.error("Slack slash command response failed", error);
-  });
-  const requestContext = (globalThis as { [key: symbol]: VercelRequestContext | undefined })[
-    Symbol.for("@vercel/request-context")
+function buildChoiceBlocks(prompt: string, requestId: string): SlackBlock[] {
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: [`*You asked:*`, `>${formatAskedPrompt(prompt)}`, "", "*How much help do you want?*"].join("\n"),
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "Quick answer",
+          },
+          style: "primary",
+          action_id: SLACK_SLASH_QUICK_ACTION_ID,
+          value: requestId,
+        },
+        {
+          type: "button",
+          text: {
+            type: "plain_text",
+            text: "Longer explanation",
+          },
+          action_id: SLACK_SLASH_LONGER_ACTION_ID,
+          value: requestId,
+        },
+      ],
+    },
   ];
-  const context = requestContext?.get?.();
-  if (context?.waitUntil) {
-    context.waitUntil(handledTask);
-  } else {
-    void handledTask;
-  }
-}
-
-async function sendSlashCommandResponse({
-  origin,
-  payload,
-  text,
-}: {
-  origin: string;
-  payload: SlashCommandPayload;
-  text: string;
-}) {
-  const responseUrl = payload.response_url || "";
-  try {
-    if (!payload.team_id || !payload.user_id) {
-      await postSlackResponse(responseUrl, "Slack did not include the workspace and user context.");
-      return;
-    }
-
-    const user = await lookupSlackConnectedUser(payload.team_id, payload.user_id);
-    if (!user) {
-      await postSlackResponse(responseUrl, slackConnectText(origin));
-      return;
-    }
-    if (!isAllowedSlackPlan(user)) {
-      await postSlackResponse(responseUrl, "Beckett Slack coaching is available for beta and pro users.");
-      return;
-    }
-
-    const channelContext = await fetchSlackConversationContext({
-      accessToken: user.accessToken,
-      channelId: payload.channel_id,
-      channelName: payload.channel_name,
-    });
-    const response = await runSlackCoaching({
-      user,
-      action: "slash_command",
-      prompt: text,
-      sourceLabel: payload.command || "/beckett",
-      messageText: channelContext,
-    });
-
-    await postSlackResponse(responseUrl, response);
-  } catch (error) {
-    await postSlackResponse(responseUrl, `Beckett could not finish that request: ${handleSlackAiError(error)}`);
-  }
 }
 
 export async function POST(req: NextRequest) {
@@ -139,13 +110,31 @@ export async function POST(req: NextRequest) {
     return slackErrorResponse("Slack did not include a response URL for this command.");
   }
 
-  scheduleBackgroundTask(
-    sendSlashCommandResponse({
-      origin: req.nextUrl.origin,
-      payload,
-      text,
-    })
-  );
+  const user = await lookupSlackConnectedUser(payload.team_id, payload.user_id);
+  if (!user) return slackTextResponse(slackConnectText(req.nextUrl.origin));
+  if (!isAllowedSlackPlan(user)) {
+    return slackTextResponse("Beckett Slack coaching is available for beta and pro users.");
+  }
 
-  return slackTextResponse("Got it - Beckett is thinking and will reply here in a moment.");
+  const requestId = randomUUID();
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  const { error } = await supabaseAdmin.from("slack_pending_requests").insert({
+    id: requestId,
+    user_id: user.id,
+    slack_team_id: payload.team_id,
+    slack_user_id: payload.user_id,
+    slack_channel_id: payload.channel_id || null,
+    slack_channel_name: payload.channel_name || null,
+    prompt: text,
+    response_url: payload.response_url,
+    expires_at: expiresAt,
+  });
+
+  if (error) {
+    return slackErrorResponse("I could not save this Slack request. Please try /beckett again.");
+  }
+
+  return slackMessageResponse(`You asked: ${text}\n\nHow much help do you want?`, {
+    blocks: buildChoiceBlocks(text, requestId),
+  });
 }

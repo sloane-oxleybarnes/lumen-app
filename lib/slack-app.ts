@@ -9,6 +9,18 @@ import { supabaseAdmin } from "@/lib/server-admin";
 const MAX_SLACK_TEXT_LENGTH = 2900;
 const MAX_SLACK_CONTEXT_MESSAGES = 8;
 const MAX_SLACK_CONTEXT_LENGTH = 2600;
+const MAX_SLACK_ASKED_PROMPT_LENGTH = 650;
+export const SLACK_SLASH_QUICK_ACTION_ID = "beckett_slash_quick";
+export const SLACK_SLASH_LONGER_ACTION_ID = "beckett_slash_longer";
+
+export type SlackResponseDetail = "quick" | "longer";
+export type SlackBlock = Record<string, unknown>;
+
+type SlackMessageOptions = {
+  blocks?: SlackBlock[];
+  replaceOriginal?: boolean;
+  responseType?: "ephemeral" | "in_channel";
+};
 
 export type SlackConnectedUser = {
   id: string;
@@ -24,6 +36,14 @@ export type SlackConnectedUser = {
 type SlackVerificationResult =
   | { ok: true }
   | { ok: false; status: number; message: string };
+
+type VercelRequestContext = {
+  get?: () =>
+    | {
+        waitUntil?: (task: Promise<unknown>) => void;
+      }
+    | undefined;
+};
 
 type SlackHistoryMessage = {
   type?: string;
@@ -85,12 +105,14 @@ export function verifySlackRequest(req: NextRequest, rawBody: string): SlackVeri
   return { ok: true };
 }
 
-export function slackTextResponse(text: string, status = 200) {
-  return NextResponse.json(
-    {
-      response_type: "ephemeral",
-      text,
-      blocks: [
+function buildSlackMessagePayload(text: string, options: SlackMessageOptions = {}) {
+  return {
+    response_type: options.responseType || "ephemeral",
+    replace_original: options.replaceOriginal || false,
+    text: truncateSlackText(text),
+    blocks:
+      options.blocks ||
+      [
         {
           type: "section",
           text: {
@@ -99,9 +121,15 @@ export function slackTextResponse(text: string, status = 200) {
           },
         },
       ],
-    },
-    { status }
-  );
+  };
+}
+
+export function slackMessageResponse(text: string, options: SlackMessageOptions & { status?: number } = {}) {
+  return NextResponse.json(buildSlackMessagePayload(text, options), { status: options.status || 200 });
+}
+
+export function slackTextResponse(text: string, status = 200) {
+  return slackMessageResponse(text, { status });
 }
 
 export function slackErrorResponse(message: string, status = 200) {
@@ -121,26 +149,45 @@ export function slackConnectResponse(origin: string, detail?: string) {
   return slackTextResponse(slackConnectText(origin, detail));
 }
 
-export async function postSlackResponse(responseUrl: string, text: string) {
+export async function postSlackResponse(responseUrl: string, text: string, options: SlackMessageOptions = {}) {
   if (!responseUrl) return;
   await fetch(responseUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      response_type: "ephemeral",
-      replace_original: false,
-      text,
-      blocks: [
-        {
-          type: "section",
-          text: {
-            type: "mrkdwn",
-            text: truncateSlackText(text),
-          },
-        },
-      ],
-    }),
+    body: JSON.stringify(buildSlackMessagePayload(text, options)),
   });
+}
+
+export function scheduleSlackBackgroundTask(label: string, task: Promise<void>) {
+  const handledTask = task.catch((error) => {
+    console.error(label, error);
+  });
+  const requestContext = (globalThis as { [key: symbol]: VercelRequestContext | undefined })[
+    Symbol.for("@vercel/request-context")
+  ];
+  const context = requestContext?.get?.();
+  if (context?.waitUntil) {
+    context.waitUntil(handledTask);
+  } else {
+    void handledTask;
+  }
+}
+
+export function escapeSlackMrkdwn(text: string) {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+export function formatAskedPrompt(prompt: string) {
+  const normalized = prompt.replace(/\s+/g, " ").trim();
+  const truncated =
+    normalized.length <= MAX_SLACK_ASKED_PROMPT_LENGTH
+      ? normalized
+      : `${normalized.slice(0, MAX_SLACK_ASKED_PROMPT_LENGTH - 12).trim()}...`;
+  return escapeSlackMrkdwn(truncated);
+}
+
+export function formatAskedResponse(prompt: string, response: string) {
+  return [`*You asked:*`, `>${formatAskedPrompt(prompt)}`, "", response].join("\n");
 }
 
 export async function lookupSlackConnectedUser(teamId: string, slackUserId: string) {
@@ -276,12 +323,14 @@ export async function runSlackCoaching({
   prompt,
   sourceLabel,
   messageText,
+  responseDetail,
 }: {
   user: SlackConnectedUser;
   action: "slash_command" | "message_shortcut";
   prompt: string;
   sourceLabel: string;
   messageText?: string | null;
+  responseDetail?: SlackResponseDetail;
 }) {
   await recordAiUsage(user.id, {
     source: "slack_desktop",
@@ -289,6 +338,7 @@ export async function runSlackCoaching({
     metadata: {
       sourceLabel,
       teamName: user.teamName,
+      responseDetail: responseDetail || null,
     },
   });
 
@@ -297,20 +347,29 @@ You are responding inside Slack, so be concise, practical, and easy to scan.
 Help the user understand workplace tone, subtext, context, next steps, and possible replies.
 Do not claim certainty about another person's intent. Use phrases like "may" or "likely" when interpreting tone.
 Avoid generic encouragement. Give concrete language the user could use.
-Format with short headings and bullets. Do not use markdown tables.`;
+Format with short headings and bullets. Do not use markdown tables.
+Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.`;
 
   const preferenceLine = user.communicationPreferences.length
     ? `What this user wants Beckett to help with: ${user.communicationPreferences.join(", ")}.`
     : "The user has not set specific Beckett help preferences.";
   const toneLine = user.coachingTone ? `Preferred coaching tone: ${user.coachingTone}.` : "";
+  const responseDetailLine =
+    responseDetail === "quick"
+      ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful."
+      : responseDetail === "longer"
+        ? "Response length: Longer explanation. Give more context about likely tone/subtext, what to watch for, next steps, and suggested wording. Keep it scannable in Slack."
+        : "Response length: Default Slack coaching response. Be concise but useful.";
   const messageLine = messageText ? `\n\nSlack message/context:\n${messageText}` : "";
   const userPrompt = `${preferenceLine}
 ${toneLine}
+${responseDetailLine}
 
 User request:
 ${prompt}${messageLine}`;
 
-  const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], 800);
+  const maxTokens = responseDetail === "longer" ? 1100 : responseDetail === "quick" ? 650 : 800;
+  const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], maxTokens);
 
   await trackBetaEvent({
     userId: user.id,
@@ -321,6 +380,7 @@ ${prompt}${messageLine}`;
       action,
       sourceLabel,
       teamName: user.teamName,
+      responseDetail: responseDetail || null,
     },
   });
 
