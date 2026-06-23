@@ -1,0 +1,41 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-labelledby="title desc">
+  <title id="title">Beckett workplace communication coach</title>
+  <desc id="desc">A Beckett social preview card for neurodivergent workplace communication support.</desc>
+  <rect width="1200" height="630" fill="#FBF8F3"/>
+  <rect x="48" y="48" width="1104" height="534" rx="28" fill="#FFFFFF" stroke="#E6D8C5" stroke-width="2"/>
+  <rect x="48" y="48" width="1104" height="116" rx="28" fill="#F3E6D0"/>
+  <path d="M48 136h1104v28H48z" fill="#F3E6D0"/>
+
+  <circle cx="108" cy="95" r="24" fill="#FBF8F3" stroke="#D6A057" stroke-width="4"/>
+  <circle cx="164" cy="95" r="24" fill="#FBF8F3" stroke="#D6A057" stroke-width="4"/>
+  <circle cx="108" cy="151" r="24" fill="#FFFFFF" stroke="#D6A057" stroke-width="4"/>
+  <circle cx="164" cy="151" r="24" fill="#C57912"/>
+
+  <text x="226" y="117" fill="#1A1917" font-family="Georgia, 'Times New Roman', serif" font-size="64" font-weight="400">Beckett</text>
+  <text x="226" y="147" fill="#A9640F" font-family="Arial, Helvetica, sans-serif" font-size="25" font-weight="700">Your neurodivergent workplace communication coach</text>
+
+  <text x="92" y="272" fill="#1A1917" font-family="Georgia, 'Times New Roman', serif" font-size="62" font-weight="400">
+    <tspan x="92" dy="0">Communication support</tspan>
+    <tspan x="92" dy="72">for neurodivergent</tspan>
+    <tspan x="92" dy="72">professionals</tspan>
+  </text>
+
+  <text x="96" y="516" fill="#4A4845" font-family="Arial, Helvetica, sans-serif" font-size="30" font-weight="400">
+    <tspan x="96" dy="0">Decode Gmail and Slack. Draft clearer replies.</tspan>
+    <tspan x="96" dy="40">Practice difficult workplace conversations.</tspan>
+  </text>
+
+  <g transform="translate(770 228)">
+    <rect x="0" y="0" width="300" height="70" rx="16" fill="#FBF8F3" stroke="#E6D8C5" stroke-width="2"/>
+    <circle cx="38" cy="35" r="14" fill="#C57912"/>
+    <text x="68" y="43" fill="#1A1917" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700">Gmail</text>
+
+    <rect x="40" y="94" width="300" height="70" rx="16" fill="#FBF8F3" stroke="#E6D8C5" stroke-width="2"/>
+    <circle cx="78" cy="129" r="14" fill="#2E9CC9"/>
+    <text x="108" y="137" fill="#1A1917" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700">Slack</text>
+
+    <rect x="-8" y="188" width="330" height="82" rx="18" fill="#F3E6D0" stroke="#D6A057" stroke-width="2"/>
+    <circle cx="34" cy="229" r="14" fill="#C57912"/>
+    <text x="64" y="238" fill="#1A1917" font-family="Arial, Helvetica, sans-serif" font-size="27" font-weight="700">Practice</text>
+  </g>
+</svg>

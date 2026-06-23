@@ -41,7 +41,7 @@ export const metadata: Metadata = {
     siteName: "Beckett",
     images: [
       {
-        url: "/brand/beckett-og.png",
+        url: "/brand/beckett-og.png?v=20260623",
         width: 1200,
         height: 630,
         alt: "Beckett workplace communication coach",
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
     title: "Beckett - Neurodivergent Workplace Communication Coach",
     description:
       "Workplace communication coaching for neurodivergent professionals in Gmail, Slack, and practice sessions.",
-    images: ["/brand/beckett-og.png"],
+    images: ["/brand/beckett-og.png?v=20260623"],
   },
 };
 
