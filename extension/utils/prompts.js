@@ -140,16 +140,64 @@ Respond ONLY with valid JSON, no markdown:
   return { system, user };
 }
 
-export function buildDraftFromScratchPrompt({ intent, recipientType, channel, mode, linkedInContext, isSafePerson, voiceContext }) {
-  const system = buildSystem(mode, isSafePerson, mode === 'business' ? linkedInContext : null, voiceContext || '');
+export function buildDraftAssistPrompt({
+  task,
+  goal,
+  draftText,
+  revisionInstruction,
+  context,
+  mode,
+  linkedInContext,
+  isSafePerson,
+  voiceContext,
+}) {
+  const system = `${buildSystem(mode, isSafePerson, mode === 'business' ? linkedInContext : null, voiceContext || '')}
 
-  const user = `What they want to communicate: "${intent}"
-Sending to: ${recipientType}
-Via: ${channel}
+You are helping the user write or revise a message inside Gmail or Slack. Use conversation context only as evidence; do not invent facts, promises, deadlines, relationships, or reactions that are not visible. Make the message ready to send, natural, and matched to the platform.`;
 
-Write one complete, ready-to-send message. Do not explain it. Do not offer alternatives. Just write the message. It must sound completely natural and human — not like it was written by an AI.`;
+  const thread = context?.thread || [];
+  const threadBlock = thread.length
+    ? `Conversation context (${thread.length} messages, oldest to newest):\n${thread.slice(-20).map(m => `[${m.sender || 'Unknown'}]${m.isCurrentUser ? ' (you)' : ''}: ${m.body || m.text || ''}`).join('\n\n')}`
+    : 'Conversation context: none available.';
+
+  const user = `Task: ${task === 'improve' ? 'Improve the user\'s draft' : 'Draft a new message'}
+Platform: ${context?.platform || 'unknown'}
+Channel: ${context?.channelType || 'unknown'}
+Mode: ${mode}
+
+User goal:
+${goal || '(not provided)'}
+
+Draft to improve:
+${draftText || '(none)'}
+
+Revision request:
+${revisionInstruction || '(none)'}
+
+${threadBlock}
+
+Return ONLY valid JSON, no markdown:
+{
+  "note": "one short sentence naming the main writing choice or assumption",
+  "drafts": [
+    { "label": "Recommended", "text": "ready-to-send message", "why": "short reason this version works" },
+    { "label": "Warmer", "text": "ready-to-send alternative", "why": "short reason this version works" },
+    { "label": "More direct", "text": "ready-to-send alternative", "why": "short reason this version works" }
+  ]
+}`;
 
   return { system, user };
+}
+
+export function buildDraftFromScratchPrompt(input = {}) {
+  return buildDraftAssistPrompt({
+    task: 'new',
+    goal: input.intent,
+    draftText: '',
+    revisionInstruction: '',
+    context: null,
+    ...input,
+  });
 }
 
 export function buildMeetingBriefPrompt({ meetingTitle, attendees, recentThreads, mode }) {

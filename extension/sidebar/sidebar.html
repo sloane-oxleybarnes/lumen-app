@@ -92,6 +92,60 @@
       <div class="profile-pill" id="profilePill" hidden></div>
       <div class="safe-badge" id="safeBadge" hidden>💛 Safe contact</div>
 
+      <div class="workspace-tabs" id="workspaceTabs" hidden>
+        <button class="workspace-tab active" data-workspace="analyze" type="button">Analyze</button>
+        <button class="workspace-tab" data-workspace="draft" type="button">Draft/Edit</button>
+      </div>
+
+      <div class="draft-panel" id="draftPanel" hidden>
+        <div class="card">
+          <div class="card-label">Draft / edit</div>
+          <div class="draft-mode-row">
+            <button class="draft-mode-btn active" data-draft-task="new" type="button">Draft new</button>
+            <button class="draft-mode-btn" data-draft-task="improve" type="button">Improve draft</button>
+          </div>
+
+          <label class="field-label" for="draftGoal">What do you need to say?</label>
+          <textarea
+            class="textarea"
+            id="draftGoal"
+            rows="3"
+            placeholder="Ask for clearer priorities before I start."
+          ></textarea>
+
+          <div class="draft-text-wrap" id="draftTextWrap" hidden>
+            <label class="field-label" for="draftText">Paste your draft</label>
+            <textarea
+              class="textarea"
+              id="draftText"
+              rows="5"
+              placeholder="Paste the message you want Beckett to improve."
+            ></textarea>
+          </div>
+
+          <div class="draft-chip-row" aria-label="Draft adjustment">
+            <button class="draft-chip" data-revision="Make it clearer" type="button">Clearer</button>
+            <button class="draft-chip" data-revision="Make it warmer" type="button">Warmer</button>
+            <button class="draft-chip" data-revision="Make it more direct" type="button">More direct</button>
+            <button class="draft-chip" data-revision="Make it shorter" type="button">Shorter</button>
+          </div>
+
+          <button class="primary-btn" id="generateDraftBtn" type="button">Generate draft</button>
+        </div>
+
+        <div id="draftStatus" class="status" hidden>
+          <div class="spinner"></div>
+          <span>Drafting…</span>
+        </div>
+        <div class="error-box" id="draftErrorBox" hidden></div>
+
+        <div class="card draft-result-card" id="draftResultCard" hidden>
+          <div class="card-label">Beckett draft</div>
+          <p class="card-text" id="draftNote"></p>
+          <div id="draftOptions"></div>
+        </div>
+      </div>
+
       <div id="statusBar" class="status" hidden>
         <div class="spinner"></div>
         <span id="statusText">Analyzing…</span>

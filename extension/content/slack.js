@@ -230,9 +230,20 @@
     );
     if (!composer) return;
     composer.focus();
-    document.execCommand('selectAll');
-    document.execCommand('insertText', false, text);
+    moveCaretToEnd(composer);
+    const existing = (composer.innerText || composer.textContent || '').trim();
+    document.execCommand('insertText', false, existing ? `\n\n${text}` : text);
     composer.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  }
+
+  function moveCaretToEnd(element) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   // ── Listeners ──────────────────────────────────────────────

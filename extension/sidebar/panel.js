@@ -19,6 +19,9 @@ let state = {
   lastAnalysisMetadata: null,
   contactHistoryCache: {},
   beckettToken: null,
+  activeWorkspace: 'analyze',
+  draftTask: 'new',
+  draftRevision: '',
 };
 
 // ── Init ──────────────────────────────────────────────────────
@@ -41,12 +44,15 @@ async function init() {
   renderProfile(state.linkedInProfile);
   renderAuthState();
   updateVoiceBadge();
+  applyWorkspace('analyze');
   setEmptyStateForCurrentTab();
 
   if (contextRes.context && state.beckettToken) {
     state.context = contextRes.context;
-    $('emptyState').hidden = true;
-    $('analyzeBtn').style.display = '';
+    if (state.activeWorkspace === 'analyze') {
+      $('emptyState').hidden = true;
+      $('analyzeBtn').style.display = '';
+    }
   }
 
   if (isPro()) loadCalendarEvents();
@@ -55,6 +61,7 @@ async function init() {
 // ── Empty state — platform-aware ──────────────────────────────
 
 async function setEmptyStateForCurrentTab() {
+  if (state.activeWorkspace === 'draft') return;
   try {
     const [tab] = await new Promise(resolve =>
       chrome.tabs.query({ active: true, currentWindow: true }, resolve)
@@ -128,6 +135,110 @@ function applyMode(mode) {
   });
 }
 
+// ── Draft / edit workspace ───────────────────────────────────
+
+document.querySelectorAll('.draft-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => applyDraftTask(btn.dataset.draftTask));
+});
+
+document.querySelectorAll('.draft-chip').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const value = btn.dataset.revision || '';
+    state.draftRevision = state.draftRevision === value ? '' : value;
+    document.querySelectorAll('.draft-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.revision === state.draftRevision);
+    });
+  });
+});
+
+$('generateDraftBtn').onclick = generateDraft;
+
+function applyDraftTask(task) {
+  state.draftTask = task === 'improve' ? 'improve' : 'new';
+  document.querySelectorAll('.draft-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.draftTask === state.draftTask);
+  });
+  $('draftTextWrap').hidden = state.draftTask !== 'improve';
+  $('generateDraftBtn').textContent = state.draftTask === 'improve' ? 'Improve draft' : 'Generate draft';
+  $('draftErrorBox').hidden = true;
+}
+
+async function generateDraft() {
+  if (!state.beckettToken) {
+    renderAuthState();
+    return;
+  }
+
+  const goal = $('draftGoal').value.trim();
+  const draftText = $('draftText').value.trim();
+
+  if (state.draftTask === 'new' && !goal) {
+    showError($('draftErrorBox'), 'Add what you need to say first.');
+    return;
+  }
+  if (state.draftTask === 'improve' && !draftText) {
+    showError($('draftErrorBox'), 'Paste a draft to improve first.');
+    return;
+  }
+
+  setDraftLoading(true);
+  $('draftResultCard').hidden = true;
+  $('draftErrorBox').hidden = true;
+
+  const response = await msg('DRAFT_ASSIST', {
+    task: state.draftTask,
+    goal,
+    draftText,
+    revisionInstruction: state.draftRevision,
+    context: state.context,
+    mode: state.mode,
+  });
+
+  setDraftLoading(false);
+
+  if (response.error) {
+    showError($('draftErrorBox'), response.error);
+    return;
+  }
+
+  renderDraftResult(response.result);
+}
+
+function setDraftLoading(on) {
+  $('draftStatus').hidden = !on;
+  $('generateDraftBtn').disabled = on;
+  document.querySelectorAll('.draft-mode-btn, .draft-chip').forEach(btn => {
+    btn.disabled = on;
+  });
+}
+
+function renderDraftResult(result) {
+  const note = result?.note || '';
+  $('draftNote').textContent = note;
+  $('draftNote').classList.toggle('draft-note-empty', !note);
+
+  const drafts = Array.isArray(result?.drafts) ? result.drafts : [];
+  $('draftOptions').innerHTML = drafts.map(draft => `
+    <div class="draft-option">
+      <div class="draft-option-header">
+        <span class="draft-option-label">${escHtml(draft.label || 'Option')}</span>
+      </div>
+      ${draft.why ? `<p class="draft-option-why">${escHtml(draft.why)}</p>` : ''}
+      <p class="draft-option-text">${escHtml(draft.text || '')}</p>
+      <div class="response-actions">
+        <button class="copy-btn" data-text="${escAttr(draft.text || '')}">Copy</button>
+        <button class="use-btn" data-text="${escAttr(draft.text || '')}">Use in composer ↗</button>
+      </div>
+      <div class="draft-revise-row">
+        <button class="draft-revise-btn" data-revision="Make it shorter" data-text="${escAttr(draft.text || '')}" type="button">Shorter</button>
+        <button class="draft-revise-btn" data-revision="Make it warmer" data-text="${escAttr(draft.text || '')}" type="button">Warmer</button>
+        <button class="draft-revise-btn" data-revision="Make it more direct" data-text="${escAttr(draft.text || '')}" type="button">More direct</button>
+      </div>
+    </div>
+  `).join('');
+  $('draftResultCard').hidden = !drafts.length;
+}
+
 // ── Profile pill ──────────────────────────────────────────────
 
 function renderProfile(profile) {
@@ -143,10 +254,46 @@ function renderProfile(profile) {
 function renderAuthState() {
   const isLoggedIn = !!state.beckettToken;
   $('authCard').hidden = isLoggedIn;
+  $('workspaceTabs').hidden = !isLoggedIn;
+  if (!isLoggedIn) $('draftPanel').hidden = true;
   if (!isLoggedIn) {
     $('analyzeBtn').style.display = 'none';
     $('emptyState').hidden = true;
   }
+}
+
+document.querySelectorAll('.workspace-tab').forEach(btn => {
+  btn.addEventListener('click', () => applyWorkspace(btn.dataset.workspace));
+});
+
+function applyWorkspace(workspace) {
+  state.activeWorkspace = workspace === 'draft' ? 'draft' : 'analyze';
+  const isDraft = state.activeWorkspace === 'draft';
+
+  document.querySelectorAll('.workspace-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.workspace === state.activeWorkspace);
+  });
+
+  $('draftPanel').hidden = !isDraft || !state.beckettToken;
+
+  if (isDraft) {
+    $('emptyState').hidden = true;
+    $('analyzeBtn').style.display = 'none';
+    $('results').hidden = true;
+    $('meetingResults').hidden = true;
+    $('errorBox').hidden = true;
+    return;
+  }
+
+  if (!state.beckettToken) return;
+  if (state.lastResult) {
+    $('results').hidden = false;
+    $('askSection').hidden = false;
+    $('emptyState').hidden = true;
+    $('analyzeBtn').style.display = '';
+    return;
+  }
+  setEmptyStateForCurrentTab();
 }
 
 async function connectBeckettFromPanel() {
@@ -171,6 +318,7 @@ async function connectBeckettFromPanel() {
   state.beckettToken = settings.beckettToken || null;
   applyPlan();
   renderAuthState();
+  applyWorkspace(state.activeWorkspace);
   setEmptyStateForCurrentTab();
 
   const contextRes = await msg('GET_CURRENT_CONTEXT');
@@ -571,6 +719,18 @@ document.addEventListener('click', e => {
     msg('INJECT_DRAFT', { text });
     logVoiceSample(text);
   }
+  if (e.target.matches('.draft-revise-btn[data-text]')) {
+    const text = e.target.dataset.text;
+    const revision = e.target.dataset.revision || '';
+    applyWorkspace('draft');
+    applyDraftTask('improve');
+    $('draftText').value = text;
+    state.draftRevision = revision;
+    document.querySelectorAll('.draft-chip').forEach(chip => {
+      chip.classList.toggle('active', chip.dataset.revision === revision);
+    });
+    generateDraft();
+  }
 });
 
 // ── Meeting live mode ─────────────────────────────────────────
@@ -777,14 +937,14 @@ chrome.runtime.onMessage.addListener((message) => {
   switch (message.type) {
     case 'CONTENT_UPDATED':
       state.context = message.context;
-      if (state.beckettToken) {
+      if (state.beckettToken && state.activeWorkspace === 'analyze') {
         $('emptyState').hidden = true;
         $('analyzeBtn').style.display = '';
       } else {
         renderAuthState();
       }
       // Auto-analyze on Slack when a new incoming message is detected
-      if (state.beckettToken && message.context?.autoAnalyze && message.context?.platform === 'slack') {
+      if (state.beckettToken && state.activeWorkspace === 'analyze' && message.context?.autoAnalyze && message.context?.platform === 'slack') {
         $('analyzeBtn').click();
       }
       break;
@@ -852,7 +1012,12 @@ function escHtml(str) {
 }
 
 function escAttr(str) {
-  return str.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  return String(str || '')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 // ── Boot ──────────────────────────────────────────────────────

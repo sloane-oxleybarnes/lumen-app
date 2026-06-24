@@ -186,8 +186,20 @@
                         document.querySelector('.Ak [contenteditable="true"]');
     if (!composeBody) return;
     composeBody.focus();
-    document.execCommand('selectAll');
-    document.execCommand('insertText', false, text);
+    moveCaretToEnd(composeBody);
+    const existing = (composeBody.innerText || composeBody.textContent || '').trim();
+    document.execCommand('insertText', false, existing ? `\n\n${text}` : text);
+    composeBody.dispatchEvent(new InputEvent('input', { bubbles: true }));
+  }
+
+  function moveCaretToEnd(element) {
+    const range = document.createRange();
+    range.selectNodeContents(element);
+    range.collapse(false);
+    const selection = window.getSelection();
+    if (!selection) return;
+    selection.removeAllRanges();
+    selection.addRange(range);
   }
 
   // ── Listeners ──────────────────────────────────────────────

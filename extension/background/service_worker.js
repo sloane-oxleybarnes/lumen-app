@@ -1,7 +1,7 @@
 import {
   buildMessagePrompt,
   buildMeetingPrompt,
-  buildDraftFromScratchPrompt,
+  buildDraftAssistPrompt,
   buildMeetingBriefPrompt,
   buildDebriefPrompt,
   buildPracticeSystemPrompt,
@@ -102,6 +102,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     case 'DRAFT_FROM_SCRATCH':
       handleDraftFromScratch(message.payload, sendResponse);
+      return true;
+
+    case 'DRAFT_ASSIST':
+      handleDraftAssist(message.payload, sendResponse);
       return true;
 
     case 'INJECT_DRAFT':
@@ -479,25 +483,76 @@ async function handleMeeting(payload, tabId, sendResponse) {
 }
 
 async function handleDraftFromScratch(payload, sendResponse) {
+  await handleDraftAssist({
+    ...payload,
+    task: 'new',
+    goal: payload?.goal || payload?.intent || '',
+    draftText: '',
+  }, response => {
+    if (response.error) {
+      sendResponse(response);
+      return;
+    }
+    const text = response.result?.drafts?.[0]?.text || '';
+    sendResponse({ text, result: response.result });
+  });
+}
+
+async function handleDraftAssist(payload = {}, sendResponse) {
   try {
     const { lumenMode, voice_samples } = await chrome.storage.local.get([
       'lumenMode', 'voice_samples',
     ]);
     const mode = payload.mode || lumenMode || 'business';
     const voiceContext = buildVoiceContext(voice_samples, mode);
+    const context = payload.context || null;
 
-    const prompt = buildDraftFromScratchPrompt({
-      ...payload,
+    const prompt = buildDraftAssistPrompt({
+      task: payload.task === 'improve' ? 'improve' : 'new',
+      goal: payload.goal || payload.intent || '',
+      draftText: payload.draftText || '',
+      revisionInstruction: payload.revisionInstruction || '',
+      context,
       mode,
       linkedInContext: null,
+      isSafePerson: !!payload.isSafePerson,
       voiceContext,
     });
 
-    const raw = await callBeckettText('draft_from_scratch', prompt, 800, { mode });
-    sendResponse({ text: raw.trim() });
+    const result = await callBeckettJson('draft_from_scratch', prompt, 1200, {
+      mode,
+      platform: context?.platform || 'unknown',
+      source: 'draft_assist',
+      task: payload.task === 'improve' ? 'improve' : 'new',
+      contextSource: context?.metadata?.contextSource || context?.contextSource || null,
+      contextStatus: context?.metadata?.contextStatus || context?.contextStatus || null,
+      threadCount: Array.isArray(context?.thread) ? context.thread.length : 0,
+    });
+
+    sendResponse({ result: normalizeDraftAssistResult(result) });
   } catch (e) {
     sendResponse({ error: e.message });
   }
+}
+
+function normalizeDraftAssistResult(result) {
+  const drafts = Array.isArray(result?.drafts)
+    ? result.drafts
+      .map((draft, index) => ({
+        label: String(draft?.label || ['Recommended', 'Warmer', 'More direct'][index] || 'Option').trim(),
+        text: String(draft?.text || '').trim(),
+        why: String(draft?.why || '').trim(),
+      }))
+      .filter(draft => draft.text)
+      .slice(0, 3)
+    : [];
+
+  if (!drafts.length) throw new Error('Beckett did not return a usable draft.');
+
+  return {
+    note: String(result?.note || '').trim(),
+    drafts,
+  };
 }
 
 // ── New v3 handlers ───────────────────────────────────────────

@@ -95,6 +95,7 @@ export async function POST(req: NextRequest) {
         contextStatus: metadata?.contextStatus || null,
         contextFailureReason: metadata?.contextFailureReason || null,
         threadCount: typeof metadata?.threadCount === 'number' ? metadata.threadCount : null,
+        task: typeof metadata?.task === 'string' ? metadata.task : null,
       },
     })
 

@@ -654,6 +654,169 @@ body {
 
 /* ── Draft tab ───────────────────────────────────────────────── */
 
+.workspace-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.workspace-tab {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.workspace-tab.active {
+  background: var(--primary-light);
+  border-color: var(--primary-mid);
+  color: var(--primary-dark);
+}
+
+.draft-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.draft-mode-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.draft-mode-btn {
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.draft-mode-btn.active {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.field-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.textarea {
+  width: 100%;
+  padding: 8px 9px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 12px;
+  line-height: 1.45;
+  resize: vertical;
+  outline: none;
+}
+
+.textarea:focus {
+  border-color: var(--primary);
+}
+
+.draft-text-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.draft-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.draft-chip,
+.draft-revise-btn {
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: var(--surface);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.draft-chip.active,
+.draft-revise-btn:hover {
+  background: var(--primary-light);
+  border-color: var(--primary-mid);
+  color: var(--primary-dark);
+}
+
+.draft-result-card {
+  border-color: var(--primary-mid);
+}
+
+.draft-note-empty {
+  display: none;
+}
+
+.draft-option {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  margin-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.draft-option:first-child {
+  margin-top: 0;
+}
+
+.draft-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.draft-option-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.draft-option-why {
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--text-muted);
+}
+
+.draft-option-text {
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.draft-revise-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
 
 /* ── Upgrade prompt ──────────────────────────────────────────── */
 
