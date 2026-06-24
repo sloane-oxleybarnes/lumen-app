@@ -58,11 +58,6 @@ function mergeCustomEntries(list: string[], value: string, max?: number) {
   return next;
 }
 
-function getCustomValues(values: string[], presetOptions: string[]) {
-  const presets = new Set(presetOptions.map((item) => item.toLowerCase()));
-  return values.filter((value) => !presets.has(value.toLowerCase()));
-}
-
 function toolkitCourseTitle(courseId: string) {
   return toolkitCourseTitles[courseId] || courseId.replace(/-/g, " ");
 }
@@ -168,8 +163,6 @@ function CustomEntryControls({
   disabled?: boolean;
   helperText?: string;
 }) {
-  const customValues = getCustomValues(values, presetOptions);
-
   return (
     <div className="mt-4 rounded-sm border border-border bg-bg/60 p-3">
       <label className="block text-xs font-medium uppercase tracking-wide text-ink-light">
@@ -193,14 +186,21 @@ function CustomEntryControls({
         </button>
       </div>
       {helperText && <p className="mt-2 text-xs text-ink-light">{helperText}</p>}
-      {customValues.length > 0 && (
+      {values.length > 0 && (
         <div className="mt-3 flex flex-wrap gap-2">
-          {customValues.map((item) => (
+          <span className="w-full text-[11px] font-medium uppercase tracking-wide text-ink-light">
+            Selected
+          </span>
+          {values.map((item) => (
             <button
               key={item}
               type="button"
               onClick={() => onRemove(item)}
-              className="rounded-pill bg-white px-3 py-1 text-xs text-ink-mid transition-colors hover:bg-red-50 hover:text-red-700"
+              className={`rounded-pill px-3 py-1 text-xs transition-colors hover:bg-red-50 hover:text-red-700 ${
+                presetOptions.some((option) => option.toLowerCase() === item.toLowerCase())
+                  ? "bg-primary-light text-primary"
+                  : "bg-white text-ink-mid"
+              }`}
               aria-label={`Remove ${item}`}
             >
               {item} x
