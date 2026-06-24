@@ -9,7 +9,6 @@ import {
   runSlackCoaching,
   scheduleSlackBackgroundTask,
   slackConnectText,
-  slackMessageResponse,
   SlackBlock,
   SlackCoachingIntent,
   SLACK_SLASH_LONGER_ACTION_ID,
@@ -288,6 +287,38 @@ async function sendPendingSlashResponse({
   }
 }
 
+async function handleSlashButtonResponse({
+  origin,
+  payload,
+  requestId,
+  responseDetail,
+  intent,
+}: {
+  origin: string;
+  payload: SlackInteractionPayload;
+  requestId: string;
+  responseDetail: SlackResponseDetail;
+  intent: SlackCoachingIntent;
+}) {
+  const responseUrl = payload.response_url || "";
+  if (responseUrl) {
+    await replaceSlackInteraction(responseUrl, `Beckett is preparing your ${detailLabel(responseDetail)}...`);
+    console.info("Slack slash preparing state posted", {
+      requestId,
+      intent,
+      responseDetail,
+    });
+  }
+
+  await sendPendingSlashResponse({
+    origin,
+    payload,
+    requestId,
+    responseDetail,
+    intent,
+  });
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const verification = verifySlackRequest(req, rawBody);
@@ -313,7 +344,7 @@ export async function POST(req: NextRequest) {
 
     scheduleSlackBackgroundTask(
       "Slack slash choice response failed",
-      sendPendingSlashResponse({
+      handleSlashButtonResponse({
         origin: req.nextUrl.origin,
         payload,
         requestId: detailAction.requestId,
@@ -322,9 +353,7 @@ export async function POST(req: NextRequest) {
       })
     );
 
-    return slackMessageResponse(`Beckett is preparing your ${detailLabel(detailAction.responseDetail)}...`, {
-      replaceOriginal: true,
-    });
+    return NextResponse.json({ ok: true });
   }
 
   if (payload.type !== "message_action" || payload.callback_id !== "beckett_message_context") {
