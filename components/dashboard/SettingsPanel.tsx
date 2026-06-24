@@ -198,12 +198,23 @@ type Diagnostics = {
       userId?: string | null;
       teamId?: string | null;
       teamName?: string | null;
+      grantedUserScopes?: string[];
+      missingUserScopes?: string[];
+      needsReconnect?: boolean;
+      lastValidatedAt?: string | null;
+      lastFailureReason?: string | null;
       connectedAt?: string | null;
       updatedAt?: string | null;
     };
     google: {
       connected: boolean;
       email?: string | null;
+      hasRefreshToken?: boolean;
+      serverRefreshConfigured?: boolean;
+      needsReconnect?: boolean;
+      tokenExpiresAt?: string | null;
+      lastValidatedAt?: string | null;
+      lastFailureReason?: string | null;
       connectedAt?: string | null;
       updatedAt?: string | null;
     };
@@ -240,6 +251,10 @@ function formatDiagnosticDate(value?: string | null) {
     hour: "numeric",
     minute: "2-digit",
   });
+}
+
+function formatScopeList(values?: string[]) {
+  return values?.length ? values.join(", ") : "None";
 }
 
 export default function SettingsPage() {
@@ -614,7 +629,11 @@ export default function SettingsPage() {
             name="Google (Gmail)"
             description="Read-only email thread context when you ask Beckett for coaching"
             connected={diagnostics?.integrations.google.connected}
-            detail={diagnostics?.integrations.google.email || "Google account connected"}
+            detail={
+              diagnostics?.integrations.google.needsReconnect
+                ? "Reconnect to enable server-side full-thread refresh"
+                : diagnostics?.integrations.google.email || "Google account connected"
+            }
             onConnect={async () => {
               await supabase.auth.signInWithOAuth({
                 provider: "google",
@@ -632,7 +651,11 @@ export default function SettingsPage() {
             name="Slack"
             description="Recent DM, channel, and thread context when you ask Beckett for coaching"
             connected={diagnostics?.integrations.slack.connected}
-            detail={diagnostics?.integrations.slack.teamName || "Slack workspace connected"}
+            detail={
+              diagnostics?.integrations.slack.needsReconnect
+                ? "Reconnect to enable private channels and group DMs"
+                : diagnostics?.integrations.slack.teamName || "Slack workspace connected"
+            }
             onConnect={() => {
               window.location.href = "/api/slack/connect";
             }}
@@ -703,8 +726,14 @@ export default function SettingsPage() {
             <div className="flex flex-wrap gap-2">
               <HealthPill ok={diagnostics.beckett.authenticated} label="Beckett login" />
               <HealthPill ok={diagnostics.extension.tokenIssued} label="Extension token" />
-              <HealthPill ok={diagnostics.integrations.slack.connected} label="Slack" />
-              <HealthPill ok={diagnostics.integrations.google.connected} label="Google" />
+              <HealthPill
+                ok={diagnostics.integrations.slack.connected && !diagnostics.integrations.slack.needsReconnect}
+                label="Slack"
+              />
+              <HealthPill
+                ok={diagnostics.integrations.google.connected && !diagnostics.integrations.google.needsReconnect}
+                label="Google"
+              />
               <HealthPill ok={diagnostics.api.reachable} label="API reachable" />
             </div>
 
@@ -740,6 +769,54 @@ export default function SettingsPage() {
                     <p className="text-xs text-ink-light">
                       User: {diagnostics.integrations.slack.userId || "unknown"}
                     </p>
+                    {diagnostics.integrations.slack.needsReconnect ? (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Reconnect needed for: {formatScopeList(diagnostics.integrations.slack.missingUserScopes)}
+                      </p>
+                    ) : (
+                      <p className="mt-1 text-xs text-green-700">Public, private, DM, and group DM context enabled</p>
+                    )}
+                    <p className="mt-1 text-xs text-ink-light">
+                      Last validated: {formatDiagnosticDate(diagnostics.integrations.slack.lastValidatedAt)}
+                    </p>
+                    {diagnostics.integrations.slack.lastFailureReason && (
+                      <p className="text-xs text-ink-light">
+                        Last issue: {diagnostics.integrations.slack.lastFailureReason}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="mt-1 text-sm text-amber-700">Not connected in web app settings</p>
+                )}
+              </div>
+              <div className="rounded-sm border border-border bg-bg/60 p-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Gmail</p>
+                {diagnostics.integrations.google.connected ? (
+                  <>
+                    <p className="mt-1 text-sm text-ink">
+                      {diagnostics.integrations.google.email || "Google account connected"}
+                    </p>
+                    {diagnostics.integrations.google.hasRefreshToken ? (
+                      <p className="text-xs text-green-700">Server-side refresh token saved</p>
+                    ) : (
+                      <p className="text-xs text-amber-700">Reconnect Gmail to save a refresh token</p>
+                    )}
+                    {!diagnostics.integrations.google.serverRefreshConfigured && (
+                      <p className="mt-1 text-xs text-amber-700">
+                        Staging Google refresh env vars are not configured
+                      </p>
+                    )}
+                    <p className="mt-1 text-xs text-ink-light">
+                      Last validated: {formatDiagnosticDate(diagnostics.integrations.google.lastValidatedAt)}
+                    </p>
+                    <p className="text-xs text-ink-light">
+                      Token expires: {formatDiagnosticDate(diagnostics.integrations.google.tokenExpiresAt)}
+                    </p>
+                    {diagnostics.integrations.google.lastFailureReason && (
+                      <p className="text-xs text-ink-light">
+                        Last issue: {diagnostics.integrations.google.lastFailureReason}
+                      </p>
+                    )}
                   </>
                 ) : (
                   <p className="mt-1 text-sm text-amber-700">Not connected in web app settings</p>
@@ -755,8 +832,8 @@ export default function SettingsPage() {
             </div>
 
             <p className="text-xs text-ink-light">
-              If Slack shows connected here but analysis still fails, reload the Chrome extension and reconnect
-              Slack from the extension popup so the local browser token is refreshed too.
+              If Slack or Gmail shows a reconnect warning, reconnect from this page before testing full-thread or
+              private-channel context again.
             </p>
           </div>
         ) : !diagnosticsError ? (

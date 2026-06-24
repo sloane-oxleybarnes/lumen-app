@@ -35,6 +35,25 @@ export async function GET(request: NextRequest) {
     if (!error) {
       if (integration === 'google' && data.session?.user) {
         const now = new Date().toISOString()
+        const providerSession = data.session as typeof data.session & {
+          provider_refresh_token?: string | null
+          expires_at?: number | null
+        }
+        const metadata: Record<string, unknown> = {
+          provider: 'google',
+          email: data.session.user.email || null,
+          scopes: 'gmail.readonly',
+          grantedScopes: ['https://www.googleapis.com/auth/gmail.readonly'],
+          last_validated_at: now,
+          last_failure_reason: null,
+          token_expires_at: providerSession.expires_at
+            ? new Date(providerSession.expires_at * 1000).toISOString()
+            : null,
+        }
+        if (providerSession.provider_refresh_token) {
+          metadata.refresh_token = providerSession.provider_refresh_token
+          metadata.has_refresh_token = true
+        }
         await supabaseAdmin.from('user_integrations').upsert(
           {
             user_id: data.session.user.id,
@@ -43,11 +62,7 @@ export async function GET(request: NextRequest) {
             external_user_id: data.session.user.email || null,
             external_team_id: null,
             external_team_name: null,
-            metadata: {
-              provider: 'google',
-              email: data.session.user.email || null,
-              scopes: 'gmail.readonly',
-            },
+            metadata,
             connected_at: now,
             updated_at: now,
           },

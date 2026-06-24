@@ -9,6 +9,7 @@ import {
   runSlackCoaching,
   scheduleSlackBackgroundTask,
   slackConnectText,
+  slackContextUserNote,
   SlackBlock,
   SlackCoachingIntent,
   SLACK_SLASH_LONGER_ACTION_ID,
@@ -255,19 +256,28 @@ async function sendPendingSlashResponse({
       requestId,
       intent,
       responseDetail,
-      contextLength: channelContext?.length || 0,
+      contextStatus: channelContext.status,
+      contextFailureReason: channelContext.failureReason,
+      contextMessageCount: channelContext.messageCount,
     });
     const response = await runSlackCoaching({
       user,
       action: "slash_command",
       prompt: pending.prompt,
       sourceLabel: `/beckett:${intent}:${responseDetail}`,
-      messageText: channelContext,
+      messageText: channelContext.text,
+      contextStatus: channelContext.status,
+      contextFailureReason: channelContext.failureReason,
+      contextMessageCount: channelContext.messageCount,
       responseDetail,
       intent,
     });
 
-    await replaceSlackInteraction(responseUrl, formatAskedResponse(pending.prompt, response, intent));
+    const contextNote = slackContextUserNote(channelContext);
+    await replaceSlackInteraction(
+      responseUrl,
+      formatAskedResponse(pending.prompt, contextNote ? `${contextNote}\n\n${response}` : response, intent)
+    );
     console.info("Slack slash final response posted", {
       requestId,
       intent,

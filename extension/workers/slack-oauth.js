@@ -30,7 +30,7 @@ export default {
         const authUrl = 'https://slack.com/oauth/v2/authorize?' + new URLSearchParams({
           client_id: env.SLACK_CLIENT_ID,
           scope: 'commands,chat:write',
-          user_scope: 'channels:history,im:history,users:read',
+          user_scope: 'channels:history,groups:history,im:history,mpim:history,users:read',
           redirect_uri: redirectUri,
         }).toString();
 

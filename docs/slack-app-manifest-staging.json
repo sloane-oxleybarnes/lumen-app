@@ -37,7 +37,9 @@
       ],
       "user": [
         "channels:history",
+        "groups:history",
         "im:history",
+        "mpim:history",
         "users:read"
       ]
     }

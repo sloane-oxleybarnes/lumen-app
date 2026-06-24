@@ -15,10 +15,26 @@ const MAX_QUICK_SLACK_ANSWER_LENGTH = 1200;
 const MAX_LONGER_SLACK_ANSWER_LENGTH = 2000;
 export const SLACK_SLASH_QUICK_ACTION_ID = "beckett_slash_quick";
 export const SLACK_SLASH_LONGER_ACTION_ID = "beckett_slash_longer";
+export const REQUIRED_SLACK_USER_SCOPES = ["channels:history", "groups:history", "im:history", "mpim:history", "users:read"];
 
 export type SlackResponseDetail = "quick" | "longer";
 export type SlackCoachingIntent = "general" | "rewrite" | "decode" | "draft" | "prep" | "tone" | "followup";
 export type SlackBlock = Record<string, unknown>;
+export type SlackContextStatus = "available" | "unavailable";
+export type SlackContextFailureReason =
+  | "missing_token"
+  | "missing_channel"
+  | "no_messages"
+  | "missing_scope"
+  | "not_in_channel"
+  | "channel_not_found"
+  | "slack_api_error";
+export type SlackConversationContext = {
+  text: string | null;
+  status: SlackContextStatus;
+  failureReason: SlackContextFailureReason | null;
+  messageCount: number;
+};
 
 type SlackMessageOptions = {
   blocks?: SlackBlock[];
@@ -33,6 +49,8 @@ export type SlackConnectedUser = {
   plan: string | null;
   accessToken: string | null;
   teamName: string | null;
+  grantedUserScopes: string[];
+  missingUserScopes: string[];
   communicationPreferences: string[];
   coachingTone: string | null;
 };
@@ -73,6 +91,44 @@ type SlackUserInfo = {
 };
 
 const slackUserNameCache = new Map<string, string>();
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function splitSlackScopes(value: unknown) {
+  if (Array.isArray(value)) return value.filter((scope): scope is string => typeof scope === "string");
+  return String(value || "")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+}
+
+function slackUnavailable(reason: SlackContextFailureReason): SlackConversationContext {
+  return { text: null, status: "unavailable", failureReason: reason, messageCount: 0 };
+}
+
+async function noteSlackContextValidation(userId: string, failureReason: SlackContextFailureReason | null) {
+  const { data } = await supabaseAdmin
+    .from("user_integrations")
+    .select("metadata")
+    .eq("user_id", userId)
+    .eq("provider", "slack")
+    .maybeSingle();
+  const metadata = metadataRecord(data?.metadata);
+  await supabaseAdmin
+    .from("user_integrations")
+    .update({
+      metadata: {
+        ...metadata,
+        last_validated_at: new Date().toISOString(),
+        last_failure_reason: failureReason,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", "slack");
+}
 
 function safeCompare(value: string, expected: string) {
   const valueBuffer = Buffer.from(value, "utf8");
@@ -237,7 +293,7 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
 export async function lookupSlackConnectedUser(teamId: string, slackUserId: string) {
   const { data: integration, error } = await supabaseAdmin
     .from("user_integrations")
-    .select("user_id, access_token, external_team_name")
+    .select("user_id, access_token, external_team_name, metadata")
     .eq("provider", "slack")
     .eq("external_team_id", teamId)
     .eq("external_user_id", slackUserId)
@@ -255,6 +311,11 @@ export async function lookupSlackConnectedUser(teamId: string, slackUserId: stri
   if (profileError) throw profileError;
   if (!profile) return null;
 
+  const metadata = metadataRecord(integration.metadata);
+  const authedUser = metadataRecord(metadata.authed_user);
+  const grantedUserScopes = splitSlackScopes(metadata.granted_user_scopes || authedUser.scope || metadata.user_scope);
+  const missingUserScopes = REQUIRED_SLACK_USER_SCOPES.filter((scope) => !grantedUserScopes.includes(scope));
+
   return {
     id: profile.id,
     email: profile.email || null,
@@ -262,6 +323,8 @@ export async function lookupSlackConnectedUser(teamId: string, slackUserId: stri
     plan: profile.plan || "free",
     accessToken: integration.access_token || null,
     teamName: integration.external_team_name || null,
+    grantedUserScopes,
+    missingUserScopes,
     communicationPreferences: Array.isArray(profile.communication_preferences)
       ? profile.communication_preferences
       : [],
@@ -334,7 +397,8 @@ export async function fetchSlackConversationContext({
   channelId?: string | null;
   channelName?: string | null;
 }) {
-  if (!accessToken || !channelId) return null;
+  if (!accessToken) return slackUnavailable("missing_token");
+  if (!channelId) return slackUnavailable("missing_channel");
 
   const data = await slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
     accessToken,
@@ -346,19 +410,53 @@ export async function fetchSlackConversationContext({
     })
   ).catch(() => null);
 
-  if (!data?.ok || !Array.isArray(data.messages) || data.messages.length === 0) return null;
+  if (!data?.ok) {
+    const reason =
+      data?.error === "missing_scope"
+        ? "missing_scope"
+        : data?.error === "not_in_channel"
+          ? "not_in_channel"
+          : data?.error === "channel_not_found"
+            ? "channel_not_found"
+            : "slack_api_error";
+    return slackUnavailable(reason);
+  }
+  if (!Array.isArray(data.messages) || data.messages.length === 0) return slackUnavailable("no_messages");
 
   const formatted = (
     await Promise.all(data.messages.slice().reverse().map((message) => formatSlackHistoryMessage(accessToken, message)))
   ).filter(Boolean) as string[];
 
-  if (!formatted.length) return null;
+  if (!formatted.length) return slackUnavailable("no_messages");
 
   const label = channelName ? `#${channelName}` : "this Slack conversation";
   const context = [`Recent Slack context from ${label} (oldest to newest):`, ...formatted].join("\n");
-  return context.length <= MAX_SLACK_CONTEXT_LENGTH
-    ? context
-    : `${context.slice(0, MAX_SLACK_CONTEXT_LENGTH - 40).trim()}\n[Context trimmed]`;
+  return {
+    text:
+      context.length <= MAX_SLACK_CONTEXT_LENGTH
+        ? context
+        : `${context.slice(0, MAX_SLACK_CONTEXT_LENGTH - 40).trim()}\n[Context trimmed]`,
+    status: "available",
+    failureReason: null,
+    messageCount: formatted.length,
+  } satisfies SlackConversationContext;
+}
+
+export function slackContextUserNote(context: SlackConversationContext) {
+  if (context.status === "available") return "";
+  switch (context.failureReason) {
+    case "missing_scope":
+      return "_I could not read recent Slack context because this Slack connection is missing the newest private-channel permissions. Reconnect Slack from Beckett Settings when you want private-channel context included._";
+    case "not_in_channel":
+    case "channel_not_found":
+      return "_I could not read recent Slack context for this conversation, so I am answering from what you asked._";
+    case "no_messages":
+      return "_I could not find recent Slack messages to include, so I am answering from what you asked._";
+    case "missing_token":
+      return "_Slack context is not connected yet, so I am answering from what you asked._";
+    default:
+      return "_I could not read recent Slack context this time, so I am answering from what you asked._";
+  }
 }
 
 export async function runSlackCoaching({
@@ -367,6 +465,9 @@ export async function runSlackCoaching({
   prompt,
   sourceLabel,
   messageText,
+  contextStatus,
+  contextFailureReason,
+  contextMessageCount,
   responseDetail,
   intent = "general",
 }: {
@@ -375,15 +476,30 @@ export async function runSlackCoaching({
   prompt: string;
   sourceLabel: string;
   messageText?: string | null;
+  contextStatus?: SlackContextStatus;
+  contextFailureReason?: SlackContextFailureReason | null;
+  contextMessageCount?: number;
   responseDetail?: SlackResponseDetail;
   intent?: SlackCoachingIntent;
 }) {
+  if (contextStatus) {
+    await noteSlackContextValidation(
+      user.id,
+      contextStatus === "available" ? null : contextFailureReason || "slack_api_error"
+    ).catch((error) => {
+      console.error("Slack context validation metadata update failed", error);
+    });
+  }
+
   await recordAiUsage(user.id, {
     source: "slack_desktop",
     action,
     metadata: {
       sourceLabel,
       teamName: user.teamName,
+      contextStatus: contextStatus || null,
+      contextFailureReason: contextFailureReason || null,
+      contextMessageCount: contextMessageCount || 0,
       responseDetail: responseDetail || null,
       intent,
     },
@@ -410,10 +526,18 @@ ${beckettBoundaryPrompt()}`;
       : responseDetail === "longer"
         ? "Response length: Longer explanation. Give more context about likely tone/subtext, what to watch for, next steps, and suggested wording. Keep it scannable in Slack and under 1700 characters."
         : "Response length: Default Slack coaching response. Be concise but useful.";
-  const messageLine = messageText ? `\n\nSlack message/context:\n${messageText}` : "";
+  const contextLine = contextStatus
+    ? `Slack context status: ${contextStatus}${contextFailureReason ? ` (${contextFailureReason})` : ""}.`
+    : "";
+  const messageLine = messageText
+    ? `\n\nSlack message/context:\n${messageText}`
+    : contextStatus === "unavailable"
+      ? "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
+      : "";
   const userPrompt = `${preferenceLine}
 ${toneLine}
 ${responseDetailLine}
+${contextLine}
 ${slackIntentInstruction(intent)}
 
 User request:
@@ -431,6 +555,9 @@ ${prompt}${messageLine}`;
       action,
       sourceLabel,
       teamName: user.teamName,
+      contextStatus: contextStatus || null,
+      contextFailureReason: contextFailureReason || null,
+      contextMessageCount: contextMessageCount || 0,
       responseDetail: responseDetail || null,
       intent,
     },

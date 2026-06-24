@@ -322,19 +322,21 @@ function renderAnalysisMetadata(metadata) {
     return;
   }
 
-  const sourceLabel = metadata.source === 'slack_dom'
+  const contextSource = metadata.contextSource || metadata.source;
+  const sourceLabel = contextSource === 'slack_dom'
     ? 'Slack page context'
-    : metadata.source === 'gmail_api'
+    : contextSource === 'gmail_api'
       ? 'Gmail full-thread API'
       : 'Page context';
   const count = Number(metadata.threadCount || 0);
   const details = [
     sourceLabel,
+    metadata.contextStatus ? contextStatusLabel(metadata.contextStatus) : null,
     count ? `${count} message${count === 1 ? '' : 's'} included` : null,
     metadata.channelName ? `#${metadata.channelName}` : metadata.channelType || null,
   ].filter(Boolean);
 
-  if (metadata.platform === 'gmail' && metadata.source !== 'gmail_api' && metadata.gmailEnrichmentReason) {
+  if (metadata.platform === 'gmail' && contextSource !== 'gmail_api' && metadata.gmailEnrichmentReason) {
     details.push(gmailReasonLabel(metadata.gmailEnrichmentReason));
   }
 
@@ -351,13 +353,21 @@ function renderAnalysisMetadata(metadata) {
   card.hidden = false;
 }
 
+function contextStatusLabel(status) {
+  if (status === 'full_thread') return 'Full thread';
+  if (status === 'visible_context') return 'Visible context only';
+  if (status === 'page_context') return 'Page context';
+  return status;
+}
+
 function renderGmailReconnectPrompt(metadata) {
   const card = $('gmailReconnectCard');
   const title = $('gmailReconnectTitle');
   const text = $('gmailReconnectText');
   const reason = metadata?.gmailEnrichmentReason;
 
-  if (metadata?.platform !== 'gmail' || metadata.source === 'gmail_api' || !reason) {
+  const contextSource = metadata?.contextSource || metadata?.source;
+  if (metadata?.platform !== 'gmail' || contextSource === 'gmail_api' || !reason) {
     card.hidden = true;
     return;
   }
@@ -376,6 +386,20 @@ function renderGmailReconnectPrompt(metadata) {
     return;
   }
 
+  if (reason === 'google_refresh_token_missing') {
+    title.textContent = 'Reconnect Gmail for full threads';
+    text.textContent = 'Beckett can analyze the visible message now, but reconnecting Gmail in Settings lets it refresh full-thread access reliably.';
+    card.hidden = false;
+    return;
+  }
+
+  if (reason === 'thread_match_ambiguous') {
+    title.textContent = 'Using visible Gmail context';
+    text.textContent = 'Beckett found more than one possible full thread, so it used only the visible conversation instead of guessing.';
+    card.hidden = false;
+    return;
+  }
+
   if (reason === 'beckett_not_connected') {
     title.textContent = 'Log in to Beckett first';
     text.textContent = 'Connect your Beckett account, then reconnect Gmail from Settings so full-thread analysis can work.';
@@ -389,6 +413,9 @@ function renderGmailReconnectPrompt(metadata) {
 function gmailReasonLabel(reason) {
   if (reason === 'google_not_connected') return 'Gmail connection unavailable';
   if (reason === 'gmail_token_expired') return 'Reconnect Gmail for full threads';
+  if (reason === 'google_refresh_token_missing') return 'Reconnect Gmail for server refresh';
+  if (reason === 'google_refresh_not_configured') return 'Gmail refresh not configured';
+  if (reason === 'thread_match_ambiguous') return 'Full thread match ambiguous';
   if (reason === 'thread_not_found') return 'Full thread not found';
   if (reason === 'beckett_not_connected') return 'Beckett login unavailable';
   if (reason?.startsWith('gmail_api_error')) return `Gmail API error (${reason})`;

@@ -5,6 +5,8 @@ import { trackBetaEvent } from "@/lib/beta-events";
 import { getPublicSiteUrl } from "@/lib/deployment-env";
 import { getSlackOAuthWorkerUrl } from "@/lib/slack-oauth";
 
+const REQUIRED_SLACK_USER_SCOPES = ["channels:history", "groups:history", "im:history", "mpim:history", "users:read"];
+
 export async function GET(req: NextRequest) {
   const supabase = createSupabaseServerClient();
   const {
@@ -40,7 +42,8 @@ export async function GET(req: NextRequest) {
   const tokenData = await tokenRes?.json().catch(() => ({})) as {
     ok?: boolean;
     error?: string;
-    authed_user?: { access_token?: string; id?: string };
+    scope?: string;
+    authed_user?: { access_token?: string; id?: string; scope?: string };
     team?: { id?: string; name?: string };
   };
 
@@ -49,6 +52,18 @@ export async function GET(req: NextRequest) {
   }
 
   const now = new Date().toISOString();
+  const userScopes = splitSlackScopes(tokenData.authed_user?.scope);
+  const botScopes = splitSlackScopes(tokenData.scope);
+  const metadata = {
+    ...tokenData,
+    granted_user_scopes: userScopes,
+    granted_bot_scopes: botScopes,
+    required_user_scopes: REQUIRED_SLACK_USER_SCOPES,
+    missing_user_scopes: REQUIRED_SLACK_USER_SCOPES.filter((scope) => !userScopes.includes(scope)),
+    last_validated_at: now,
+    last_failure_reason: null,
+  };
+
   await supabaseAdmin.from("user_integrations").upsert(
     {
       user_id: session.user.id,
@@ -57,7 +72,7 @@ export async function GET(req: NextRequest) {
       external_user_id: tokenData.authed_user.id || null,
       external_team_id: tokenData.team?.id || null,
       external_team_name: tokenData.team?.name || null,
-      metadata: tokenData,
+      metadata,
       connected_at: now,
       updated_at: now,
     },
@@ -78,4 +93,11 @@ export async function GET(req: NextRequest) {
   const response = NextResponse.redirect(new URL("/dashboard/settings?slack=connected", req.url));
   response.cookies.delete("beckett_slack_oauth_state");
   return response;
+}
+
+function splitSlackScopes(value: string | undefined) {
+  return String(value || "")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
 }

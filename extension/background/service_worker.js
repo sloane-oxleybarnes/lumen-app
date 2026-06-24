@@ -315,14 +315,24 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       currentUser,
     });
 
+    const contextSource = ctx.platform === 'slack'
+      ? (ctx.source || 'slack_dom')
+      : (ctx.platform === 'gmail' && thread !== ctx.thread ? 'gmail_api' : 'page_dom');
+    const contextStatus = ctx.platform === 'gmail'
+      ? (contextSource === 'gmail_api' ? 'full_thread' : 'visible_context')
+      : (ctx.platform === 'slack' ? 'visible_context' : 'page_context');
+
     const analysisMetadata = {
       platform: ctx.platform,
       mode,
-      source: ctx.platform === 'slack' ? (ctx.source || 'slack_dom') : (ctx.platform === 'gmail' && thread !== ctx.thread ? 'gmail_api' : 'page_dom'),
+      source: contextSource,
+      contextSource,
+      contextStatus,
       threadCount: Array.isArray(thread) ? thread.length : 0,
       channelType: analysisContext.channelType || null,
       channelName: analysisContext.channelName || null,
       gmailEnrichmentReason,
+      contextFailureReason: gmailEnrichmentReason || null,
       slackConnected: ctx.platform === 'slack' ? (!!slackToken || !!beckettSlackConnected) : null,
       slackUserId: ctx.platform === 'slack' ? (slackUserId || beckettSlackUserId || null) : null,
     };
@@ -331,8 +341,11 @@ async function handleTriggerAnalyze(payload, sendResponse) {
       platform: ctx.platform,
       mode,
       source: analysisMetadata.source,
+      contextSource: analysisMetadata.contextSource,
+      contextStatus: analysisMetadata.contextStatus,
       threadCount: analysisMetadata.threadCount,
       gmailEnrichmentReason,
+      contextFailureReason: analysisMetadata.contextFailureReason,
     });
     sendResponse({
       result,

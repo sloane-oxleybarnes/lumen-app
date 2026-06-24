@@ -90,6 +90,11 @@ export async function POST(req: NextRequest) {
         responseFormat,
         platform: metadata?.platform || null,
         mode: metadata?.mode || null,
+        source: metadata?.source || null,
+        contextSource: metadata?.contextSource || null,
+        contextStatus: metadata?.contextStatus || null,
+        contextFailureReason: metadata?.contextFailureReason || null,
+        threadCount: typeof metadata?.threadCount === 'number' ? metadata.threadCount : null,
       },
     })
 

@@ -9,6 +9,7 @@ This is the staging-first Slack app path for using Beckett inside Slack Desktop.
 - Signed Slack request verification with `SLACK_SIGNING_SECRET`
 - Beckett account matching through the existing `user_integrations` Slack connection
 - Ephemeral coaching responses so Beckett does not post into public Slack channels
+- Recent context in public channels, private channels, DMs, and group DMs after the user reconnects with the staging scopes
 
 ## Staging Setup
 
@@ -26,6 +27,7 @@ This is the staging-first Slack app path for using Beckett inside Slack Desktop.
    - OAuth redirect URL: `https://YOUR-STAGING-URL/api/slack/callback`
 7. Install the Slack app into the test workspace.
 8. Sign into Beckett staging and connect Slack from Settings so the Slack user ID maps to a Beckett user.
+9. After changing scopes, reinstall/reconnect Slack from Beckett Settings so `groups:history` and `mpim:history` are granted.
 
 ## Testing
 
@@ -43,6 +45,8 @@ Use Slack Desktop or the Slack web app:
    - Expected: Beckett returns an ephemeral note about tone, context, and what to say next.
 6. Test with a Slack account that has not connected Slack in Beckett Settings.
    - Expected: Beckett asks the user to connect Slack first.
+7. Test `/beckett` in a private channel and a group DM after reconnecting.
+   - Expected: Beckett can include recent context; if Slack denies access, Beckett still answers from the prompt and says context was unavailable.
 
 ## Production Notes
 

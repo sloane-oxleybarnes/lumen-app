@@ -20,6 +20,15 @@ type GmailThread = {
   id: string;
   messages?: GmailMessage[];
 };
+type GmailThreadCandidate = {
+  thread: GmailThread;
+  sources: Set<string>;
+};
+type GoogleIntegration = {
+  access_token: string | null;
+  external_user_id: string | null;
+  metadata: unknown;
+};
 
 function jsonError(code: string, status = 400) {
   return NextResponse.json({ error: code }, { status });
@@ -58,6 +67,54 @@ function extractSearchPhrase(text: string | null) {
     .split(/(?<=[.!?])\s+/)
     .find((part) => part.length >= 18 && part.length <= 120);
   return (sentence || cleaned.slice(0, 90)).trim();
+}
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {};
+}
+
+function getRefreshToken(metadata: Record<string, unknown>) {
+  return typeof metadata.refresh_token === "string" && metadata.refresh_token.trim()
+    ? metadata.refresh_token.trim()
+    : "";
+}
+
+function normalizeSearchText(value: string) {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function threadContainsVisibleText(thread: GmailThread, visibleText: string) {
+  const phrase = normalizeSearchText(extractSearchPhrase(visibleText));
+  if (phrase.length < 18) return false;
+  const body = normalizeSearchText(
+    (thread.messages || [])
+      .map((message) => extractBody(message.payload) || message.snippet || "")
+      .join(" ")
+  );
+  return body.includes(phrase);
+}
+
+async function updateGoogleIntegrationMetadata(userId: string, metadata: Record<string, unknown>) {
+  await supabaseAdmin
+    .from("user_integrations")
+    .update({
+      metadata,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", "google");
+}
+
+async function noteGoogleValidation(userId: string, metadata: Record<string, unknown>, failureReason: string | null) {
+  await updateGoogleIntegrationMetadata(userId, {
+    ...metadata,
+    last_validated_at: new Date().toISOString(),
+    last_failure_reason: failureReason,
+  });
 }
 
 function decodeBase64Url(data: string) {
@@ -138,6 +195,52 @@ async function searchMessages(token: string, query: string, maxResults = 10) {
   return data.messages || [];
 }
 
+async function refreshGoogleAccessToken(userId: string, integration: GoogleIntegration, metadata: Record<string, unknown>) {
+  const refreshToken = getRefreshToken(metadata);
+  if (!refreshToken) throw new Error("google_refresh_token_missing");
+
+  const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET || process.env.GOOGLE_CLIENT_SECRET;
+  if (!clientId || !clientSecret) throw new Error("google_refresh_not_configured");
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      refresh_token: refreshToken,
+      grant_type: "refresh_token",
+    }).toString(),
+  });
+  const data = (await res.json().catch(() => ({}))) as { access_token?: string; expires_in?: number; error?: string };
+  if (!res.ok || !data.access_token) throw new Error(data.error || "google_refresh_failed");
+
+  const now = new Date();
+  const refreshedMetadata = {
+    ...metadata,
+    has_refresh_token: true,
+    last_validated_at: now.toISOString(),
+    last_failure_reason: null,
+    token_refreshed_at: now.toISOString(),
+    token_expires_at: data.expires_in ? new Date(now.getTime() + data.expires_in * 1000).toISOString() : null,
+  };
+
+  await supabaseAdmin
+    .from("user_integrations")
+    .update({
+      access_token: data.access_token,
+      metadata: refreshedMetadata,
+      updated_at: now.toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", "google");
+
+  integration.access_token = data.access_token;
+  integration.metadata = refreshedMetadata;
+  return data.access_token;
+}
+
 async function resolveThread(token: string, hints: {
   threadIds: string[];
   messageIds: string[];
@@ -146,15 +249,25 @@ async function resolveThread(token: string, hints: {
   visibleText: string;
 }) {
   const attempted = new Set<string>();
-  const candidates = new Map<string, GmailThread>();
+  const candidates = new Map<string, GmailThreadCandidate>();
 
-  async function tryThread(rawId: string) {
+  function addCandidate(thread: GmailThread, source: string) {
+    if (!thread.id || !Array.isArray(thread.messages)) return;
+    const existing = candidates.get(thread.id);
+    if (existing) {
+      existing.sources.add(source);
+      return;
+    }
+    candidates.set(thread.id, { thread, sources: new Set([source]) });
+  }
+
+  async function tryThread(rawId: string, source = "thread_id") {
     const id = normalizeId(rawId);
     if (!id || attempted.has(`thread:${id}`)) return;
     attempted.add(`thread:${id}`);
     try {
       const thread = await getThread(token, id);
-      if (thread.id && Array.isArray(thread.messages)) candidates.set(thread.id, thread);
+      addCandidate(thread, source);
     } catch (error) {
       if (error instanceof Error && error.message === "gmail_token_expired") throw error;
     }
@@ -166,19 +279,19 @@ async function resolveThread(token: string, hints: {
     attempted.add(`message:${id}`);
     try {
       const message = await getMessage(token, id);
-      if (message.threadId) await tryThread(message.threadId);
+      if (message.threadId) await tryThread(message.threadId, "message_id");
     } catch (error) {
       if (error instanceof Error && error.message === "gmail_token_expired") throw error;
     }
   }
 
-  async function trySearch(query: string) {
+  async function trySearch(query: string, source = "search") {
     if (!query || attempted.has(`search:${query}`)) return;
     attempted.add(`search:${query}`);
     try {
       const messages = await searchMessages(token, query);
       for (const message of messages) {
-        if (message.threadId) await tryThread(message.threadId);
+        if (message.threadId) await tryThread(message.threadId, source);
       }
     } catch (error) {
       if (error instanceof Error && error.message === "gmail_token_expired") throw error;
@@ -195,15 +308,27 @@ async function resolveThread(token: string, hints: {
   }
 
   if (hints.subject && hints.senderEmail) {
-    await trySearch(`subject:"${escapeGmailQuery(hints.subject)}" from:${hints.senderEmail}`);
-    await trySearch(`subject:"${escapeGmailQuery(hints.subject)}" to:${hints.senderEmail}`);
+    await trySearch(`subject:"${escapeGmailQuery(hints.subject)}" from:${hints.senderEmail}`, "subject_sender");
+    await trySearch(`subject:"${escapeGmailQuery(hints.subject)}" to:${hints.senderEmail}`, "subject_sender");
   }
-  if (hints.subject) await trySearch(`subject:"${escapeGmailQuery(hints.subject)}"`);
+  if (hints.subject) await trySearch(`subject:"${escapeGmailQuery(hints.subject)}"`, "subject");
 
   const phrase = extractSearchPhrase(hints.visibleText);
-  if (phrase) await trySearch(`"${escapeGmailQuery(phrase)}"`);
+  if (phrase) await trySearch(`"${escapeGmailQuery(phrase)}"`, "visible_text");
 
-  return Array.from(candidates.values()).sort((a, b) => (b.messages?.length || 0) - (a.messages?.length || 0))[0] || null;
+  const entries = Array.from(candidates.values());
+  if (!entries.length) return null;
+
+  const directMatches = entries.filter((candidate) => candidate.sources.has("thread_id") || candidate.sources.has("message_id"));
+  if (directMatches.length) {
+    return directMatches.sort((a, b) => (b.thread.messages?.length || 0) - (a.thread.messages?.length || 0))[0].thread;
+  }
+
+  const visibleMatches = entries.filter((candidate) => threadContainsVisibleText(candidate.thread, hints.visibleText));
+  if (visibleMatches.length === 1) return visibleMatches[0].thread;
+  if (visibleMatches.length > 1 || entries.length > 1) throw new Error("thread_match_ambiguous");
+
+  return entries[0].thread;
 }
 
 export async function GET(req: NextRequest) {
@@ -218,18 +343,47 @@ export async function GET(req: NextRequest) {
     .eq("provider", "google")
     .single();
 
-  if (!integration?.access_token) return jsonError("google_not_connected", 404);
+  if (!integration) return jsonError("google_not_connected", 404);
+  const googleIntegration = integration as GoogleIntegration;
+  const metadata = metadataRecord(googleIntegration.metadata);
+  if (!googleIntegration.access_token && !getRefreshToken(metadata)) {
+    await noteGoogleValidation(profile.id, metadata, "google_refresh_token_missing");
+    return jsonError("google_refresh_token_missing", 401);
+  }
+  if (!googleIntegration.access_token && getRefreshToken(metadata)) {
+    try {
+      await refreshGoogleAccessToken(profile.id, googleIntegration, metadata);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "google_refresh_failed";
+      await noteGoogleValidation(profile.id, metadata, message);
+      return jsonError(message, message === "google_refresh_not_configured" ? 501 : 401);
+    }
+  }
 
   try {
-    const thread = await resolveThread(integration.access_token, {
+    const hints = {
       threadIds: splitParam(searchParams.get("threadIds")),
       messageIds: splitParam(searchParams.get("messageIds")),
       subject: searchParams.get("subject")?.trim() || "",
       senderEmail: searchParams.get("senderEmail")?.trim() || "",
       visibleText: searchParams.get("visibleText")?.trim() || "",
-    });
+    };
+    let token = googleIntegration.access_token;
+    let thread: GmailThread | null = null;
+    try {
+      if (!token) throw new Error("google_refresh_token_missing");
+      thread = await resolveThread(token, hints);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "gmail_api_error";
+      if (message !== "gmail_token_expired") throw error;
+      token = await refreshGoogleAccessToken(profile.id, googleIntegration, metadata);
+      thread = await resolveThread(token, hints);
+    }
 
-    if (!thread?.messages?.length) return jsonError("thread_not_found", 404);
+    if (!thread?.messages?.length) {
+      await noteGoogleValidation(profile.id, metadataRecord(googleIntegration.metadata), "thread_not_found");
+      return jsonError("thread_not_found", 404);
+    }
 
     const currentEmail =
       (integration.external_user_id || "").toLowerCase() ||
@@ -251,18 +405,25 @@ export async function GET(req: NextRequest) {
       };
     });
 
+    await noteGoogleValidation(profile.id, metadataRecord(googleIntegration.metadata), null);
+
     return NextResponse.json({
       source: "gmail_api",
+      contextStatus: "full_thread",
       threadId: thread.id,
       messages,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : "gmail_api_error";
+    await noteGoogleValidation(profile.id, metadataRecord(googleIntegration.metadata), message);
     console.error("Extension Gmail thread lookup failed", {
       userId: profile.id,
       error: message,
     });
     if (message === "gmail_token_expired") return jsonError("gmail_token_expired", 401);
+    if (message === "google_refresh_token_missing") return jsonError("google_refresh_token_missing", 401);
+    if (message === "google_refresh_not_configured") return jsonError("google_refresh_not_configured", 501);
+    if (message === "thread_match_ambiguous") return jsonError("thread_match_ambiguous", 409);
     return jsonError(message.startsWith("gmail_api_error") ? message : "gmail_api_error", 500);
   }
 }
