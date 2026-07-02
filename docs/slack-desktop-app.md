@@ -18,17 +18,17 @@ This is the staging-first Slack app path for using Beckett inside Slack Desktop.
 
 1. Create a separate Slack app named `Beckett Staging`.
 2. Use the manifest in `docs/slack-app-manifest-staging.yaml`.
-3. Replace every `https://YOUR-STAGING-URL` placeholder with the active staging URL, for example:
-   - `https://beckett-git-staging-sloane-s-projects1.vercel.app`
+3. Use the public production URL for Slack app callbacks so Slack can reach Beckett without Vercel preview protection:
+   - `https://meetbeckett.co`
 4. In Vercel Preview environment variables for the `staging` branch, add:
    - `SLACK_SIGNING_SECRET`
    - `SLACK_OAUTH_WORKER_URL`
 5. Deploy a separate staging copy of `extension/workers/slack-oauth.js` with the staging Slack app's `SLACK_CLIENT_ID` and `SLACK_CLIENT_SECRET`.
 6. In Slack app settings, confirm these URLs:
-   - Slash command request URL: `https://YOUR-STAGING-URL/api/slack/commands`
-   - Interactivity request URL: `https://YOUR-STAGING-URL/api/slack/interactions`
-   - Event subscriptions request URL: `https://YOUR-STAGING-URL/api/slack/events`
-   - OAuth redirect URL: `https://YOUR-STAGING-URL/api/slack/callback`
+   - Slash command request URL: `https://meetbeckett.co/api/slack/commands`
+   - Interactivity request URL: `https://meetbeckett.co/api/slack/interactions`
+   - Event subscriptions request URL: `https://meetbeckett.co/api/slack/events`
+   - OAuth redirect URL: `https://meetbeckett.co/api/slack/callback`
 7. In Slack app settings, enable **Agents**. Use the Agent messaging experience when prompted.
 8. Install or reinstall the Slack app into the test workspace.
 9. Sign into Beckett staging and connect Slack from Settings so the Slack user ID maps to a Beckett user.

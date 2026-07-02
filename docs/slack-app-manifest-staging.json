@@ -35,7 +35,7 @@
       {
         "command": "/beckett",
         "description": "Decode, draft, or prep for workplace conversations.",
-        "url": "https://beckett-git-staging-sloane-s-projects1.vercel.app/api/slack/commands",
+        "url": "https://meetbeckett.co/api/slack/commands",
         "should_escape": false
       }
     ],
@@ -50,7 +50,7 @@
   },
   "oauth_config": {
     "redirect_urls": [
-      "https://beckett-git-staging-sloane-s-projects1.vercel.app/api/slack/callback"
+      "https://meetbeckett.co/api/slack/callback"
     ],
     "scopes": {
       "bot": [
@@ -71,7 +71,7 @@
   },
   "settings": {
     "event_subscriptions": {
-      "request_url": "https://beckett-git-staging-sloane-s-projects1.vercel.app/api/slack/events",
+      "request_url": "https://meetbeckett.co/api/slack/events",
       "bot_events": [
         "app_home_opened",
         "app_context_changed",
@@ -80,7 +80,7 @@
     },
     "interactivity": {
       "is_enabled": true,
-      "request_url": "https://beckett-git-staging-sloane-s-projects1.vercel.app/api/slack/interactions"
+      "request_url": "https://meetbeckett.co/api/slack/interactions"
     },
     "org_deploy_enabled": false,
     "socket_mode_enabled": false,
