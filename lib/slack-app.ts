@@ -4,8 +4,10 @@ import { callAnthropic } from "@/lib/anthropic";
 import { AiUsageLimitError, recordAiUsage } from "@/lib/ai-usage";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { beckettBoundaryPrompt } from "@/lib/beckett-boundaries";
+import { formatCoachingProfileForPrompt } from "@/lib/coaching-profile";
 import { getPublicSiteUrl } from "@/lib/deployment-env";
 import { supabaseAdmin } from "@/lib/server-admin";
+import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
 
 const MAX_SLACK_TEXT_LENGTH = 2800;
 const MAX_SLACK_CONTEXT_MESSAGES = 8;
@@ -15,10 +17,37 @@ const MAX_QUICK_SLACK_ANSWER_LENGTH = 1200;
 const MAX_LONGER_SLACK_ANSWER_LENGTH = 2000;
 export const SLACK_SLASH_QUICK_ACTION_ID = "beckett_slash_quick";
 export const SLACK_SLASH_LONGER_ACTION_ID = "beckett_slash_longer";
+export const REQUIRED_SLACK_USER_SCOPES = ["channels:history", "groups:history", "im:history", "mpim:history", "users:read"];
 
 export type SlackResponseDetail = "quick" | "longer";
-export type SlackCoachingIntent = "general" | "rewrite" | "decode" | "draft" | "prep" | "tone" | "followup";
+export type SlackCoachingIntent =
+  | "general"
+  | "rewrite"
+  | "decode"
+  | "draft"
+  | "prep"
+  | "tone"
+  | "followup"
+  | "respond"
+  | "clarity"
+  | "boundary"
+  | "practice";
 export type SlackBlock = Record<string, unknown>;
+export type SlackContextStatus = "available" | "unavailable";
+export type SlackContextFailureReason =
+  | "missing_token"
+  | "missing_channel"
+  | "no_messages"
+  | "missing_scope"
+  | "not_in_channel"
+  | "channel_not_found"
+  | "slack_api_error";
+export type SlackConversationContext = {
+  text: string | null;
+  status: SlackContextStatus;
+  failureReason: SlackContextFailureReason | null;
+  messageCount: number;
+};
 
 type SlackMessageOptions = {
   blocks?: SlackBlock[];
@@ -32,9 +61,17 @@ export type SlackConnectedUser = {
   name: string | null;
   plan: string | null;
   accessToken: string | null;
+  botAccessToken: string | null;
   teamName: string | null;
+  grantedUserScopes: string[];
+  missingUserScopes: string[];
   communicationPreferences: string[];
   coachingTone: string | null;
+  strengths: string[];
+  workplaceTriggers: string[];
+  neurodivergentContext: string[];
+  neurodivergentContextOther: string | null;
+  toolkitItems: { course_id?: string | null; category?: string | null; label?: string | null; content?: string | null }[];
 };
 
 type SlackVerificationResult =
@@ -57,6 +94,7 @@ type SlackHistoryMessage = {
   text?: string;
   subtype?: string;
   ts?: string;
+  thread_ts?: string;
 };
 
 type SlackUserInfo = {
@@ -73,6 +111,44 @@ type SlackUserInfo = {
 };
 
 const slackUserNameCache = new Map<string, string>();
+
+function metadataRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
+}
+
+function splitSlackScopes(value: unknown) {
+  if (Array.isArray(value)) return value.filter((scope): scope is string => typeof scope === "string");
+  return String(value || "")
+    .split(",")
+    .map((scope) => scope.trim())
+    .filter(Boolean);
+}
+
+function slackUnavailable(reason: SlackContextFailureReason): SlackConversationContext {
+  return { text: null, status: "unavailable", failureReason: reason, messageCount: 0 };
+}
+
+async function noteSlackContextValidation(userId: string, failureReason: SlackContextFailureReason | null) {
+  const { data } = await supabaseAdmin
+    .from("user_integrations")
+    .select("metadata")
+    .eq("user_id", userId)
+    .eq("provider", "slack")
+    .maybeSingle();
+  const metadata = metadataRecord(data?.metadata);
+  await supabaseAdmin
+    .from("user_integrations")
+    .update({
+      metadata: {
+        ...metadata,
+        last_validated_at: new Date().toISOString(),
+        last_failure_reason: failureReason,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", "slack");
+}
 
 function safeCompare(value: string, expected: string) {
   const valueBuffer = Buffer.from(value, "utf8");
@@ -204,6 +280,14 @@ export function slackAskedLabel(intent: SlackCoachingIntent = "general") {
       return "You asked Beckett to check tone:";
     case "followup":
       return "You asked Beckett to follow up:";
+    case "respond":
+      return "You asked Beckett to help you respond:";
+    case "clarity":
+      return "You asked Beckett to help you ask for clarity:";
+    case "boundary":
+      return "You asked Beckett to help with a boundary:";
+    case "practice":
+      return "You asked Beckett to help you practice:";
     default:
       return "You asked:";
   }
@@ -229,6 +313,14 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
       return "Slack task: Check how the wording may land. Identify tone risks, then offer a cleaner version if useful.";
     case "followup":
       return "Slack task: Help write or improve a follow-up. Keep it specific, low-pressure, and clear about the next step.";
+    case "respond":
+      return "Slack task: Help the user respond to the Slack context. Explain the strategy briefly, then provide 2-3 ready-to-use reply options labeled Direct but kind, Warm and collaborative, and Concise.";
+    case "clarity":
+      return "Slack task: Help the user ask for clarity. Identify the missing information, draft a specific answerable question, and remove unnecessary apologies.";
+    case "boundary":
+      return "Slack task: Help the user set a workplace boundary. Keep it firm, kind, specific, and realistic for Slack.";
+    case "practice":
+      return "Slack task: Prepare the user to practice a difficult workplace conversation. Give an opening line, likely pushback, and a short rehearsal plan.";
     default:
       return "Slack task: General Beckett coaching. Answer the user's specific request directly.";
   }
@@ -237,7 +329,7 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
 export async function lookupSlackConnectedUser(teamId: string, slackUserId: string) {
   const { data: integration, error } = await supabaseAdmin
     .from("user_integrations")
-    .select("user_id, access_token, external_team_name")
+    .select("user_id, access_token, external_team_name, metadata")
     .eq("provider", "slack")
     .eq("external_team_id", teamId)
     .eq("external_user_id", slackUserId)
@@ -248,12 +340,26 @@ export async function lookupSlackConnectedUser(teamId: string, slackUserId: stri
 
   const { data: profile, error: profileError } = await supabaseAdmin
     .from("profiles")
-    .select("id, email, display_name, first_name, full_name, plan, communication_preferences, coaching_tone")
+    .select(
+      "id, email, display_name, first_name, full_name, plan, communication_preferences, coaching_tone, strengths, workplace_triggers, neurodivergent_context, neurodivergent_context_other"
+    )
     .eq("id", integration.user_id)
     .maybeSingle();
 
   if (profileError) throw profileError;
   if (!profile) return null;
+
+  const metadata = metadataRecord(integration.metadata);
+  const authedUser = metadataRecord(metadata.authed_user);
+  const grantedUserScopes = splitSlackScopes(metadata.granted_user_scopes || authedUser.scope || metadata.user_scope);
+  const missingUserScopes = REQUIRED_SLACK_USER_SCOPES.filter((scope) => !grantedUserScopes.includes(scope));
+  const { data: toolkitItems } = await supabaseAdmin
+    .from("course_toolkit_items")
+    .select("course_id, category, label, content, updated_at")
+    .eq("user_id", profile.id)
+    .is("deleted_at", null)
+    .order("updated_at", { ascending: false })
+    .limit(6);
 
   return {
     id: profile.id,
@@ -261,12 +367,68 @@ export async function lookupSlackConnectedUser(teamId: string, slackUserId: stri
     name: profile.display_name || profile.first_name || profile.full_name || null,
     plan: profile.plan || "free",
     accessToken: integration.access_token || null,
+    botAccessToken: typeof metadata.access_token === "string" ? metadata.access_token : null,
     teamName: integration.external_team_name || null,
+    grantedUserScopes,
+    missingUserScopes,
     communicationPreferences: Array.isArray(profile.communication_preferences)
       ? profile.communication_preferences
       : [],
     coachingTone: profile.coaching_tone || null,
+    strengths: Array.isArray(profile.strengths) ? profile.strengths : [],
+    workplaceTriggers: Array.isArray(profile.workplace_triggers) ? profile.workplace_triggers : [],
+    neurodivergentContext: Array.isArray(profile.neurodivergent_context)
+      ? profile.neurodivergent_context
+      : [],
+    neurodivergentContextOther: profile.neurodivergent_context_other || null,
+    toolkitItems: toolkitItems || [],
   } satisfies SlackConnectedUser;
+}
+
+export async function slackApiPost<T>(accessToken: string, method: string, body: Record<string, unknown>) {
+  const res = await fetch(`https://slack.com/api/${method}`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json; charset=utf-8",
+    },
+    body: JSON.stringify(body),
+  });
+  return res.json().catch(() => ({})) as Promise<T & { ok?: boolean; error?: string }>;
+}
+
+export async function postSlackAgentMessage({
+  botAccessToken,
+  slackUserId,
+  text,
+  title,
+}: {
+  botAccessToken: string | null;
+  slackUserId: string;
+  text: string;
+  title: string;
+}) {
+  if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
+
+  const opened = await slackApiPost<{ channel?: { id?: string } }>(botAccessToken, "conversations.open", {
+    users: slackUserId,
+  });
+  const channelId = opened.channel?.id;
+  if (!opened.ok || !channelId) return { ok: false, error: opened.error || "dm_open_failed" };
+
+  const posted = await slackApiPost<{ ts?: string }>(botAccessToken, "chat.postMessage", {
+    channel: channelId,
+    text: truncateSlackText(text),
+  });
+  if (!posted.ok || !posted.ts) return { ok: false, error: posted.error || "agent_post_failed" };
+
+  await slackApiPost(botAccessToken, "assistant.threads.setTitle", {
+    channel_id: channelId,
+    thread_ts: posted.ts,
+    title: title.slice(0, 80),
+  }).catch(() => null);
+
+  return { ok: true, channelId, ts: posted.ts };
 }
 
 export function isAllowedSlackPlan(user: SlackConnectedUser) {
@@ -329,36 +491,92 @@ export async function fetchSlackConversationContext({
   accessToken,
   channelId,
   channelName,
+  messageTs,
+  threadTs,
 }: {
   accessToken: string | null;
   channelId?: string | null;
   channelName?: string | null;
+  messageTs?: string | null;
+  threadTs?: string | null;
 }) {
-  if (!accessToken || !channelId) return null;
+  if (!accessToken) return slackUnavailable("missing_token");
+  if (!channelId) return slackUnavailable("missing_channel");
 
-  const data = await slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
-    accessToken,
-    "conversations.history",
-    new URLSearchParams({
-      channel: channelId,
-      limit: String(MAX_SLACK_CONTEXT_MESSAGES),
-      inclusive: "true",
-    })
-  ).catch(() => null);
+  const fetchRecentHistory = () =>
+    slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
+      accessToken,
+      "conversations.history",
+      new URLSearchParams({
+        channel: channelId,
+        limit: String(MAX_SLACK_CONTEXT_MESSAGES),
+        inclusive: "true",
+      })
+    ).catch(() => null);
 
-  if (!data?.ok || !Array.isArray(data.messages) || data.messages.length === 0) return null;
+  const replyTs = threadTs || messageTs || null;
+  const replyData = replyTs
+    ? await slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
+        accessToken,
+        "conversations.replies",
+        new URLSearchParams({
+          channel: channelId,
+          ts: replyTs,
+          limit: String(MAX_SLACK_CONTEXT_MESSAGES),
+          inclusive: "true",
+        })
+      ).catch(() => null)
+    : null;
+  const data = replyData?.ok ? replyData : await fetchRecentHistory();
+
+  if (!data?.ok) {
+    const reason =
+      data?.error === "missing_scope"
+        ? "missing_scope"
+        : data?.error === "not_in_channel"
+          ? "not_in_channel"
+          : data?.error === "channel_not_found"
+            ? "channel_not_found"
+            : "slack_api_error";
+    return slackUnavailable(reason);
+  }
+  if (!Array.isArray(data.messages) || data.messages.length === 0) return slackUnavailable("no_messages");
 
   const formatted = (
     await Promise.all(data.messages.slice().reverse().map((message) => formatSlackHistoryMessage(accessToken, message)))
   ).filter(Boolean) as string[];
 
-  if (!formatted.length) return null;
+  if (!formatted.length) return slackUnavailable("no_messages");
 
   const label = channelName ? `#${channelName}` : "this Slack conversation";
-  const context = [`Recent Slack context from ${label} (oldest to newest):`, ...formatted].join("\n");
-  return context.length <= MAX_SLACK_CONTEXT_LENGTH
-    ? context
-    : `${context.slice(0, MAX_SLACK_CONTEXT_LENGTH - 40).trim()}\n[Context trimmed]`;
+  const contextLabel = replyData?.ok ? `Slack thread context from ${label}` : `Recent Slack context from ${label}`;
+  const context = [`${contextLabel} (oldest to newest):`, ...formatted].join("\n");
+  return {
+    text:
+      context.length <= MAX_SLACK_CONTEXT_LENGTH
+        ? context
+        : `${context.slice(0, MAX_SLACK_CONTEXT_LENGTH - 40).trim()}\n[Context trimmed]`,
+    status: "available",
+    failureReason: null,
+    messageCount: formatted.length,
+  } satisfies SlackConversationContext;
+}
+
+export function slackContextUserNote(context: SlackConversationContext) {
+  if (context.status === "available") return "";
+  switch (context.failureReason) {
+    case "missing_scope":
+      return "_I could not read recent Slack context because this Slack connection is missing the newest private-channel permissions. Reconnect Slack from Beckett Settings when you want private-channel context included._";
+    case "not_in_channel":
+    case "channel_not_found":
+      return "_I could not read recent Slack context for this conversation, so I am answering from what you asked._";
+    case "no_messages":
+      return "_I could not find recent Slack messages to include, so I am answering from what you asked._";
+    case "missing_token":
+      return "_Slack context is not connected yet, so I am answering from what you asked._";
+    default:
+      return "_I could not read recent Slack context this time, so I am answering from what you asked._";
+  }
 }
 
 export async function runSlackCoaching({
@@ -367,53 +585,104 @@ export async function runSlackCoaching({
   prompt,
   sourceLabel,
   messageText,
+  contextStatus,
+  contextFailureReason,
+  contextMessageCount,
   responseDetail,
   intent = "general",
 }: {
   user: SlackConnectedUser;
-  action: "slash_command" | "message_shortcut";
+  action: "slash_command" | "message_shortcut" | "agent_message";
   prompt: string;
   sourceLabel: string;
   messageText?: string | null;
+  contextStatus?: SlackContextStatus;
+  contextFailureReason?: SlackContextFailureReason | null;
+  contextMessageCount?: number;
   responseDetail?: SlackResponseDetail;
   intent?: SlackCoachingIntent;
 }) {
+  if (contextStatus) {
+    await noteSlackContextValidation(
+      user.id,
+      contextStatus === "available" ? null : contextFailureReason || "slack_api_error"
+    ).catch((error) => {
+      console.error("Slack context validation metadata update failed", error);
+    });
+  }
+
   await recordAiUsage(user.id, {
     source: "slack_desktop",
     action,
     metadata: {
       sourceLabel,
       teamName: user.teamName,
+      contextStatus: contextStatus || null,
+      contextFailureReason: contextFailureReason || null,
+      contextMessageCount: contextMessageCount || 0,
       responseDetail: responseDetail || null,
       intent,
+      agentTool: selectSlackAgentTool({
+        intent,
+        action,
+        hasSlackContext: Boolean(messageText || contextStatus === "available"),
+      }),
     },
+  });
+
+  const agentTool = selectSlackAgentTool({
+    intent,
+    action,
+    hasSlackContext: Boolean(messageText || contextStatus === "available"),
   });
 
   const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
 You are responding inside Slack, so be concise, practical, and easy to scan.
 Help the user understand tone, subtext, context, next steps, and possible replies.
 Do not claim certainty about another person's intent. Use phrases like "may" or "likely" when interpreting tone.
+Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushback that is not visible in the provided Slack text.
+Always separate "what is visible" from "possible interpretation" when decoding a Slack message or thread.
+If the user is over-reading an ambiguous message, say what is not knowable from the thread.
 Avoid generic encouragement. Give concrete language the user could use.
 Format with short headings and bullets. Do not use markdown tables.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
+For reply drafting, include 2-3 Slack-ready options when useful: Direct but kind, Warm and collaborative, and Concise.
+For difficult conversation prep, include talking points, an opening sentence, likely pushback, and a short follow-up draft.
+Beckett suggests and coaches; it does not tell the user to act automatically.
 Do not add generic privacy or shared-channel warnings just because Slack context includes both personal and work topics.
 Only mention privacy, shared-channel, or workplace policy risk when the user's request is about posting in a public/shared channel, the context clearly includes sensitive personal information, or the requested message could create a concrete workplace safety or policy concern.
+${slackAgentToolInstruction(agentTool)}
 ${beckettBoundaryPrompt()}`;
 
-  const preferenceLine = user.communicationPreferences.length
-    ? `What this user wants Beckett to help with: ${user.communicationPreferences.join(", ")}.`
-    : "The user has not set specific Beckett help preferences.";
-  const toneLine = user.coachingTone ? `Preferred coaching tone: ${user.coachingTone}.` : "";
+  const coachingProfileContext = formatCoachingProfileForPrompt(
+    {
+      display_name: user.name,
+      communication_preferences: user.communicationPreferences,
+      coaching_tone: user.coachingTone,
+      strengths: user.strengths,
+      workplace_triggers: user.workplaceTriggers,
+      neurodivergent_context: user.neurodivergentContext,
+      neurodivergent_context_other: user.neurodivergentContextOther,
+    },
+    user.toolkitItems
+  );
   const responseDetailLine =
     responseDetail === "quick"
       ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful. Keep the answer under 900 characters."
       : responseDetail === "longer"
         ? "Response length: Longer explanation. Give more context about likely tone/subtext, what to watch for, next steps, and suggested wording. Keep it scannable in Slack and under 1700 characters."
         : "Response length: Default Slack coaching response. Be concise but useful.";
-  const messageLine = messageText ? `\n\nSlack message/context:\n${messageText}` : "";
-  const userPrompt = `${preferenceLine}
-${toneLine}
+  const contextLine = contextStatus
+    ? `Slack context status: ${contextStatus}${contextFailureReason ? ` (${contextFailureReason})` : ""}.`
+    : "";
+  const messageLine = messageText
+    ? `\n\nSlack message/context:\n${messageText}`
+    : contextStatus === "unavailable"
+      ? "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
+      : "";
+  const userPrompt = `${coachingProfileContext || "The user has not set specific Beckett coaching preferences yet."}
 ${responseDetailLine}
+${contextLine}
 ${slackIntentInstruction(intent)}
 
 User request:
@@ -431,8 +700,12 @@ ${prompt}${messageLine}`;
       action,
       sourceLabel,
       teamName: user.teamName,
+      contextStatus: contextStatus || null,
+      contextFailureReason: contextFailureReason || null,
+      contextMessageCount: contextMessageCount || 0,
       responseDetail: responseDetail || null,
       intent,
+      agentTool,
     },
   });
 

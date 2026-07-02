@@ -1,0 +1,89 @@
+{
+  "display_information": {
+    "name": "Beckett Staging",
+    "description": "Neurodivergent workplace communication coaching in Slack.",
+    "background_color": "#f3e6cf"
+  },
+  "features": {
+    "app_home": {
+      "home_tab_enabled": false,
+      "messages_tab_enabled": true,
+      "messages_tab_read_only_enabled": false
+    },
+    "agent_view": {
+      "agent_description": "Beckett is a neurodivergent workplace communication coach that helps you decode Slack messages, draft clearer replies, and prepare for difficult conversations.",
+      "suggested_prompts": [
+        {
+          "title": "Prep for a 1:1",
+          "message": "Help me prepare for a 1:1 with my manager about workload."
+        },
+        {
+          "title": "Ask for clarity",
+          "message": "Help me ask a clarifying question without over-apologizing."
+        },
+        {
+          "title": "Respond without defensiveness",
+          "message": "Help me respond to feedback without sounding defensive."
+        }
+      ]
+    },
+    "bot_user": {
+      "display_name": "Beckett Staging",
+      "always_online": false
+    },
+    "slash_commands": [
+      {
+        "command": "/beckett",
+        "description": "Decode, draft, or prep for workplace conversations.",
+        "url": "https://meetbeckett.co/api/slack/commands",
+        "should_escape": false
+      }
+    ],
+    "shortcuts": [
+      {
+        "name": "Ask Beckett",
+        "type": "message",
+        "callback_id": "beckett_message_context",
+        "description": "Get private coaching on this Slack message or thread."
+      }
+    ]
+  },
+  "oauth_config": {
+    "redirect_urls": [
+      "https://meetbeckett.co/api/slack/callback"
+    ],
+    "scopes": {
+      "bot": [
+        "commands",
+        "chat:write",
+        "assistant:write",
+        "im:history",
+        "im:write"
+      ],
+      "user": [
+        "channels:history",
+        "groups:history",
+        "im:history",
+        "mpim:history",
+        "users:read"
+      ]
+    }
+  },
+  "settings": {
+    "event_subscriptions": {
+      "request_url": "https://meetbeckett.co/api/slack/events",
+      "bot_events": [
+        "app_home_opened",
+        "app_context_changed",
+        "message.im"
+      ]
+    },
+    "interactivity": {
+      "is_enabled": true,
+      "request_url": "https://meetbeckett.co/api/slack/interactions"
+    },
+    "org_deploy_enabled": false,
+    "socket_mode_enabled": false,
+    "token_rotation_enabled": false
+  }
+}
