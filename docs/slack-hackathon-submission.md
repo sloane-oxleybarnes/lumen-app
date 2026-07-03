@@ -1,4 +1,4 @@
-# Beckett Slack Hackathon Submission Draft
+# Beckett for Slack Hackathon Submission Draft
 
 ## Track
 
@@ -7,13 +7,15 @@ Backup: New Slack Agent
 
 ## One-Line Pitch
 
-Beckett prepares neurodivergent workers for the conversations that matter at work.
+Beckett for Slack prepares neurodivergent workers for the conversations that matter at work.
 
 ## Description
 
-Beckett is a private workplace communication coach in Slack. It helps neurodivergent professionals decode confusing Slack threads, avoid over-reading ambiguous tone, draft replies that match their intent, and prepare for difficult conversations before they happen.
+Beckett for Slack is a private workplace communication coach built for Slack. It helps neurodivergent professionals decode confusing Slack threads, avoid over-reading ambiguous tone, draft replies that match their intent, and prepare for difficult conversations before they happen.
 
 Instead of acting like a generic chatbot or writing assistant, Beckett guides the user through conversation strategy: what is visible, what is uncertain, what the next step should be, and how to say it clearly. Responses are private and ephemeral by default. Beckett can search relevant Slack history when the user asks for coaching, but it does not store full Slack history or raw Slack search results by default.
+
+This hackathon submission is Slack-only. It does not rely on Beckett's Chrome extension, Gmail integration, courses, website dashboard, or beta signup flow.
 
 ## Demo Workflow
 
@@ -23,7 +25,9 @@ Instead of acting like a generic chatbot or writing assistant, Beckett guides th
 4. Beckett suggests a next step and 2-3 reply options: Direct but kind, Warm and collaborative, and Concise.
 5. The user runs `/beckett prep I need to talk to my manager about workload in my 1:1`.
 6. Beckett opens a short modal to gather the person, goal, evidence, and likely pushback.
-7. Beckett moves the coaching into the Slack Agent/Split View Messages surface with talking points, an opening line, likely pushback, a practice prompt, and a follow-up draft.
+7. Beckett moves the coaching into the Slack Agent/Split View Messages surface.
+8. Beckett searches relevant Slack history for possible evidence instead of making the user remember and paste everything manually.
+9. Beckett asks the user to confirm what evidence to include, then builds talking points, an opening line, likely pushback, a practice prompt, and a follow-up draft.
 
 ## Demo Workspace Threads
 
@@ -84,7 +88,7 @@ flowchart LR
 
 ## Demo Script
 
-Opening: "Beckett is a neurodivergent workplace communication coach for Slack. It helps people prepare for high-stakes conversations, understand ambiguous tone, and respond clearly without over-apologizing or spiraling."
+Opening: "Beckett for Slack is a neurodivergent workplace communication coach. It helps people prepare for high-stakes conversations, understand ambiguous tone, and respond clearly without over-apologizing or spiraling."
 
 Demo:
 1. Show the vague manager thread.
@@ -94,6 +98,22 @@ Demo:
 5. Run `/beckett prep I need to talk to my manager about workload in my 1:1`.
 6. Show the `Prep with Beckett` modal.
 7. Submit context and show the coaching in the Slack Agent/Split View panel.
-8. Show talking points, opening line, likely pushback, practice prompt, and follow-up draft.
+8. Show Beckett pulling possible evidence from relevant Slack history.
+9. Show the user confirming what to include.
+10. Show talking points, opening line, likely pushback, practice prompt, and follow-up draft.
 
-Close: "Beckett helps neurodivergent workers communicate clearly inside the tools where work already happens."
+Close: "Beckett for Slack helps neurodivergent workers communicate clearly inside the tool where work already happens."
+
+## Slack-Only Test Checklist
+
+- `/beckett` returns a clean help card with no timeout.
+- `/beckett decode "Sure, sounds fine."` opens the private Quick answer / Longer explanation flow.
+- `Ask Beckett` message shortcut returns a private response that separates visible facts from possible interpretation.
+- `/beckett prep I need to ask my manager for a raise` opens the `Prep with Beckett` modal without `operation_timeout`.
+- Prep output appears privately in Slack, with fallback behavior if the sidebar/Split View surface is unavailable.
+- Sidebar assistant flow asks focused follow-up questions instead of producing only one long wall of text when more context is needed.
+- Beckett searches authorized Slack history for possible evidence before asking the user to provide evidence manually.
+- Beckett asks the user to confirm what evidence to include.
+- Beckett does not hallucinate reactions, agreement, annoyance, rapport, or hidden intent.
+- Beckett does not post publicly by default.
+- Demo excludes Chrome extension, Gmail, courses, website dashboard, and beta signup.

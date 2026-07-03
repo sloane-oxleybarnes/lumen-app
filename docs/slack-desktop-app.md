@@ -1,6 +1,6 @@
 # Beckett Slack Desktop App
 
-This is the staging-first Slack app path for using Beckett inside Slack Desktop. It is separate from the Chrome extension and should be tested on the `staging` branch before any production rollout.
+This is the Slack-only hackathon path for using Beckett inside Slack Desktop. It is separate from the Chrome extension, Gmail, courses, and the broader Beckett beta product.
 
 ## What This Adds
 
@@ -34,32 +34,115 @@ This is the staging-first Slack app path for using Beckett inside Slack Desktop.
 9. Sign into Beckett staging and connect Slack from Settings so the Slack user ID maps to a Beckett user.
 10. After changing scopes, reinstall/reconnect Slack from Beckett Settings so the bot receives `assistant:write`, `im:write`, and `im:history`, and the user receives `groups:history`, `mpim:history`, and the `search:read.*` scopes.
 
-## Testing
+## Slack-Only Hackathon Test Plan
 
 Use Slack Desktop or the Slack web app:
 
+### 1. Basic Slack App Health
+
 1. Run `/beckett` with no text.
-   - Expected: Beckett returns subcommand examples.
-2. Run `/beckett rewrite "Any update on this?"`.
-   - Expected: Beckett shows Quick answer and Longer explanation buttons, then returns rewrite-focused coaching after a button click.
-3. Run `/beckett decode "Sure, sounds fine."`, `/beckett draft ask my manager for clearer priorities this week`, `/beckett prep I need to give a teammate feedback`, `/beckett tone "I need this by Friday."`, and `/beckett followup remind Avery about the readout`.
-   - Expected: Non-prep commands keep the same private Quick/Longer flow. `/beckett prep ...` opens a `Prep with Beckett` modal.
-4. Run `/beckett respond help me answer this without sounding defensive`, `/beckett boundary I cannot take on another project this week`, `/beckett clarity I do not know what "clean this up" means`, and `/beckett practice my 1:1 with my manager about workload`.
-   - Expected: Beckett returns neurodivergent-friendly workplace coaching with visible uncertainty boundaries and concrete wording.
-5. Run `/beckett is this too direct? "I need this by Friday."`.
-   - Expected: Freeform prompts still work.
-6. Use the message shortcut on a real Slack message.
-   - Expected: Beckett returns an ephemeral note about what is visible, what is only a possible interpretation, what to do next, and reply options.
-7. Test with a Slack account that has not connected Slack in Beckett Settings.
-   - Expected: Beckett asks the user to connect Slack first.
-8. Test `/beckett` in a private channel and a group DM after reconnecting.
-   - Expected: Beckett can include active context and relevant prior Slack history; if Slack denies access, Beckett still answers from the prompt and says broader context was unavailable.
-9. Submit the `Prep with Beckett` modal from `/beckett prep I need to ask my manager for a promotion`.
-   - Expected: Beckett sends the coaching to the private Beckett conversation and prompts the user to open Beckett from Slack's app/sidebar area for the sidebar view.
-10. Open the Beckett app Messages/Split View surface and send a follow-up message.
-   - Expected: Beckett shows suggested prompts at the top of the Messages surface and replies privately in the same agent thread.
-11. In the Beckett sidebar, ask `Help me prepare to ask my manager for a raise`.
-   - Expected: Beckett uses relevant Slack history across authorized conversations, labels what came from prior history, and avoids claiming intent or reactions not visible in retrieved context.
+   - Expected: Beckett returns a clean Slack-native help card with command examples.
+   - Expected: No `operation_timeout`.
+   - Expected: No visible asterisk-heavy or terminal-like formatting.
+2. Run `/beckett decode "Sure, sounds fine."`.
+   - Expected: Slack acknowledges quickly, then shows a private Quick answer / Longer explanation choice card.
+3. Click `Quick answer`, then repeat and click `Longer explanation`.
+   - Expected: Beckett replaces the choice card with private coaching.
+   - Expected: The response uses clean section labels and short bullets.
+   - Expected: No public channel message is posted.
+
+### 2. Message Shortcut: Decode + Respond
+
+1. In the demo workspace, open the vague manager task handoff thread.
+2. Use the message shortcut: `Ask Beckett`.
+   - Expected: Beckett responds privately.
+   - Expected: Beckett separates what is visible from possible interpretation.
+   - Expected: Beckett does not claim the manager is annoyed, comfortable, aligned, or reacting unless that is visible in the provided Slack context.
+   - Expected: Beckett suggests a clear next move and 2-3 reply options.
+3. Repeat with the passive-aggressive teammate thread.
+   - Expected: Beckett helps the user avoid over-reading and gives a practical reply option.
+
+### 3. Slash Commands: Workplace Coaching
+
+Test these commands:
+
+1. `/beckett respond help me answer this without sounding defensive`
+2. `/beckett boundary I cannot take on another project this week`
+3. `/beckett clarity I do not know what "clean this up" means`
+4. `/beckett practice my 1:1 with my manager about workload`
+5. `/beckett tone "I need this by Friday."`
+6. `/beckett followup remind Avery about the readout`
+
+Expected:
+- Non-prep commands use the private Quick answer / Longer explanation flow.
+- Beckett gives neurodivergent-friendly workplace communication coaching.
+- Beckett avoids clinical labels, hidden-intent claims, and overconfident reads.
+- Draft options stay Slack-ready and easy to copy.
+
+### 4. Prep Modal: Difficult Conversation Intake
+
+1. Run `/beckett prep I need to ask my manager for a raise`.
+   - Expected: No `operation_timeout`.
+   - Expected: Slack quickly shows `Opening Beckett's prep form...`.
+   - Expected: The `Prep with Beckett` modal opens.
+2. Fill in:
+   - Who are you talking to?
+   - What conversation do you need to have?
+   - What outcome do you want?
+   - What evidence or context should Beckett know?
+   - What are you worried they may push back on?
+3. Submit the modal.
+   - Expected: Beckett sends private prep coaching.
+   - Expected: Output includes conversation goal, talking points, opening sentence, likely pushback, practice prompt, and follow-up draft.
+   - Expected: If the sidebar/Split View surface is unavailable, Beckett uses a private fallback response.
+
+### 5. Sidebar / Assistant Coaching Flow
+
+1. Open Beckett from Slack's app/sidebar area.
+2. Ask: `Help me prepare to ask my manager for a raise`.
+   - Expected: Beckett behaves like a coach, not a single-wall-of-text chatbot.
+   - Expected: Beckett can ask focused follow-up questions one at a time when more context is needed.
+   - Expected: Beckett looks for relevant Slack history before asking the user to manually provide evidence.
+3. Confirm evidence behavior:
+   - Expected: Beckett says it found possible supporting evidence from Slack context, not guaranteed accomplishments.
+   - Expected: Beckett asks the user to confirm what to include.
+   - Expected: Beckett distinguishes visible Slack facts from interpretation.
+4. Continue the prep flow.
+   - Expected: Beckett produces an opening line, talking points, likely pushback, and follow-up draft.
+
+### 6. Broader Slack Context
+
+1. Test from a channel related to the manager or project.
+   - Expected: Beckett uses active context plus relevant prior Slack history when available.
+2. Test from an unrelated channel.
+   - Expected: Beckett can still search relevant authorized Slack history based on the user's request.
+3. Test a person/topic with little or no history.
+   - Expected: Beckett says it does not have enough prior context and coaches from the prompt instead of inventing evidence.
+4. Test after reconnecting Slack with the latest scopes.
+   - Expected: Beckett can search authorized public channels, private channels, DMs, and group DMs.
+5. Test with missing/denied scopes.
+   - Expected: Beckett falls back gracefully and says broader Slack context was unavailable.
+
+### 7. Privacy + Guardrail Checks
+
+1. Confirm Beckett responses are private/ephemeral by default.
+2. Confirm Beckett does not post into the channel automatically.
+3. Confirm Beckett does not store raw Slack search results or full Slack history by default.
+4. Confirm Beckett does not infer diagnosis or hidden intent.
+5. Confirm Beckett never says someone reacted, agreed, felt comfortable, was annoyed, or pushed back unless visible in retrieved Slack context.
+6. Confirm no Chrome extension, Gmail, courses, website dashboard, or beta-signup features are shown in the hackathon demo.
+
+### 8. Reviewer Access
+
+1. Confirm the Slack app is installed and working in the sandbox workspace.
+2. Confirm `slackhack@salesforce.com` and `testing@devpost.com` have access before submission.
+3. Confirm demo workspace threads are populated with non-sensitive test data.
+4. Confirm the Devpost submission includes:
+   - Slack sandbox URL
+   - Demo video under 3 minutes
+   - Architecture diagram
+   - Slack-only product description
+   - Track: Slack Agent for Good
 
 ## Hackathon Demo Story
 
@@ -69,13 +152,14 @@ Use Slack Desktop or the Slack web app:
 4. Beckett suggests the next move and 2-3 private reply options.
 5. The user runs `/beckett prep I need to talk to my manager about workload in my 1:1`.
 6. Beckett opens a modal to gather context.
-7. The user opens Beckett in Slack's sidebar/Messages surface to continue with suggested prompts and follow-up coaching.
+7. The user continues in Beckett's Slack assistant/sidebar experience.
+8. Beckett searches relevant Slack history for possible evidence, asks the user to confirm what to include, then builds talking points, an opening line, likely pushback, and a follow-up draft.
 
 Closing line: Beckett helps neurodivergent workers communicate clearly inside the tools where work already happens.
 
 ## Production Notes
 
 - Do not reuse staging Slack app secrets in production.
-- Do not promote this to production until the slash command and message shortcut are stable with real beta users.
+- Keep the hackathon submission Slack-only. Do not include Chrome extension, Gmail, courses, beta signup, or web dashboard flows in the demo.
 - Slack requires command and shortcut requests to be acknowledged quickly. These endpoints keep responses concise, but a future queue/background job would make longer AI responses more resilient.
 - Slack Agent/Split View features require the **Agents** feature to be enabled in Slack app settings and may require reinstalling the app after the manifest adds agent scopes/events.
