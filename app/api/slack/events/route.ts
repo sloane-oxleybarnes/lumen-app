@@ -7,9 +7,11 @@ import {
   handleSlackAiError,
   isAllowedSlackPlan,
   lookupSlackConnectedUser,
+  lookupSlackWorkspaceBotToken,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
   slackApiPost,
+  slackConnectText,
   verifySlackRequest,
 } from "@/lib/slack-app";
 import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
@@ -152,7 +154,38 @@ async function respondToAgentMessage({
   actionToken?: string | null;
 }) {
   const user = await lookupSlackConnectedUser(teamId, slackUserId);
-  if (!user?.botAccessToken) return;
+  if (!user?.botAccessToken) {
+    const botAccessToken = await lookupSlackWorkspaceBotToken(teamId).catch((error) => {
+      console.error("Slack workspace bot token lookup failed", {
+        teamPresent: Boolean(teamId),
+        slackUserPresent: Boolean(slackUserId),
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    });
+
+    if (botAccessToken) {
+      const payload = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "Connect Slack",
+        body: slackConnectText("https://www.meetbeckett.co", "I can see this Slack workspace, but I could not match your Slack account to a Beckett profile yet."),
+      });
+
+      await slackApiPost(botAccessToken, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: threadTs,
+        ...payload,
+      });
+      return;
+    }
+
+    console.error("Slack agent message ignored because no connected user or workspace bot token was found", {
+      teamPresent: Boolean(teamId),
+      slackUserPresent: Boolean(slackUserId),
+      channelPresent: Boolean(channelId),
+    });
+    return;
+  }
 
   if (!isAllowedSlackPlan(user)) {
     await slackApiPost(user.botAccessToken, "chat.postMessage", {

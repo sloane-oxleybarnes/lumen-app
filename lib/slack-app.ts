@@ -537,6 +537,23 @@ export async function lookupSlackConnectedUser(teamId: string, slackUserId: stri
   } satisfies SlackConnectedUser;
 }
 
+export async function lookupSlackWorkspaceBotToken(teamId: string) {
+  if (!teamId) return null;
+
+  const { data, error } = await supabaseAdmin
+    .from("user_integrations")
+    .select("metadata")
+    .eq("provider", "slack")
+    .eq("external_team_id", teamId)
+    .order("updated_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) throw error;
+  const metadata = metadataRecord(data?.metadata);
+  return typeof metadata.access_token === "string" ? metadata.access_token : null;
+}
+
 export async function slackApiPost<T>(accessToken: string, method: string, body: Record<string, unknown>) {
   const res = await fetch(`https://slack.com/api/${method}`, {
     method: "POST",
