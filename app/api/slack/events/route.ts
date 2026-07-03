@@ -12,6 +12,7 @@ import {
   slackApiPost,
   verifySlackRequest,
 } from "@/lib/slack-app";
+import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
 
 export const runtime = "nodejs";
 
@@ -175,6 +176,38 @@ async function respondToAgentMessage({
           channelId: activeChannelId,
         })
       : null;
+
+    const guidedPrep = await handleGuidedSlackPrep({
+      user,
+      teamId,
+      slackUserId,
+      channelId,
+      threadTs,
+      text,
+      activeChannelId,
+      actionToken,
+    });
+
+    if (guidedPrep.handled) {
+      const payload = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "Guided prep",
+        body: guidedPrep.response,
+      });
+
+      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: threadTs,
+        ...payload,
+      });
+
+      await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
+        channel_id: channelId,
+        thread_ts: threadTs,
+        status: "",
+      }).catch(() => null);
+      return;
+    }
 
     const coachingContext = await buildSlackCoachingContext({
       user,
