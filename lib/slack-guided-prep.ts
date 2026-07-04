@@ -464,7 +464,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
   switch (session.flow_type) {
     case "respond":
       return [
-        "Help the user respond to the Slack/workplace context.",
+        "Help the user respond to the Slack conversation. The conversation may be workplace, workplace-adjacent, friendly, or personal; do not refuse just because it is not strictly work-related.",
         base,
         "",
         "Return sections: Possible read, Next move, Draft options.",
@@ -480,7 +480,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
       ].join("\n");
     case "decode":
       return [
-        "Decode the message or situation without over-inference.",
+        "Decode the message or situation without over-inference. The conversation may be workplace, workplace-adjacent, friendly, or personal; help with the provided conversation rather than rejecting it as non-work.",
         base,
         "",
         "Return sections: What is visible, Possible read, What not to over-read, Next move.",
