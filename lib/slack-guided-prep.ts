@@ -1,9 +1,11 @@
 import { supabaseAdmin } from "@/lib/server-admin";
 import {
+  buildBeckettPayload,
   buildSlackCoachingContext,
   fetchSlackConversationContext,
   postSlackAgentMessage,
   runSlackCoaching,
+  slackApiPost,
   SlackCoachingIntent,
   SlackConnectedUser,
   SlackConversationContext,
@@ -596,6 +598,19 @@ export async function startGuidedSlackFlow({
     },
     session
   );
+
+  if (response && user.botAccessToken) {
+    const payload = buildBeckettPayload({
+      title: "Beckett",
+      subtitle: flowTitle(intent),
+      body: response,
+    });
+    await slackApiPost(user.botAccessToken, "chat.postMessage", {
+      channel: postedChannelId,
+      thread_ts: postedTs,
+      ...payload,
+    });
+  }
 
   return {
     ok: true,
