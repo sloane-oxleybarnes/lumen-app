@@ -643,11 +643,13 @@ export async function postSlackAgentMessage({
   slackUserId,
   text,
   title,
+  subtitle = "",
 }: {
   botAccessToken: string | null;
   slackUserId: string;
   text: string;
   title: string;
+  subtitle?: string;
 }) {
   if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
 
@@ -657,7 +659,7 @@ export async function postSlackAgentMessage({
 
   const payload = buildBeckettPayload({
     title: "Beckett",
-    subtitle: title,
+    subtitle,
     body: text,
     hideTitle: true,
   });

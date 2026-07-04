@@ -128,7 +128,7 @@ function inferConversationType(text: string) {
   if (/\bfeedback\b|\bconstructive\b/.test(lower)) return "feedback conversation";
   if (/\bclarity\b|\bunclear\b|\bclean this up\b/.test(lower)) return "clarity conversation";
   if (/\b1:1\b|\bone-on-one\b/.test(lower)) return "1:1 conversation";
-  return "difficult workplace conversation";
+  return "Slack conversation";
 }
 
 function initialAnswers(
@@ -178,16 +178,80 @@ function nextStepForAnswers(flowType: GuidedFlowType, answers: GuidedAnswers): G
 function flowTitle(flowType: GuidedFlowType) {
   switch (flowType) {
     case "respond":
-      return "Respond with Beckett";
+      return "Respond";
     case "rewrite":
-      return "Rewrite with Beckett";
+      return "Rewrite";
     case "decode":
-      return "Decode with Beckett";
+      return "Decode";
     case "prep":
-      return "Prep with Beckett";
+      return "Prep";
     case "practice":
-      return "Practice with Beckett";
+      return "Practice";
   }
+}
+
+function cleanSourceChannelName(channelName?: string | null) {
+  if (!channelName) return "";
+  if (/^(directmessage|privategroup|mpdm)$/i.test(channelName)) return "";
+  return channelName.startsWith("#") ? channelName : `#${channelName}`;
+}
+
+function inferSourceLabelFromContext(activeContext?: SlackConversationContext | null, userName?: string | null) {
+  const text = activeContext?.text || "";
+  const normalizedUserName = (userName || "").toLowerCase().trim();
+  const authors = Array.from(text.matchAll(/^([^:\n]{1,48}):\s+/gm))
+    .map((match) => match[1]?.trim())
+    .filter(Boolean)
+    .filter((name) => !/^(Slack thread context|Recent Slack context|Active Slack context|Beckett)$/i.test(name))
+    .filter((name) => !normalizedUserName || name.toLowerCase() !== normalizedUserName);
+  const unique = Array.from(new Set(authors));
+  return unique[0] || "";
+}
+
+function sourceLabelForFlow({
+  channelName,
+  activeContext,
+  userName,
+}: {
+  channelName?: string | null;
+  activeContext?: SlackConversationContext | null;
+  userName?: string | null;
+}) {
+  return cleanSourceChannelName(channelName) || inferSourceLabelFromContext(activeContext, userName) || "this Slack conversation";
+}
+
+function sidebarOpener(flowType: GuidedFlowType, sourceLabel: string, answers: GuidedAnswers) {
+  const prepTarget = answers.person || answers.conversation_type || sourceLabel;
+  switch (flowType) {
+    case "respond":
+      return `We’re working through how to respond to the last message from ${sourceLabel}. I started this conversation here so we can work through it privately, one step at a time.`;
+    case "decode":
+      return `We’re looking at what may be happening in the latest message from ${sourceLabel}. I started this conversation here so we can sort visible facts from possible interpretation privately.`;
+    case "rewrite":
+      return `We’re working on rewriting your message for ${sourceLabel}. I started this conversation here so we can make the wording clearer before anything gets sent.`;
+    case "prep":
+      return `We’re preparing for ${prepTarget}. I started this conversation here so we can work through the setup privately, one step at a time.`;
+    case "practice":
+      return `We’re setting up practice for ${prepTarget}. I started this conversation here so you can rehearse privately before the real conversation.`;
+  }
+}
+
+function assistantThreadTitle(flowType: GuidedFlowType, sourceLabel: string) {
+  return `${flowTitle(flowType)}: ${sourceLabel}`.slice(0, 80);
+}
+
+function hasPastedMessage(text?: string) {
+  const cleaned = normalizeText(text || "");
+  if (!cleaned) return false;
+  if (/["“”][^"“”]{3,}["“”]/.test(cleaned)) return true;
+  return cleaned.length > 28 && !/^(help me|please|can you|could you|i need|respond|reply|decode|rewrite)\b/i.test(cleaned);
+}
+
+function missingCurrentConversationMessage(flowType: GuidedFlowType, session: SlackAgentSession, activeContext: SlackConversationContext | null) {
+  if (flowType !== "respond" && flowType !== "decode") return "";
+  if (!session.answers.source_channel_id) return "";
+  if (activeContext?.status === "available" || hasPastedMessage(session.answers.initial_request)) return "";
+  return "I could not read this Slack conversation. Paste or paraphrase the message and I’ll help.";
 }
 
 function normalizeDraftText(text: string) {
@@ -670,6 +734,11 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
         channelName: contextChannelName,
       })
     : null;
+  const missingContextMessage = missingCurrentConversationMessage(session.flow_type, session, activeContext);
+  if (missingContextMessage) {
+    await updateSession(session.id, { status: "completed" });
+    return missingContextMessage;
+  }
   const contextPrompt = [
     prompt,
     session.answers.person ? `Relevant person: ${session.answers.person}` : "",
@@ -768,15 +837,24 @@ export async function startGuidedSlackFlow({
     channelName: sourceChannelName,
     threadTs: sourceThreadTs,
   });
+  const sourceActiveContext = sourceChannelId
+    ? await fetchSlackConversationContext({
+        accessToken: user.accessToken,
+        channelId: sourceChannelId,
+        channelName: sourceChannelName,
+      })
+    : null;
+  const sourceLabel = sourceLabelForFlow({
+    channelName: sourceChannelName,
+    activeContext: sourceActiveContext,
+    userName: user.name,
+  });
   const step = nextStepForAnswers(intent, answers) || (intent === "decode" ? "decode_followup" : "ask_audience");
-  const initialText =
-    intent === "decode"
-      ? "I’ll decode this privately here."
-      : "I started this here so we can work through it privately, one step at a time.";
+  const initialText = sidebarOpener(intent, sourceLabel, answers);
   const posted = await postSlackAgentMessage({
     botAccessToken: user.botAccessToken,
     slackUserId,
-    title: flowTitle(intent),
+    title: assistantThreadTitle(intent, sourceLabel),
     text: initialText,
   });
 
@@ -813,7 +891,7 @@ export async function startGuidedSlackFlow({
     const draftOptions = intent === "respond" ? await saveSlackDraftOptions(session.id, response) : [];
     const payload = buildBeckettPayload({
       title: "Beckett",
-      subtitle: flowTitle(intent),
+      subtitle: "",
       body: response,
       hideTitle: true,
       actions: buildSlackDraftUseActions(session.id, draftOptions),
@@ -918,7 +996,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     const draftOptions = await saveSlackDraftOptions(updated.id, response);
     return {
       handled: true,
-      title: "Respond with Beckett",
+      title: flowTitle(updated.flow_type),
       response,
       actions: buildSlackDraftUseActions(updated.id, draftOptions),
     };

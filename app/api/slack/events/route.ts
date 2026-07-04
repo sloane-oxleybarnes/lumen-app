@@ -224,7 +224,7 @@ async function respondToAgentMessage({
     if (guidedPrep.handled) {
       const payload = buildBeckettPayload({
         title: "Beckett",
-        subtitle: guidedPrep.title || "Communication coach",
+        subtitle: "",
         body: guidedPrep.response,
         actions: guidedPrep.actions,
       });
