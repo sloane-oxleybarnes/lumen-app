@@ -15,6 +15,7 @@ import {
   verifySlackRequest,
 } from "@/lib/slack-app";
 import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
+import { publishSlackHome } from "@/lib/slack-history";
 
 export const runtime = "nodejs";
 
@@ -74,17 +75,26 @@ export async function POST(req: NextRequest) {
   if (
     body.type === "event_callback" &&
     event?.type === "app_home_opened" &&
-    event.user &&
-    (!event.tab || event.tab === "messages")
+    event.user
   ) {
-    scheduleSlackBackgroundTask(
-      "Slack agent surface setup failed",
-      setupAgentSurface({
-        teamId: body.team_id || "",
-        slackUserId: event.user,
-        channelId: event.channel,
-      })
-    );
+    if (event.tab === "home") {
+      scheduleSlackBackgroundTask(
+        "Slack app home publish failed",
+        publishHome({
+          teamId: body.team_id || "",
+          slackUserId: event.user,
+        })
+      );
+    } else if (!event.tab || event.tab === "messages") {
+      scheduleSlackBackgroundTask(
+        "Slack agent surface setup failed",
+        setupAgentSurface({
+          teamId: body.team_id || "",
+          slackUserId: event.user,
+          channelId: event.channel,
+        })
+      );
+    }
     return NextResponse.json({ ok: true });
   }
 
@@ -133,6 +143,23 @@ async function setupAgentSurface({
     botAccessToken: user.botAccessToken,
     slackUserId,
     channelId,
+  });
+}
+
+async function publishHome({
+  teamId,
+  slackUserId,
+}: {
+  teamId: string;
+  slackUserId: string;
+}) {
+  const user = await lookupSlackConnectedUser(teamId, slackUserId);
+  if (!user?.botAccessToken || !isAllowedSlackPlan(user)) return;
+
+  await publishSlackHome({
+    botAccessToken: user.botAccessToken,
+    slackUserId,
+    userId: user.id,
   });
 }
 

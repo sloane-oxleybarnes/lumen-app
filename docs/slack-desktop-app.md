@@ -13,6 +13,7 @@ This is the Slack-only hackathon path for using Beckett inside Slack Desktop. It
 - Active context plus relevant live Slack search across authorized public channels, private channels, DMs, and group DMs after the user reconnects with the latest scopes
 - Tool-style agent layer for `analyze_slack_thread`, `draft_slack_reply`, `coach_for_clarity`, `prep_difficult_conversation`, `summarize_relationship_context`, and `explain_tone_without_over_inference`
 - Sidebar-only guided flows for `/beckett respond`, `/beckett rewrite`, `/beckett decode`, `/beckett prep`, and `/beckett practice`; no pop-up modal intake in the hackathon demo
+- Slack App Home history hub with quick actions and recent Beckett coaching conversations
 
 ## Staging Setup
 
@@ -29,10 +30,11 @@ This is the Slack-only hackathon path for using Beckett inside Slack Desktop. It
    - Interactivity request URL: `https://www.meetbeckett.co/api/slack/interactions`
    - Event subscriptions request URL: `https://www.meetbeckett.co/api/slack/events`
    - OAuth redirect URL: `https://www.meetbeckett.co/api/slack/callback`
-7. In Slack app settings, enable **Agents**. Use the Agent messaging experience when prompted.
+7. In Slack app settings, enable **Agents** and App Home's **Home tab**. Use the Agent messaging experience when prompted.
 8. Install or reinstall the Slack app into the test workspace.
 9. Sign into Beckett staging and connect Slack from Settings so the Slack user ID maps to a Beckett user.
 10. After changing scopes, reinstall/reconnect Slack from Beckett Settings so the bot receives `assistant:write`, `im:write`, and `im:history`, and the user receives `groups:history`, `mpim:history`, and the `search:read.*` scopes.
+11. Run the latest Supabase migration so Slack Home can store privacy-safe coaching history metadata.
 
 ## Slack-Only Hackathon Test Plan
 
@@ -50,6 +52,21 @@ Use Slack Desktop or the Slack web app:
    - Expected: Beckett moves the coaching into the private Beckett assistant conversation when available.
    - Expected: The response uses clean section labels and short bullets.
    - Expected: No public channel message is posted.
+
+### 1A. Beckett Home History
+
+1. Open Beckett in Slack and select the Home tab.
+   - Expected: The Home tab shows Beckett's coach intro, quick actions, and recent Beckett conversations.
+   - Expected: If there is no history yet, Beckett shows an empty state with a prompt to start.
+2. Click a Home quick action, such as `Respond`.
+   - Expected: Beckett starts a private Messages conversation.
+   - Expected: No public channel message is posted.
+3. After running a Slack coaching flow, reopen the Home tab.
+   - Expected: The new conversation appears in recent history.
+4. Click `Continue` on a history card.
+   - Expected: Beckett posts a private continuation message with the prior summary and next-step buttons.
+5. Click `Archive`.
+   - Expected: The history item disappears from active Home history.
 
 ### 2. Message Shortcut: Decode + Respond
 

@@ -1,5 +1,10 @@
 import { supabaseAdmin } from "@/lib/server-admin";
 import {
+  createSlackCoachingThread,
+  summarizeSlackCoachingResponse,
+  updateSlackCoachingThread,
+} from "@/lib/slack-history";
+import {
   buildBeckettPayload,
   buildSlackCoachingContext,
   fetchSlackConversationContext,
@@ -58,6 +63,7 @@ type SlackAgentSession = {
   answers: GuidedAnswers;
   evidence_suggestions: EvidenceSuggestion[];
   confirmed_evidence: EvidenceSuggestion[];
+  coaching_thread_id?: string | null;
 };
 
 type GuidedFlowInput = {
@@ -429,6 +435,7 @@ async function createSession({
   flowType,
   answers,
   step,
+  coachingThreadId,
 }: {
   user: SlackConnectedUser;
   teamId: string;
@@ -438,6 +445,7 @@ async function createSession({
   flowType: GuidedFlowType;
   answers: GuidedAnswers;
   step: GuidedStep;
+  coachingThreadId?: string | null;
 }) {
   const { data, error } = await supabaseAdmin
     .from("slack_agent_sessions")
@@ -450,6 +458,7 @@ async function createSession({
       flow_type: flowType,
       step,
       answers,
+      coaching_thread_id: coachingThreadId || null,
       expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
     })
     .select("*")
@@ -867,6 +876,26 @@ export async function startGuidedSlackFlow({
     const postedError = "error" in posted ? posted.error : undefined;
     return { ok: false, error: postedError || "agent_post_failed" };
   }
+  const coachingThread = await createSlackCoachingThread({
+    user,
+    teamId,
+    slackUserId,
+    flowType: intent,
+    title: assistantThreadTitle(intent, sourceLabel),
+    promptSnippet: prompt,
+    summary: initialText,
+    slackChannelId: postedChannelId,
+    threadTs: postedTs,
+    sourceChannelId,
+    sourceChannelName,
+    status: "active",
+  }).catch((error) => {
+    console.error("Slack coaching history create failed", {
+      intent,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return null;
+  });
   const session = await createSession({
     user,
     teamId,
@@ -876,6 +905,7 @@ export async function startGuidedSlackFlow({
     flowType: intent,
     answers,
     step,
+    coachingThreadId: coachingThread?.id,
   });
   let response = "";
   try {
@@ -895,6 +925,10 @@ export async function startGuidedSlackFlow({
 
     if (response && user.botAccessToken) {
       const draftOptions = intent === "respond" ? await saveSlackDraftOptions(session.id, response) : [];
+      await updateSlackCoachingThread(coachingThread?.id, {
+        summary: summarizeSlackCoachingResponse(response, initialText),
+        status: intent === "prep" || intent === "practice" ? "active" : "completed",
+      }).catch(() => null);
       const payload = buildBeckettPayload({
         title: "Beckett",
         subtitle: "",
@@ -915,6 +949,10 @@ export async function startGuidedSlackFlow({
       message: error instanceof Error ? error.message : String(error),
     });
     response = "I started the private thread, but had trouble generating the response. Try the command again, or paste the message here and I’ll work from that.";
+    await updateSlackCoachingThread(coachingThread?.id, {
+      summary: response,
+      status: "active",
+    }).catch(() => null);
     if (user.botAccessToken) {
       const payload = buildBeckettPayload({
         title: "Beckett",
@@ -995,6 +1033,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       flowType,
       answers,
       step,
+      coachingThreadId: null,
     });
     const response = await firstSidebarResponse(input, created);
     const draftOptions = flowType === "respond" ? await saveSlackDraftOptions(created.id, response) : [];

@@ -26,8 +26,23 @@ import {
   SLACK_DRAFT_CANCEL_ACTION_ID,
   SLACK_DRAFT_SEND_ACTION_ID,
   SLACK_DRAFT_USE_ACTION_ID,
+  startGuidedSlackFlow,
   SlackDraftOption,
 } from "@/lib/slack-guided-prep";
+import {
+  archiveSlackCoachingThread,
+  buildSlackHistoryContinuePayload,
+  createSlackCoachingThread,
+  loadSlackCoachingThread,
+  parseSlackHistoryAction,
+  publishSlackHome,
+  slackHistoryTitle,
+  SLACK_HISTORY_ARCHIVE_ACTION_ID,
+  SLACK_HISTORY_CONTINUE_ACTION_ID,
+  SLACK_HISTORY_QUICK_ACTION_ID,
+  SlackHistoryFlowType,
+  summarizeSlackCoachingResponse,
+} from "@/lib/slack-history";
 import { supabaseAdmin } from "@/lib/server-admin";
 
 export const runtime = "nodejs";
@@ -179,6 +194,21 @@ function getDraftAction(payload: SlackInteractionPayload) {
   } catch {
     return null;
   }
+}
+
+function getHistoryAction(payload: SlackInteractionPayload) {
+  const action = payload.actions?.find((item) =>
+    item.action_id === SLACK_HISTORY_CONTINUE_ACTION_ID ||
+    item.action_id === SLACK_HISTORY_ARCHIVE_ACTION_ID ||
+    item.action_id === SLACK_HISTORY_QUICK_ACTION_ID
+  );
+  if (!action?.action_id) return null;
+  const parsed = parseSlackHistoryAction(action.value);
+  return {
+    actionId: action.action_id,
+    threadId: parsed?.threadId,
+    flowType: parsed?.flowType,
+  };
 }
 
 function detailLabel(responseDetail: SlackResponseDetail) {
@@ -567,6 +597,25 @@ async function sendMessageShortcutResponse({
       const agentChannelId = "channelId" in agentDelivery ? agentDelivery.channelId : null;
       const agentThreadTs = "ts" in agentDelivery ? agentDelivery.ts : null;
       if (agentChannelId && agentThreadTs && user.botAccessToken) {
+        await createSlackCoachingThread({
+          user,
+          teamId,
+          slackUserId,
+          flowType: "message",
+          title: slackHistoryTitle("message", payload.channel?.name ? `#${payload.channel.name}` : payload.message?.username || payload.message?.user || "this Slack conversation"),
+          promptSnippet: prompt,
+          summary: summarizeSlackCoachingResponse(response, prompt),
+          slackChannelId: agentChannelId,
+          threadTs: agentThreadTs,
+          sourceChannelId: payload.channel?.id,
+          sourceChannelName: payload.channel?.name,
+          status: "completed",
+        }).catch((error) => {
+          console.error("Slack shortcut history create failed", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
+
         const draftSession = await createSlackDraftActionSession({
           user,
           teamId,
@@ -707,6 +756,91 @@ async function handleDraftButtonResponse({
   }
 }
 
+function quickPrompt(flowType: SlackHistoryFlowType, thread?: { title?: string | null; summary?: string | null; prompt_snippet?: string | null }) {
+  const context = thread ? `\n\nPrevious Beckett context: ${[thread.title, thread.summary, thread.prompt_snippet].filter(Boolean).join(" — ")}` : "";
+  switch (flowType) {
+    case "respond":
+      return `Help me respond to a Slack conversation.${context}`;
+    case "decode":
+      return `Help me decode a Slack conversation and separate visible facts from possible interpretation.${context}`;
+    case "rewrite":
+      return `Help me rewrite a Slack message so it is clearer.${context}`;
+    case "prep":
+      return `Help me prepare for a conversation.${context}`;
+    case "practice":
+      return `Help me practice a conversation.${context}`;
+    default:
+      return `Help me with this Slack conversation.${context}`;
+  }
+}
+
+async function handleHistoryButtonResponse({
+  payload,
+  actionId,
+  threadId,
+  flowType,
+}: {
+  payload: SlackInteractionPayload;
+  actionId: string;
+  threadId?: string;
+  flowType?: SlackHistoryFlowType;
+}) {
+  const teamId = payload.team?.id || "";
+  const slackUserId = payload.user?.id || "";
+
+  try {
+    if (!teamId || !slackUserId) return;
+    const user = await lookupSlackConnectedUser(teamId, slackUserId);
+    if (!user?.botAccessToken || !isAllowedSlackPlan(user)) return;
+
+    if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
+      await archiveSlackCoachingThread({ threadId, userId: user.id });
+      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id });
+      return;
+    }
+
+    const thread = threadId ? await loadSlackCoachingThread({ threadId, userId: user.id }) : null;
+
+    if (actionId === SLACK_HISTORY_CONTINUE_ACTION_ID && thread) {
+      const payloadToPost = buildSlackHistoryContinuePayload(thread);
+      if (thread.slack_channel_id && thread.thread_ts) {
+        await slackApiPost(user.botAccessToken, "chat.postMessage", {
+          channel: thread.slack_channel_id,
+          thread_ts: thread.thread_ts,
+          ...payloadToPost,
+        });
+      } else {
+        await postSlackAgentMessage({
+          botAccessToken: user.botAccessToken,
+          slackUserId,
+          title: `Continue: ${thread.title}`,
+          text: payloadToPost.text,
+        });
+      }
+      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id }).catch(() => null);
+      return;
+    }
+
+    if (actionId === SLACK_HISTORY_QUICK_ACTION_ID && flowType && flowType !== "message") {
+      await startGuidedSlackFlow({
+        user,
+        teamId,
+        slackUserId,
+        intent: flowType,
+        prompt: quickPrompt(flowType, thread || undefined),
+      });
+      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id }).catch(() => null);
+    }
+  } catch (error) {
+    console.error("Slack history button action failed", {
+      actionId,
+      threadId,
+      flowType,
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+}
+
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const verification = verifySlackRequest(req, rawBody);
@@ -718,6 +852,20 @@ export async function POST(req: NextRequest) {
   if (!payload) return NextResponse.json({ error: "Invalid Slack payload." }, { status: 400 });
 
   if (payload.type === "block_actions") {
+    const historyAction = getHistoryAction(payload);
+    if (historyAction) {
+      scheduleSlackBackgroundTask(
+        "Slack history button response failed",
+        handleHistoryButtonResponse({
+          payload,
+          actionId: historyAction.actionId,
+          threadId: historyAction.threadId,
+          flowType: historyAction.flowType,
+        })
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     const draftAction = getDraftAction(payload);
     if (draftAction) {
       scheduleSlackBackgroundTask(
