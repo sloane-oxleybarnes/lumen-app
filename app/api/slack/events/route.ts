@@ -15,7 +15,7 @@ import {
   verifySlackRequest,
 } from "@/lib/slack-app";
 import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
-import { publishSlackHome } from "@/lib/slack-history";
+import { publishSlackConnectHome, publishSlackHomeResult } from "@/lib/slack-history";
 
 export const runtime = "nodejs";
 
@@ -77,15 +77,15 @@ export async function POST(req: NextRequest) {
     event?.type === "app_home_opened" &&
     event.user
   ) {
-    if (event.tab === "home") {
-      scheduleSlackBackgroundTask(
-        "Slack app home publish failed",
-        publishHome({
-          teamId: body.team_id || "",
-          slackUserId: event.user,
-        })
-      );
-    } else if (!event.tab || event.tab === "messages") {
+    scheduleSlackBackgroundTask(
+      "Slack app home publish failed",
+      publishHome({
+        teamId: body.team_id || "",
+        slackUserId: event.user,
+      })
+    );
+
+    if (!event.tab || event.tab === "messages") {
       scheduleSlackBackgroundTask(
         "Slack agent surface setup failed",
         setupAgentSurface({
@@ -154,9 +154,24 @@ async function publishHome({
   slackUserId: string;
 }) {
   const user = await lookupSlackConnectedUser(teamId, slackUserId);
-  if (!user?.botAccessToken || !isAllowedSlackPlan(user)) return;
+  if (!user?.botAccessToken || !isAllowedSlackPlan(user)) {
+    const botAccessToken = await lookupSlackWorkspaceBotToken(teamId).catch((error) => {
+      console.error("Slack workspace bot token lookup for Home failed", {
+        teamPresent: Boolean(teamId),
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    });
 
-  await publishSlackHome({
+    await publishSlackConnectHome({
+      botAccessToken,
+      slackUserId,
+      settingsUrl: "https://www.meetbeckett.co/dashboard/settings",
+    });
+    return;
+  }
+
+  await publishSlackHomeResult({
     botAccessToken: user.botAccessToken,
     slackUserId,
     userId: user.id,

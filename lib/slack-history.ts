@@ -269,6 +269,40 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[]): SlackBlock
   return blocks.slice(0, 90);
 }
 
+export function buildSlackConnectHomeBlocks(settingsUrl: string): SlackBlock[] {
+  return [
+    {
+      type: "header",
+      text: { type: "plain_text", text: "Beckett" },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "Your communication coach for the conversations that matter.",
+      },
+    },
+    { type: "divider" },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "Connect Slack from Beckett Settings to see your coaching history and start private Beckett conversations from here.",
+      },
+    },
+    {
+      type: "actions",
+      elements: [
+        {
+          type: "button",
+          text: { type: "plain_text", text: "Open Beckett Settings" },
+          url: settingsUrl,
+        },
+      ],
+    },
+  ];
+}
+
 export async function publishSlackHome({
   botAccessToken,
   slackUserId,
@@ -287,6 +321,40 @@ export async function publishSlackHome({
       blocks: buildSlackHomeBlocks(threads),
     },
   });
+}
+
+export async function publishSlackConnectHome({
+  botAccessToken,
+  slackUserId,
+  settingsUrl,
+}: {
+  botAccessToken: string | null;
+  slackUserId: string;
+  settingsUrl: string;
+}) {
+  if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
+  return slackApiPost(botAccessToken, "views.publish", {
+    user_id: slackUserId,
+    view: {
+      type: "home",
+      blocks: buildSlackConnectHomeBlocks(settingsUrl),
+    },
+  });
+}
+
+export async function publishSlackHomeResult(input: {
+  botAccessToken: string | null;
+  slackUserId: string;
+  userId: string;
+}) {
+  const result = await publishSlackHome(input);
+  if (!result.ok) {
+    console.error("Slack views.publish failed", {
+      slackUserPresent: Boolean(input.slackUserId),
+      error: result.error || "unknown_error",
+    });
+  }
+  return result;
 }
 
 export function buildSlackHistoryContinuePayload(thread: SlackCoachingThread) {
