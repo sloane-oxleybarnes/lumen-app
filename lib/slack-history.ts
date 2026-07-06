@@ -225,7 +225,7 @@ function historyCard(thread: SlackCoachingThread): SlackBlock[] {
   ];
 }
 
-export function buildSlackHomeBlocks(threads: SlackCoachingThread[]): SlackBlock[] {
+export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: string | null): SlackBlock[] {
   const blocks: SlackBlock[] = [
     {
       type: "header",
@@ -238,6 +238,17 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[]): SlackBlock
         text: "Your communication coach for the conversations that matter.",
       },
     },
+    ...(notice
+      ? [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: notice,
+            },
+          },
+        ]
+      : []),
     {
       type: "actions",
       elements: [
@@ -260,7 +271,7 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[]): SlackBlock
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "No Beckett conversations yet. Start with a quick action above or run `/beckett respond` from a Slack conversation.",
+        text: "No active Beckett conversations yet. Start with a quick action above or run `/beckett respond` from a Slack conversation. Archived conversations are hidden from this list.",
       },
     });
     return blocks;
@@ -309,10 +320,12 @@ export async function publishSlackHome({
   botAccessToken,
   slackUserId,
   userId,
+  notice,
 }: {
   botAccessToken: string | null;
   slackUserId: string;
   userId: string;
+  notice?: string | null;
 }) {
   if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
   let threads: SlackCoachingThread[] = [];
@@ -329,7 +342,7 @@ export async function publishSlackHome({
     user_id: slackUserId,
     view: {
       type: "home",
-      blocks: buildSlackHomeBlocks(threads),
+      blocks: buildSlackHomeBlocks(threads, notice),
     },
   });
 }
@@ -385,19 +398,19 @@ export function buildSlackHistoryContinuePayload(thread: SlackCoachingThread) {
       {
         type: "button",
         text: { type: "plain_text", text: "Practice" },
-        action_id: SLACK_HISTORY_QUICK_ACTION_ID,
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_practice`,
         value: JSON.stringify({ flowType: "practice", threadId: thread.id }),
       },
       {
         type: "button",
         text: { type: "plain_text", text: "Rewrite" },
-        action_id: SLACK_HISTORY_QUICK_ACTION_ID,
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_rewrite`,
         value: JSON.stringify({ flowType: "rewrite", threadId: thread.id }),
       },
       {
         type: "button",
         text: { type: "plain_text", text: "Draft follow-up" },
-        action_id: SLACK_HISTORY_QUICK_ACTION_ID,
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_respond`,
         value: JSON.stringify({ flowType: "respond", threadId: thread.id }),
       },
     ],

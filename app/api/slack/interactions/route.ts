@@ -795,7 +795,12 @@ async function handleHistoryButtonResponse({
 
     if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
       await archiveSlackCoachingThread({ threadId, userId: user.id });
-      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id });
+      await publishSlackHome({
+        botAccessToken: user.botAccessToken,
+        slackUserId,
+        userId: user.id,
+        notice: "Archived. That conversation is hidden from your active Beckett history.",
+      });
       return;
     }
 
@@ -817,19 +822,31 @@ async function handleHistoryButtonResponse({
           text: payloadToPost.text,
         });
       }
-      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id }).catch(() => null);
+      await publishSlackHome({
+        botAccessToken: user.botAccessToken,
+        slackUserId,
+        userId: user.id,
+        notice: "I reopened that Beckett conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going.",
+      }).catch(() => null);
       return;
     }
 
     if (actionId.startsWith(SLACK_HISTORY_QUICK_ACTION_ID) && flowType && flowType !== "message") {
-      await startGuidedSlackFlow({
+      const started = await startGuidedSlackFlow({
         user,
         teamId,
         slackUserId,
         intent: flowType,
         prompt: quickPrompt(flowType, thread || undefined),
       });
-      await publishSlackHome({ botAccessToken: user.botAccessToken, slackUserId, userId: user.id }).catch(() => null);
+      await publishSlackHome({
+        botAccessToken: user.botAccessToken,
+        slackUserId,
+        userId: user.id,
+        notice: started.ok
+          ? "I started that Beckett conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going."
+          : "I had trouble starting that private Beckett conversation. Try opening Messages and sending Beckett a note directly.",
+      }).catch(() => null);
     }
   } catch (error) {
     console.error("Slack history button action failed", {
