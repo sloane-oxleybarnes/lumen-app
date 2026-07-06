@@ -4,6 +4,7 @@ import { buildBeckettPayload, slackApiPost, SlackBlock, SlackConnectedUser } fro
 export const SLACK_HISTORY_CONTINUE_ACTION_ID = "beckett_history_continue";
 export const SLACK_HISTORY_ARCHIVE_ACTION_ID = "beckett_history_archive";
 export const SLACK_HISTORY_QUICK_ACTION_ID = "beckett_history_quick";
+export const SLACK_HISTORY_SETTINGS_ACTION_ID = "beckett_history_settings";
 
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "prep" | "practice" | "message";
 
@@ -187,7 +188,7 @@ function homeQuickAction(action: SlackHistoryFlowType, text: string) {
   return {
     type: "button",
     text: { type: "plain_text", text },
-    action_id: SLACK_HISTORY_QUICK_ACTION_ID,
+    action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_${action}`,
     value: JSON.stringify({ flowType: action }),
   };
 }
@@ -296,6 +297,7 @@ export function buildSlackConnectHomeBlocks(settingsUrl: string): SlackBlock[] {
         {
           type: "button",
           text: { type: "plain_text", text: "Open Beckett Settings" },
+          action_id: SLACK_HISTORY_SETTINGS_ACTION_ID,
           url: settingsUrl,
         },
       ],
@@ -361,6 +363,7 @@ export async function publishSlackHomeResult(input: {
     console.error("Slack views.publish failed", {
       slackUserPresent: Boolean(input.slackUserId),
       error: result.error || "unknown_error",
+      response: result,
     });
   }
   return result;

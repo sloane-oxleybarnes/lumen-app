@@ -200,7 +200,7 @@ function getHistoryAction(payload: SlackInteractionPayload) {
   const action = payload.actions?.find((item) =>
     item.action_id === SLACK_HISTORY_CONTINUE_ACTION_ID ||
     item.action_id === SLACK_HISTORY_ARCHIVE_ACTION_ID ||
-    item.action_id === SLACK_HISTORY_QUICK_ACTION_ID
+    item.action_id?.startsWith(SLACK_HISTORY_QUICK_ACTION_ID)
   );
   if (!action?.action_id) return null;
   const parsed = parseSlackHistoryAction(action.value);
@@ -821,7 +821,7 @@ async function handleHistoryButtonResponse({
       return;
     }
 
-    if (actionId === SLACK_HISTORY_QUICK_ACTION_ID && flowType && flowType !== "message") {
+    if (actionId.startsWith(SLACK_HISTORY_QUICK_ACTION_ID) && flowType && flowType !== "message") {
       await startGuidedSlackFlow({
         user,
         teamId,
