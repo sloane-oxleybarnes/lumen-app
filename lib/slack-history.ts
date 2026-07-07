@@ -38,6 +38,16 @@ export type SlackCoachingMessage = {
   created_at: string;
 };
 
+type SlackCoachingBotMessage = {
+  id: string;
+  coaching_thread_id: string;
+  user_id: string;
+  slack_channel_id: string;
+  slack_message_ts: string;
+  kind: string | null;
+  deleted_at: string | null;
+};
+
 type UpsertThreadInput = {
   user: SlackConnectedUser;
   teamId: string;
@@ -173,6 +183,74 @@ export async function appendSlackCoachingMessage({
 
   if (error) throw error;
   return data as SlackCoachingMessage;
+}
+
+export async function recordSlackCoachingBotMessage({
+  threadId,
+  userId,
+  channelId,
+  messageTs,
+  kind,
+}: {
+  threadId?: string | null;
+  userId?: string | null;
+  channelId?: string | null;
+  messageTs?: string | null;
+  kind?: string | null;
+}) {
+  if (!threadId || !userId || !channelId || !messageTs) return null;
+  const { data, error } = await supabaseAdmin
+    .from("slack_coaching_bot_messages")
+    .upsert(
+      {
+        coaching_thread_id: threadId,
+        user_id: userId,
+        slack_channel_id: channelId,
+        slack_message_ts: messageTs,
+        kind: kind || null,
+      },
+      { onConflict: "coaching_thread_id,slack_channel_id,slack_message_ts" }
+    )
+    .select("*")
+    .single();
+
+  if (error) throw error;
+  return data as SlackCoachingBotMessage;
+}
+
+export async function cleanupSlackCoachingBotMessages({
+  botAccessToken,
+  threadId,
+  userId,
+}: {
+  botAccessToken?: string | null;
+  threadId: string;
+  userId: string;
+}) {
+  if (!botAccessToken) return;
+  const { data, error } = await supabaseAdmin
+    .from("slack_coaching_bot_messages")
+    .select("*")
+    .eq("coaching_thread_id", threadId)
+    .eq("user_id", userId)
+    .is("deleted_at", null)
+    .order("created_at", { ascending: false });
+
+  if (error) throw error;
+  const messages = (data || []) as SlackCoachingBotMessage[];
+  for (const message of messages) {
+    const result = await slackApiPost(botAccessToken, "chat.delete", {
+      channel: message.slack_channel_id,
+      ts: message.slack_message_ts,
+    }).catch(() => null);
+    if (result?.ok) {
+      await supabaseAdmin
+        .from("slack_coaching_bot_messages")
+        .update({ deleted_at: new Date().toISOString() })
+        .eq("id", message.id)
+        .eq("user_id", userId);
+    }
+  }
 }
 
 export async function loadSlackCoachingMessages({

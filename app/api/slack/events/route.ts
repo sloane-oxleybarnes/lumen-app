@@ -26,6 +26,7 @@ import {
   loadSlackCoachingMessages,
   publishSlackConnectHome,
   publishSlackHomeResult,
+  recordSlackCoachingBotMessage,
   slackHistoryTitle,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
@@ -482,11 +483,20 @@ async function respondToAgentMessage({
         actions: guidedPrep.actions,
       });
 
-      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+      const postedGuided = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
         channel: channelId,
         thread_ts: threadTs,
         ...payload,
       });
+      if (postedGuided.ok && postedGuided.ts) {
+        await recordSlackCoachingBotMessage({
+          threadId: guidedPrep.coachingThreadId,
+          userId: user.id,
+          channelId,
+          messageTs: postedGuided.ts,
+          kind: "reply",
+        }).catch(() => null);
+      }
 
       await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
         channel_id: channelId,
@@ -513,11 +523,20 @@ async function respondToAgentMessage({
         hideTitle: true,
       });
 
-      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+      const postedContinuation = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
         channel: channelId,
         thread_ts: threadTs,
         ...payload,
       });
+      if (postedContinuation.ok && postedContinuation.ts) {
+        await recordSlackCoachingBotMessage({
+          threadId: continuedThread.thread.id,
+          userId: user.id,
+          channelId,
+          messageTs: postedContinuation.ts,
+          kind: "reply",
+        }).catch(() => null);
+      }
       await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
         channel_id: channelId,
         thread_ts: threadTs,
@@ -640,11 +659,20 @@ async function respondToAgentMessage({
       actions: buildSlackThreadArchiveAction(coachingThread?.id),
     });
 
-    await slackApiPost(user.botAccessToken, "chat.postMessage", {
+    const postedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
       channel: channelId,
       thread_ts: threadTs,
       ...payload,
     });
+    if (postedResponse.ok && postedResponse.ts) {
+      await recordSlackCoachingBotMessage({
+        threadId: coachingThread?.id,
+        userId: user.id,
+        channelId,
+        messageTs: postedResponse.ts,
+        kind: "reply",
+      }).catch(() => null);
+    }
 
     await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
       channel_id: channelId,

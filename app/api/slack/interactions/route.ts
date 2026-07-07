@@ -22,6 +22,7 @@ import {
   SLACK_SLASH_LONGER_ACTION_ID,
   SLACK_SLASH_QUICK_ACTION_ID,
   SlackResponseDetail,
+  setSlackAgentSuggestedPrompts,
   verifySlackRequest,
 } from "@/lib/slack-app";
 import {
@@ -36,11 +37,13 @@ import {
   archiveSlackCoachingThread,
   appendSlackCoachingMessage,
   buildSlackHistoryContinuePayload,
+  cleanupSlackCoachingBotMessages,
   createSlackCoachingThread,
   loadSlackCoachingMessages,
   loadSlackCoachingThread,
   parseSlackHistoryAction,
   publishSlackHome,
+  recordSlackCoachingBotMessage,
   slackHistoryTitle,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
   SLACK_HISTORY_CONTINUE_ACTION_ID,
@@ -690,6 +693,13 @@ async function sendMessageShortcutResponse({
           return null;
         });
         if (coachingThread?.id) {
+          await recordSlackCoachingBotMessage({
+            threadId: coachingThread.id,
+            userId: user.id,
+            channelId: agentChannelId,
+            messageTs: agentThreadTs,
+            kind: "opener",
+          }).catch(() => null);
           await appendSlackCoachingMessage({
             threadId: coachingThread.id,
             user,
@@ -729,11 +739,20 @@ async function sendMessageShortcutResponse({
             hideTitle: true,
             actions: draftSession.actions,
           });
-          await slackApiPost(user.botAccessToken, "chat.postMessage", {
+          const postedAction = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
             channel: agentChannelId,
             thread_ts: agentThreadTs,
             ...actionPayload,
           });
+          if (postedAction.ok && postedAction.ts) {
+            await recordSlackCoachingBotMessage({
+              threadId: coachingThread?.id,
+              userId: user.id,
+              channelId: agentChannelId,
+              messageTs: postedAction.ts,
+              kind: "actions",
+            }).catch(() => null);
+          }
         }
       }
 
@@ -887,9 +906,26 @@ async function handleHistoryButtonResponse({
     if (!teamId || !slackUserId) return;
     const user = await lookupSlackConnectedUser(teamId, slackUserId);
     if (!user?.botAccessToken || !isAllowedSlackPlan(user)) return;
+    const thread = threadId ? await loadSlackCoachingThread({ threadId, userId: user.id }) : null;
 
     if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
       await archiveSlackCoachingThread({ threadId, userId: user.id });
+      await cleanupSlackCoachingBotMessages({
+        botAccessToken: user.botAccessToken,
+        threadId,
+        userId: user.id,
+      }).catch((error) => {
+        console.error("Slack archive bot message cleanup failed", {
+          threadId,
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
+      if (thread?.slack_channel_id) {
+        await setSlackAgentSuggestedPrompts({
+          botAccessToken: user.botAccessToken,
+          channelId: thread.slack_channel_id,
+        }).catch(() => null);
+      }
       await publishSlackHome({
         botAccessToken: user.botAccessToken,
         slackUserId,
@@ -899,8 +935,6 @@ async function handleHistoryButtonResponse({
       return;
     }
 
-    const thread = threadId ? await loadSlackCoachingThread({ threadId, userId: user.id }) : null;
-
     if (actionId === SLACK_HISTORY_CONTINUE_ACTION_ID && thread) {
       const messages = await loadSlackCoachingMessages({
         threadId: thread.id,
@@ -909,11 +943,20 @@ async function handleHistoryButtonResponse({
       }).catch(() => []);
       const payloadToPost = buildSlackHistoryContinuePayload(thread, messages);
       if (thread.slack_channel_id && thread.thread_ts) {
-        await slackApiPost(user.botAccessToken, "chat.postMessage", {
+        const postedContinue = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
           channel: thread.slack_channel_id,
           thread_ts: thread.thread_ts,
           ...payloadToPost,
         });
+        if (postedContinue.ok && postedContinue.ts) {
+          await recordSlackCoachingBotMessage({
+            threadId: thread.id,
+            userId: user.id,
+            channelId: thread.slack_channel_id,
+            messageTs: postedContinue.ts,
+            kind: "continue",
+          }).catch(() => null);
+        }
       } else {
         await postSlackAgentMessage({
           botAccessToken: user.botAccessToken,

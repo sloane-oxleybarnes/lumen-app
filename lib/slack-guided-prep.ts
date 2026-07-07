@@ -3,6 +3,7 @@ import {
   appendSlackCoachingMessage,
   buildSlackThreadArchiveAction,
   createSlackCoachingThread,
+  recordSlackCoachingBotMessage,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
 } from "@/lib/slack-history";
@@ -93,7 +94,7 @@ type StartGuidedFlowInput = {
 };
 
 type GuidedFlowResult =
-  | { handled: true; response: string; title?: string; actions?: Record<string, unknown>[] }
+  | { handled: true; response: string; title?: string; actions?: Record<string, unknown>[]; coachingThreadId?: string | null }
   | { handled: false };
 
 export const SLACK_DRAFT_USE_ACTION_ID = "beckett_draft_use";
@@ -976,6 +977,13 @@ export async function startGuidedSlackFlow({
     coachingThreadId: coachingThread?.id,
   });
   if (coachingThread?.id) {
+    await recordSlackCoachingBotMessage({
+      threadId: coachingThread.id,
+      userId: user.id,
+      channelId: postedChannelId,
+      messageTs: postedTs,
+      kind: "opener",
+    }).catch(() => null);
     await appendSlackCoachingMessage({
       threadId: coachingThread.id,
       user,
@@ -1030,11 +1038,20 @@ export async function startGuidedSlackFlow({
         hideTitle: true,
         actions: guidedActions(session, draftOptions),
       });
-      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+      const postedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
         channel: postedChannelId,
         thread_ts: postedTs,
         ...payload,
       });
+      if (postedResponse.ok && postedResponse.ts) {
+        await recordSlackCoachingBotMessage({
+          threadId: coachingThread?.id,
+          userId: user.id,
+          channelId: postedChannelId,
+          messageTs: postedResponse.ts,
+          kind: "reply",
+        }).catch(() => null);
+      }
     }
   } catch (error) {
     console.error("Slack guided flow response failed after opener", {
@@ -1054,11 +1071,20 @@ export async function startGuidedSlackFlow({
         body: response,
         hideTitle: true,
       });
-      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+      const postedError = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
         channel: postedChannelId,
         thread_ts: postedTs,
         ...payload,
       }).catch(() => null);
+      if (postedError?.ok && postedError.ts) {
+        await recordSlackCoachingBotMessage({
+          threadId: coachingThread?.id,
+          userId: user.id,
+          channelId: postedChannelId,
+          messageTs: postedError.ts,
+          kind: "error",
+        }).catch(() => null);
+      }
     }
   }
 
@@ -1086,7 +1112,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     await updateSession(session.id, { status: "completed" });
     const response = "No problem. I stopped that flow. Start a new one whenever you want.";
     await persistGuidedTurn({ input, session, userText: text, beckettText: response });
-    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session) };
+    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
   }
 
   if (session && isStartOver(text)) {
@@ -1106,6 +1132,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       title: flowTitle(session.flow_type),
       response,
       actions: guidedActions(session),
+      coachingThreadId: session.coaching_thread_id,
     };
   }
 
@@ -1172,6 +1199,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       title: flowTitle(flowType),
       response,
       actions: guidedActions(created, draftOptions),
+      coachingThreadId: created.coaching_thread_id,
     };
   }
 
@@ -1180,7 +1208,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       await updateSession(session.id, { status: "completed" });
       const response = "Got it. I’ll stop there.";
       await persistGuidedTurn({ input, session, userText: text, beckettText: response });
-      return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session) };
+      return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
     }
     const updated = await updateSession(session.id, {
       status: "completed",
@@ -1198,6 +1226,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       title: flowTitle(updated.flow_type),
       response,
       actions: guidedActions(updated, draftOptions),
+      coachingThreadId: updated.coaching_thread_id,
     };
   }
 
@@ -1206,7 +1235,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     if (parsed.type === "search_again") {
       const response = await buildEvidenceStep(input, session, text);
       await persistGuidedTurn({ input, session, userText: text, beckettText: response });
-      return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session) };
+      return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
     }
 
     const extra_context = Array.isArray(session.answers.extra_context) ? session.answers.extra_context : [];
@@ -1222,7 +1251,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     });
     const response = await completeSession(input, updated);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
-    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated) };
+    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
   const answers = mergeAnswersForStep(session, text);
@@ -1235,13 +1264,13 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   if (nextStep === "confirm_evidence") {
     const response = await buildEvidenceStep(input, updated);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
-    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated) };
+    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
   if (nextStep) {
     const response = askForStep(updated);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
-    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated) };
+    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
   const response = await completeSession(input, updated);
@@ -1252,5 +1281,6 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     title: flowTitle(session.flow_type),
     response,
     actions: guidedActions(updated, draftOptions),
+    coachingThreadId: updated.coaching_thread_id,
   };
 }
