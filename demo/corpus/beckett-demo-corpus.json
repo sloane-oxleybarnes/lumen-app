@@ -1,0 +1,484 @@
+{
+  "version": "2026-07-06",
+  "title": "Beckett relationship intelligence demo corpus",
+  "demoAccount": {
+    "id": "demo",
+    "name": "Sloane Demo",
+    "email": "sloane.demo@meetbeckett.test",
+    "slackHandle": "sloane-demo",
+    "role": "Founder"
+  },
+  "personas": [
+    {
+      "id": "maya",
+      "name": "Maya Chen",
+      "email": "maya.chen@northstar-demo.test",
+      "workEmail": "mchen@northstar-demo.test",
+      "slackHandle": "maya-c",
+      "phone": "+15550101001",
+      "relationshipType": "manager",
+      "trusted": true,
+      "notes": "Maya is direct and fast. She appreciates concise options, clear tradeoffs, and proactive risk calls.",
+      "relationshipSummary": {
+        "communicationStyle": "Direct, warm, and deadline-aware. Maya moves quickly when risk is named plainly.",
+        "recurringTensionPoints": "Sloane sometimes over-explains before naming the actual decision needed. Maya sometimes compresses feedback into short notes that can feel sharper than intended.",
+        "whatTendsToWork": "Lead with the decision, give two options, and add a short recommendation. Ask for calibration instead of reassurance.",
+        "unresolvedTopics": "Launch readiness, founder demo narrative, and how much polish is enough before external review.",
+        "generatedFrom": "demo_seed:user_notes_and_synthetic_gmail_slack_summaries"
+      }
+    },
+    {
+      "id": "jordan",
+      "name": "Jordan Lee",
+      "email": "jordan.lee@northstar-demo.test",
+      "workEmail": "jlee@northstar-demo.test",
+      "slackHandle": "jordan-lee",
+      "phone": "+15550101002",
+      "relationshipType": "teammate",
+      "trusted": false,
+      "notes": "Jordan is collaborative but often hands off work with missing context. Best handled with specific asks and explicit owners.",
+      "relationshipSummary": {
+        "communicationStyle": "Friendly, informal, and often optimistic. Jordan responds better to concrete next steps than broad concern.",
+        "recurringTensionPoints": "Handoffs can be vague and last-minute. Sloane can soften the ask so much that the owner or deadline gets lost.",
+        "whatTendsToWork": "Use a short bullet list: what is blocked, who owns it, and the exact time needed.",
+        "unresolvedTopics": "Analytics export ownership, launch-day incident coverage, and whether Jordan or Priya owns the final numbers.",
+        "generatedFrom": "demo_seed:user_notes_and_synthetic_gmail_slack_summaries"
+      }
+    },
+    {
+      "id": "priya",
+      "name": "Priya Shah",
+      "email": "priya.shah@northstar-demo.test",
+      "workEmail": "pshah@northstar-demo.test",
+      "slackHandle": "priya-s",
+      "phone": "+15550101003",
+      "relationshipType": "cross_functional_partner",
+      "trusted": true,
+      "notes": "Priya wants crisp accountability and prefers not to revisit decisions already made in docs.",
+      "relationshipSummary": {
+        "communicationStyle": "Precise, direct, and metrics-oriented. Priya is not cold, but she is protective of timelines.",
+        "recurringTensionPoints": "Priya gets frustrated when dependencies are raised late. Sloane can read urgency as disappointment.",
+        "whatTendsToWork": "Acknowledge the dependency, provide the current state, and make one specific request with a fallback.",
+        "unresolvedTopics": "Final activation metric, dashboard source of truth, and whether the demo should include retention data.",
+        "generatedFrom": "demo_seed:user_notes_and_synthetic_gmail_slack_summaries"
+      }
+    },
+    {
+      "id": "sam",
+      "name": "Sam Rivera",
+      "email": "sam.rivera@trailhead-demo.test",
+      "workEmail": "srivera@trailhead-demo.test",
+      "slackHandle": "sam-r",
+      "phone": "+15550101004",
+      "relationshipType": "client",
+      "trusted": false,
+      "notes": "Sam is enthusiastic and collaborative. Scope changes should be acknowledged warmly and then bounded.",
+      "relationshipSummary": {
+        "communicationStyle": "Warm, expansive, and relationship-first. Sam appreciates enthusiasm before constraints.",
+        "recurringTensionPoints": "Sam adds new requests late and assumes small asks are quick. Sloane delays naming scope boundaries.",
+        "whatTendsToWork": "Mirror the goal, separate must-have from later, and give a clear change-control path.",
+        "unresolvedTopics": "Whether the client workshop includes manager enablement slides and custom onboarding examples.",
+        "generatedFrom": "demo_seed:user_notes_and_synthetic_gmail_slack_summaries"
+      }
+    },
+    {
+      "id": "eli",
+      "name": "Eli Morgan",
+      "email": "eli.morgan@northstar-demo.test",
+      "workEmail": "emorgan@northstar-demo.test",
+      "slackHandle": "eli-m",
+      "phone": "+15550101005",
+      "relationshipType": "direct_report",
+      "trusted": true,
+      "notes": "Eli is thoughtful and can spiral when feedback is abstract. Give specific examples, reassurance, and the next concrete rep.",
+      "relationshipSummary": {
+        "communicationStyle": "Reflective, careful, and sometimes anxious. Eli reads silence as negative signal.",
+        "recurringTensionPoints": "Feedback lands best when it is specific. Vague urgency can make Eli over-explain or apologize.",
+        "whatTendsToWork": "Name what is working first, give one adjustment, and close with confidence in the next step.",
+        "unresolvedTopics": "Drafting sharper summaries, handling pushback from Jordan, and practicing concise status updates.",
+        "generatedFrom": "demo_seed:user_notes_and_synthetic_gmail_slack_summaries"
+      }
+    }
+  ],
+  "emailThreads": [
+    {
+      "id": "launch-readiness",
+      "subject": "Launch readiness: where I think we are",
+      "messages": [
+        {
+          "from": "demo",
+          "to": ["maya"],
+          "minutesAgo": 10080,
+          "body": "Maya,\n\nI pulled together the readiness picture. I think the coaching flow is solid, but I am still uneasy about the first-run experience and whether the contacts layer feels useful without becoming the whole product.\n\nMy current recommendation is to keep the demo focused on drafting and coaching, then show contacts as the quiet context underneath.\n\nCould you sanity check that framing today?\n\nSloane"
+        },
+        {
+          "from": "maya",
+          "to": ["demo"],
+          "minutesAgo": 10020,
+          "body": "Yes. The framing is right.\n\nThe only thing I would tighten is the risk language. Do not say contacts are unfinished. Say the product is intentionally coaching-first and relationship-aware.\n\nCan you send me the 3-minute version before standup tomorrow?"
+        },
+        {
+          "from": "demo",
+          "to": ["maya"],
+          "minutesAgo": 9960,
+          "body": "That helps. I will send a 3-minute version by 9:30 tomorrow.\n\nI will phrase it as: Beckett does not manage relationships for you; it helps you show up with more context when you ask for coaching."
+        },
+        {
+          "from": "maya",
+          "to": ["demo"],
+          "minutesAgo": 9840,
+          "body": "Exactly. That sentence is good. Put it earlier."
+        }
+      ]
+    },
+    {
+      "id": "analytics-handoff",
+      "subject": "Analytics handoff before Friday",
+      "messages": [
+        {
+          "from": "priya",
+          "to": ["demo", "jordan"],
+          "minutesAgo": 8580,
+          "body": "I need the activation export by Friday at 11am if we want it in the deck. I am still unclear whether Jordan owns the final query or whether Sloane is taking it from the product events table.\n\nCan someone confirm the owner and source of truth?"
+        },
+        {
+          "from": "jordan",
+          "to": ["priya", "demo"],
+          "minutesAgo": 8520,
+          "body": "I can help with this. I think the export is basically ready, just needs a pass against the latest event names."
+        },
+        {
+          "from": "demo",
+          "to": ["priya", "jordan"],
+          "minutesAgo": 8460,
+          "body": "Thanks both. Jordan owns the final query and I will review the numbers before they go to Priya.\n\nJordan, can you send the export by Thursday at 4pm? Priya, I will send the final deck numbers Friday at 10am."
+        },
+        {
+          "from": "priya",
+          "to": ["demo", "jordan"],
+          "minutesAgo": 8400,
+          "body": "That works. Please use the dashboard event names, not the staging names from last week. I do not want us reconciling this again on Friday morning."
+        }
+      ]
+    },
+    {
+      "id": "client-scope",
+      "subject": "Workshop additions",
+      "messages": [
+        {
+          "from": "sam",
+          "to": ["demo"],
+          "minutesAgo": 7200,
+          "body": "Sloane, quick thought after our prep call. Could we add a section on manager enablement to the workshop? Even a few slides would be great.\n\nAlso wondering if we can include custom onboarding examples for our support team. I know it is a little late, but it would make the session land much better."
+        },
+        {
+          "from": "demo",
+          "to": ["sam"],
+          "minutesAgo": 7140,
+          "body": "Sam,\n\nI like both ideas and agree they would make the workshop more concrete. The manager enablement section is the easier fit for this round.\n\nFor the custom onboarding examples, I can either include one lightweight example in the appendix or scope that as a follow-up add-on after the workshop. I do not want to rush it and make it feel generic."
+        },
+        {
+          "from": "sam",
+          "to": ["demo"],
+          "minutesAgo": 7080,
+          "body": "That is fair. Let's do the manager section and one appendix example. We can talk follow-up after the session.\n\nThank you for keeping the quality bar."
+        }
+      ]
+    },
+    {
+      "id": "feedback-for-eli",
+      "subject": "Draft feedback for the onboarding summary",
+      "messages": [
+        {
+          "from": "demo",
+          "to": ["eli"],
+          "minutesAgo": 5700,
+          "body": "Eli,\n\nThe summary is much clearer than last week's version. The main thing I would change is the first paragraph: it explains the background before saying what changed.\n\nCan you try a version that starts with the decision, then gives two supporting details? I think that will make it easier for Maya to skim."
+        },
+        {
+          "from": "eli",
+          "to": ["demo"],
+          "minutesAgo": 5640,
+          "body": "Thank you. I can do that. I was worried it would sound too abrupt if I started with the decision, but I see what you mean.\n\nI will send a revised version this afternoon."
+        },
+        {
+          "from": "demo",
+          "to": ["eli"],
+          "minutesAgo": 5580,
+          "body": "It will not sound abrupt if the first sentence is clear and the next sentence gives context. You are not removing nuance; you are helping the reader find it faster."
+        },
+        {
+          "from": "eli",
+          "to": ["demo"],
+          "minutesAgo": 5520,
+          "body": "That framing helps a lot. I will use that."
+        }
+      ]
+    },
+    {
+      "id": "jordan-handoff-followup",
+      "subject": "One more thing on launch coverage",
+      "messages": [
+        {
+          "from": "demo",
+          "to": ["jordan"],
+          "minutesAgo": 4320,
+          "body": "Jordan,\n\nCan you confirm whether you are covering Slack triage from 10 to noon on launch day? I heard it as a yes in standup, but I do not see it in the checklist.\n\nIf you cannot cover the whole block, no problem. I just need to assign someone else before Thursday."
+        },
+        {
+          "from": "jordan",
+          "to": ["demo"],
+          "minutesAgo": 4260,
+          "body": "Ah yes, sorry. I can do 10 to 11:15, then I have the customer call. I forgot to update the checklist."
+        },
+        {
+          "from": "demo",
+          "to": ["jordan"],
+          "minutesAgo": 4200,
+          "body": "Thanks. I will put you down for 10 to 11:15 and find someone else for the last 45 minutes."
+        }
+      ]
+    },
+    {
+      "id": "demo-narrative",
+      "subject": "Demo narrative pass",
+      "messages": [
+        {
+          "from": "maya",
+          "to": ["demo"],
+          "minutesAgo": 2880,
+          "body": "I watched the latest recording. The product is much easier to understand when you start from the moment of friction instead of the settings page.\n\nStart with: 'I need to reply to Priya and I am not sure how direct to be.' Then show Beckett pulling in the relationship summary."
+        },
+        {
+          "from": "demo",
+          "to": ["maya"],
+          "minutesAgo": 2820,
+          "body": "Agree. I was over-orienting around the system because I wanted the architecture to be legible. I will start from the moment of friction and make the architecture visible only when it matters."
+        },
+        {
+          "from": "maya",
+          "to": ["demo"],
+          "minutesAgo": 2760,
+          "body": "Exactly. The architecture is proof, not the story."
+        }
+      ]
+    }
+  ],
+  "slackConversations": [
+    {
+      "id": "product-launch-standup",
+      "channelKey": "product_launch",
+      "label": "#product-launch",
+      "messages": [
+        {
+          "persona": "maya",
+          "minutesAgo": 2520,
+          "text": "Morning. For launch review, I only need three things today: readiness risks, owner for analytics, and what we are cutting if time gets tight."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 2516,
+          "text": "Readiness risk is first-run clarity. I am cutting the extra settings tour unless someone feels strongly."
+        },
+        {
+          "persona": "jordan",
+          "minutesAgo": 2512,
+          "text": "Analytics is almost there. I just need to check event names against the dashboard list."
+        },
+        {
+          "persona": "priya",
+          "minutesAgo": 2508,
+          "text": "Please use dashboard names only. Last week's staging names will make the numbers look lower than they are."
+        },
+        {
+          "persona": "maya",
+          "minutesAgo": 2502,
+          "text": "Good. Sloane, can you make the cut list explicit by 2pm?"
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 2498,
+          "text": "Yes. I will send cut list plus recommendation by 2."
+        },
+        {
+          "persona": "eli",
+          "minutesAgo": 2460,
+          "text": "I can help test the first-run path after lunch if useful."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 2456,
+          "text": "Useful. Could you run it once cold and write down where you pause?"
+        },
+        {
+          "persona": "eli",
+          "minutesAgo": 2452,
+          "text": "Yes, I will do that and send notes."
+        }
+      ]
+    },
+    {
+      "id": "analytics-handoff-slack",
+      "channelKey": "analytics_handoff",
+      "label": "#analytics-handoff",
+      "messages": [
+        {
+          "persona": "priya",
+          "minutesAgo": 2100,
+          "text": "I am going to be annoying and ask again: who is sending final activation numbers?"
+        },
+        {
+          "persona": "jordan",
+          "minutesAgo": 2096,
+          "text": "I can send the export, but I am not sure I should be the final owner."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 2092,
+          "text": "Jordan sends export Thursday 4pm. I review and send final numbers Friday 10am. Priya owns deck placement after that."
+        },
+        {
+          "persona": "priya",
+          "minutesAgo": 2088,
+          "text": "Perfect. Thank you for making the owner chain explicit."
+        },
+        {
+          "persona": "jordan",
+          "minutesAgo": 2082,
+          "text": "Got it. I will post the export in this channel."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 2078,
+          "text": "Thanks. If the event names are still weird, flag it before you clean anything manually."
+        },
+        {
+          "persona": "jordan",
+          "minutesAgo": 2072,
+          "text": "Will do."
+        }
+      ]
+    },
+    {
+      "id": "client-scope-slack",
+      "channelKey": "client_scope",
+      "label": "#client-scope",
+      "messages": [
+        {
+          "persona": "sam",
+          "minutesAgo": 1800,
+          "text": "I know we said no new sections, but manager enablement keeps coming up internally. Is there any way to include a lightweight version?"
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 1796,
+          "text": "Yes to lightweight. I can add a short manager enablement section and one appendix example. Anything more should become follow-up scope."
+        },
+        {
+          "persona": "sam",
+          "minutesAgo": 1792,
+          "text": "That sounds reasonable. I appreciate you finding a path without blowing up the workshop."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 1788,
+          "text": "Of course. I want it to feel useful and still tight."
+        },
+        {
+          "persona": "sam",
+          "minutesAgo": 1784,
+          "text": "Great. Send me the updated outline when you have it."
+        }
+      ]
+    },
+    {
+      "id": "team-leads-dm-style",
+      "channelKey": "team_leads",
+      "label": "#team-leads",
+      "messages": [
+        {
+          "persona": "maya",
+          "minutesAgo": 900,
+          "text": "Sloane, the demo is strong. I would still cut the first 40 seconds."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 896,
+          "text": "Copy. I was trying to create context, but I can feel it dragging."
+        },
+        {
+          "persona": "maya",
+          "minutesAgo": 892,
+          "text": "Context is useful after they care. Start with the awkward reply to Priya."
+        },
+        {
+          "persona": "eli",
+          "minutesAgo": 888,
+          "text": "The awkward reply moment is also where the contact summary made sense to me."
+        },
+        {
+          "persona": "priya",
+          "minutesAgo": 884,
+          "text": "As the fictional difficult recipient, I approve this framing."
+        },
+        {
+          "persona": "demo",
+          "minutesAgo": 880,
+          "text": "Noted. Priya is now canonically precise, not difficult."
+        },
+        {
+          "persona": "priya",
+          "minutesAgo": 876,
+          "text": "Acceptable revision."
+        }
+      ]
+    }
+  ],
+  "interactionSummaries": [
+    {
+      "persona": "maya",
+      "platform": "gmail",
+      "interactionType": "launch_review",
+      "summary": "Maya reinforced that contacts should be framed as quiet coaching context, not a separate relationship-management product.",
+      "toneObserved": "Direct and supportive",
+      "userResponsePattern": "Sloane initially over-explained, then converted the feedback into a tighter product sentence.",
+      "suggestedFollowup": "Send Maya the 3-minute demo version with the relationship-aware framing near the beginning."
+    },
+    {
+      "persona": "jordan",
+      "platform": "slack",
+      "interactionType": "handoff_clarification",
+      "summary": "Jordan was willing to help with analytics but had not made ownership explicit until Sloane named the owner chain.",
+      "toneObserved": "Friendly and a little vague",
+      "userResponsePattern": "Sloane got traction by naming owner, deliverable, and deadline in one message.",
+      "suggestedFollowup": "Ask Jordan for the export before Thursday 4pm and request an early flag if event names look wrong."
+    },
+    {
+      "persona": "priya",
+      "platform": "gmail",
+      "interactionType": "deadline_alignment",
+      "summary": "Priya wanted confirmation of the activation source of truth and reacted positively once accountability was explicit.",
+      "toneObserved": "Urgent and precise",
+      "userResponsePattern": "Sloane reduced friction by acknowledging the risk and creating an owner chain.",
+      "suggestedFollowup": "When replying to Priya, lead with the current state and avoid burying the request."
+    },
+    {
+      "persona": "sam",
+      "platform": "gmail",
+      "interactionType": "scope_boundary",
+      "summary": "Sam asked for late workshop additions and accepted a bounded version when the tradeoff was explained warmly.",
+      "toneObserved": "Warm and expansive",
+      "userResponsePattern": "Sloane validated the goal before setting scope boundaries, which kept the exchange collaborative.",
+      "suggestedFollowup": "Send the updated outline and separate future custom examples into follow-up scope."
+    },
+    {
+      "persona": "eli",
+      "platform": "gmail",
+      "interactionType": "feedback",
+      "summary": "Eli responded well to feedback that named what improved, gave one concrete change, and explained the reason.",
+      "toneObserved": "Careful and receptive",
+      "userResponsePattern": "Sloane kept the feedback specific and reduced anxiety by clarifying that concision does not remove nuance.",
+      "suggestedFollowup": "Review Eli's next summary for whether the decision appears in the first sentence."
+    }
+  ]
+}

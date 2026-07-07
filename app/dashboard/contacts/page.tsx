@@ -1,7 +1,23 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import { createClient } from "@/lib/supabase";
+
+type ContactIdentifier = {
+  id?: string;
+  platform: string;
+  identifier: string;
+  label: string | null;
+  confirmed: boolean | null;
+};
+
+type RelationshipSummary = {
+  communication_style: string | null;
+  recurring_tension_points: string | null;
+  what_tends_to_work: string | null;
+  unresolved_topics: string | null;
+  generated_from: string | null;
+  updated_at: string | null;
+};
 
 type Contact = {
   id: string;
@@ -14,7 +30,9 @@ type Contact = {
   notes: string | null;
   trusted: boolean;
   created_at: string;
+  contact_identifiers?: ContactIdentifier[];
   contact_insights?: ContactInsights | null;
+  contact_relationship_summaries?: RelationshipSummary | RelationshipSummary[] | null;
 };
 
 type ContactInsights = {
@@ -31,6 +49,7 @@ const emptyForm = () => ({
   email: "",
   slack_handle: "",
   phone_number: "",
+  identifiers: [] as ContactIdentifier[],
   relationship_type: "",
   relationship_other: "",
   notes: "",
@@ -53,8 +72,45 @@ function relationshipLabel(contact: Pick<Contact, "relationship_type" | "relatio
   return contact.relationship_type || "";
 }
 
+const additionalIdentifierOptions = [
+  { value: "work_email", label: "Work email" },
+  { value: "personal_email", label: "Personal email" },
+  { value: "mobile", label: "Mobile" },
+  { value: "slack_user_id", label: "Confirmed Slack user ID" },
+];
+
+function normalizeContactFromApi(contact: Contact): Contact {
+  const rawInsights = contact.contact_insights as ContactInsights | ContactInsights[] | null | undefined;
+  const insights = Array.isArray(rawInsights)
+    ? rawInsights[0] || null
+    : rawInsights || null;
+  const relationshipSummary = Array.isArray(contact.contact_relationship_summaries)
+    ? contact.contact_relationship_summaries[0] || null
+    : contact.contact_relationship_summaries || null;
+
+  return {
+    ...contact,
+    contact_identifiers: contact.contact_identifiers || [],
+    contact_insights: insights,
+    contact_relationship_summaries: relationshipSummary,
+  };
+}
+
+function identifierLabel(identifier: ContactIdentifier) {
+  if (identifier.label) return identifier.label;
+  const found = additionalIdentifierOptions.find((option) => option.value === identifier.platform);
+  if (found) return found.label;
+  if (identifier.platform === "email") return "Email";
+  if (identifier.platform === "slack") return "Slack display";
+  if (identifier.platform === "phone") return "Phone";
+  return identifier.platform.replace(/_/g, " ");
+}
+
+function isLegacyIdentifier(identifier: ContactIdentifier) {
+  return identifier.platform === "email" || identifier.platform === "slack" || identifier.platform === "phone";
+}
+
 export default function ContactsPage() {
-  const supabase = createClient();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -70,16 +126,15 @@ export default function ContactsPage() {
   const [merging, setMerging] = useState(false);
 
   const loadContacts = useCallback(async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return;
-    const { data } = await supabase
-      .from("contacts")
-      .select("*, contact_insights(*)")
-      .eq("user_id", user.id)
-      .order("name");
-    setContacts((data as Contact[]) || []);
+    const res = await fetch("/api/contacts");
+    if (!res.ok) {
+      setLoading(false);
+      return;
+    }
+    const data = await res.json() as { contacts?: Contact[] };
+    setContacts((data.contacts || []).map(normalizeContactFromApi));
     setLoading(false);
-  }, [supabase]);
+  }, []);
 
   useEffect(() => { loadContacts(); }, [loadContacts]);
 
@@ -91,11 +146,20 @@ export default function ContactsPage() {
       c.name.toLowerCase().includes(q) ||
       c.email?.toLowerCase().includes(q) ||
       c.slack_handle?.toLowerCase().includes(q) ||
+      c.phone_number?.toLowerCase().includes(q) ||
+      c.contact_identifiers?.some((identifier) =>
+        `${identifier.platform} ${identifier.identifier} ${identifier.label || ""}`.toLowerCase().includes(q)
+      ) ||
       relationship.includes(q)
     );
   });
   const selectedContact = selectedId
     ? contacts.find((contact) => contact.id === selectedId) || null
+    : null;
+  const selectedRelationshipSummary = selectedContact
+    ? (Array.isArray(selectedContact.contact_relationship_summaries)
+        ? selectedContact.contact_relationship_summaries[0] || null
+        : selectedContact.contact_relationship_summaries || null)
     : null;
 
   function openAdd() {
@@ -111,6 +175,14 @@ export default function ContactsPage() {
       email: c.email || "",
       slack_handle: c.slack_handle || "",
       phone_number: c.phone_number || "",
+      identifiers: (c.contact_identifiers || [])
+        .filter((identifier) => !isLegacyIdentifier(identifier))
+        .map((identifier) => ({
+          platform: identifier.platform,
+          identifier: identifier.identifier,
+          label: identifier.label,
+          confirmed: identifier.confirmed,
+        })),
       relationship_type: c.relationship_type || "",
       relationship_other: c.relationship_other || "",
       notes: c.notes || "",
@@ -119,6 +191,38 @@ export default function ContactsPage() {
     setEditingId(c.id);
     setShowForm(true);
     setSelectedId(null);
+  }
+
+  function addIdentifier() {
+    setForm((current) => ({
+      ...current,
+      identifiers: [
+        ...current.identifiers,
+        { platform: "work_email", identifier: "", label: null, confirmed: true },
+      ],
+    }));
+  }
+
+  function updateIdentifier(index: number, patch: Partial<ContactIdentifier>) {
+    setForm((current) => ({
+      ...current,
+      identifiers: current.identifiers.map((identifier, i) =>
+        i === index
+          ? {
+              ...identifier,
+              ...patch,
+              confirmed: patch.platform === "slack_user_id" ? true : patch.confirmed ?? identifier.confirmed ?? true,
+            }
+          : identifier
+      ),
+    }));
+  }
+
+  function removeIdentifier(index: number) {
+    setForm((current) => ({
+      ...current,
+      identifiers: current.identifiers.filter((_, i) => i !== index),
+    }));
   }
 
   function openMerge(c: Contact) {
@@ -179,6 +283,14 @@ export default function ContactsPage() {
       email: form.email.trim() || null,
       slack_handle: form.slack_handle.trim() || null,
       phone_number: form.phone_number.trim() || null,
+      identifiers: form.identifiers
+        .map((identifier) => ({
+          platform: identifier.platform,
+          identifier: identifier.identifier.trim(),
+          label: identifierLabel(identifier),
+          confirmed: identifier.platform !== "slack",
+        }))
+        .filter((identifier) => identifier.identifier),
       relationship_type: form.relationship_type || null,
       relationship_other: form.relationship_type === "Other" ? form.relationship_other.trim() || null : null,
       notes: form.notes.trim() || null,
@@ -221,10 +333,18 @@ export default function ContactsPage() {
   async function refreshInsights(id: string) {
     setGeneratingInsights(true);
     const res = await fetch(`/api/contacts/${id}/insights`, { method: "POST" });
-    const data = await res.json() as { insights?: ContactInsights };
+    const data = await res.json() as { insights?: ContactInsights; relationshipSummary?: RelationshipSummary };
     if (data.insights) {
       setContacts((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, contact_insights: data.insights } : c))
+        prev.map((c) =>
+          c.id === id
+            ? {
+                ...c,
+                contact_insights: data.insights,
+                contact_relationship_summaries: data.relationshipSummary || c.contact_relationship_summaries || null,
+              }
+            : c
+        )
       );
     }
     setGeneratingInsights(false);
@@ -251,7 +371,7 @@ export default function ContactsPage() {
             Contacts
           </h1>
           <p className="text-ink-mid text-sm mt-1">
-            People Beckett knows about. Trusted contacts get a warmer tone automatically.
+            People Beckett can recognize across connected tools. Identifiers are optional, but they help Beckett use the right relationship context.
           </p>
         </div>
         <button
@@ -266,14 +386,14 @@ export default function ContactsPage() {
       {contacts.length > 0 && (
         <div className="mb-5">
           <label htmlFor="contact-search" className="sr-only">
-            Search contacts by name, email, Slack handle, or relationship
+            Search contacts by name, email, Slack handle, phone, identifier, or relationship
           </label>
           <input
             id="contact-search"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search by name, email, or Slack handle…"
+            placeholder="Search by name, email, Slack, phone, or identifier..."
             className="w-full border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
           />
         </div>
@@ -356,6 +476,54 @@ export default function ContactsPage() {
                     placeholder="e.g. mentor, agency partner"
                     className="w-full border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   />
+                </div>
+              )}
+            </div>
+            <div className="rounded-sm border border-border bg-bg p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-medium text-ink">Additional identifiers</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-ink-light">
+                    Email, Slack, and phone are optional. Confirmed Slack IDs connect to the actual Slack person; display names are only suggestions.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addIdentifier}
+                  className="shrink-0 border border-border text-xs rounded-pill px-3 py-1.5 text-ink-mid hover:bg-white transition-colors"
+                >
+                  + Add
+                </button>
+              </div>
+              {form.identifiers.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  {form.identifiers.map((identifier, index) => (
+                    <div key={index} className="grid gap-2 md:grid-cols-[180px_minmax(0,1fr)_auto]">
+                      <select
+                        value={identifier.platform}
+                        onChange={(e) => updateIdentifier(index, { platform: e.target.value })}
+                        className="w-full border border-border rounded-sm bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      >
+                        {additionalIdentifierOptions.map((option) => (
+                          <option key={option.value} value={option.value}>{option.label}</option>
+                        ))}
+                      </select>
+                      <input
+                        type="text"
+                        value={identifier.identifier}
+                        onChange={(e) => updateIdentifier(index, { identifier: e.target.value })}
+                        placeholder={identifier.platform === "slack_user_id" ? "T123456:U123456" : "Identifier"}
+                        className="w-full border border-border rounded-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => removeIdentifier(index)}
+                        className="border border-border text-xs rounded-pill px-3 py-2 text-ink-mid hover:bg-white transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -534,6 +702,33 @@ export default function ContactsPage() {
                 <p className="break-words text-sm text-ink">{selectedContact.phone_number || "Not added"}</p>
               </div>
             </div>
+
+            <div className="mt-5 rounded-card border border-border bg-bg p-4">
+              <div className="mb-3">
+                <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Identifiers</p>
+                <p className="mt-1 text-xs text-ink-light">
+                  Confirmed identifiers can connect real Gmail, Slack, or phone context. Slack display names remain suggestions.
+                </p>
+              </div>
+              {selectedContact.contact_identifiers?.length ? (
+                <div className="flex flex-wrap gap-2">
+                  {selectedContact.contact_identifiers.map((identifier) => (
+                    <span
+                      key={`${identifier.platform}:${identifier.identifier}`}
+                      className={`max-w-full truncate rounded px-2 py-1 text-xs ${
+                        identifier.confirmed ? "bg-white text-ink" : "bg-white text-ink-light"
+                      }`}
+                      title={`${identifierLabel(identifier)}: ${identifier.identifier}`}
+                    >
+                      {identifierLabel(identifier)}: {identifier.identifier}
+                      {identifier.confirmed ? " · confirmed" : " · suggestion"}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-light">No identifiers added yet.</p>
+              )}
+            </div>
           </section>
 
           <section className="grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
@@ -551,7 +746,7 @@ export default function ContactsPage() {
                 <div>
                   <h3 className="text-base font-medium text-ink">Relationship insights</h3>
                   <p className="mt-1 text-xs text-ink-light">
-                    Beckett-generated context for communication coaching.
+                    Summary-level context Beckett can use for coaching. Raw Gmail and Slack history is not stored here.
                   </p>
                 </div>
                 <button
@@ -564,28 +759,57 @@ export default function ContactsPage() {
                 </button>
               </div>
 
-              {selectedContact.contact_insights ? (
-                <div className="grid gap-4 md:grid-cols-2">
-                  {[
-                    { label: "Summary", key: "summary" },
-                    { label: "Communication", key: "communication_patterns" },
-                    { label: "Common topics", key: "common_topics" },
-                    { label: "Tone trend", key: "tone_trend" },
-                    { label: "Responsiveness", key: "responsiveness" },
-                  ].map(({ label, key }) => {
-                    const val = selectedContact.contact_insights![key as keyof ContactInsights];
-                    if (!val) return null;
-                    return (
-                      <div key={key} className="rounded-card border border-border bg-bg p-4">
-                        <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-light">{label}</p>
-                        <p className="text-sm leading-relaxed text-ink-mid">{val}</p>
-                      </div>
-                    );
-                  })}
-                  {selectedContact.contact_insights.generated_at && (
-                    <p className="text-xs text-ink-light md:col-span-2">
-                      Updated {new Date(selectedContact.contact_insights.generated_at).toLocaleDateString()}
-                    </p>
+              {selectedRelationshipSummary || selectedContact.contact_insights ? (
+                <div className="space-y-4">
+                  {selectedRelationshipSummary && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {[
+                        { label: "Communication style", value: selectedRelationshipSummary.communication_style },
+                        { label: "Common friction", value: selectedRelationshipSummary.recurring_tension_points },
+                        { label: "Preferred approach", value: selectedRelationshipSummary.what_tends_to_work },
+                        { label: "Unresolved topics", value: selectedRelationshipSummary.unresolved_topics },
+                      ].map(({ label, value }) => {
+                        if (!value) return null;
+                        return (
+                          <div key={label} className="rounded-card border border-border bg-bg p-4">
+                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-light">{label}</p>
+                            <p className="text-sm leading-relaxed text-ink-mid">{value}</p>
+                          </div>
+                        );
+                      })}
+                      {selectedRelationshipSummary.updated_at && (
+                        <p className="text-xs text-ink-light md:col-span-2">
+                          Summary updated {new Date(selectedRelationshipSummary.updated_at).toLocaleDateString()}
+                          {selectedRelationshipSummary.generated_from ? ` from ${selectedRelationshipSummary.generated_from}` : ""}
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  {selectedContact.contact_insights && (
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {[
+                        { label: "Summary", key: "summary" },
+                        { label: "Communication", key: "communication_patterns" },
+                        { label: "Common topics", key: "common_topics" },
+                        { label: "Tone trend", key: "tone_trend" },
+                        { label: "Responsiveness", key: "responsiveness" },
+                      ].map(({ label, key }) => {
+                        const val = selectedContact.contact_insights![key as keyof ContactInsights];
+                        if (!val) return null;
+                        return (
+                          <div key={key} className="rounded-card border border-border bg-bg p-4">
+                            <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-light">{label}</p>
+                            <p className="text-sm leading-relaxed text-ink-mid">{val}</p>
+                          </div>
+                        );
+                      })}
+                      {selectedContact.contact_insights.generated_at && (
+                        <p className="text-xs text-ink-light md:col-span-2">
+                          Insights updated {new Date(selectedContact.contact_insights.generated_at).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
                   )}
                 </div>
               ) : (
@@ -632,6 +856,11 @@ export default function ContactsPage() {
                       {c.slack_handle && (
                         <span className="max-w-full truncate rounded bg-bg px-2 py-0.5 text-xs text-ink-light">
                           Slack: {c.slack_handle}
+                        </span>
+                      )}
+                      {c.contact_identifiers?.some((identifier) => identifier.platform === "slack_user_id") && (
+                        <span className="max-w-full truncate rounded bg-bg px-2 py-0.5 text-xs text-ink-light">
+                          Slack confirmed
                         </span>
                       )}
                     </div>

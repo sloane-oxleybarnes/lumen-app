@@ -8,6 +8,7 @@ import {
   isAllowedSlackPlan,
   lookupSlackConnectedUser,
   lookupSlackWorkspaceBotToken,
+  resolveSlackAuthorRelationshipContext,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
   slackApiPost,
@@ -49,8 +50,12 @@ function extractActiveSlackContext(event: NonNullable<SlackEventEnvelope["event"
   const channelEntity = event.context?.entities?.find((entity) =>
     entity.type?.includes("channel_id") && entity.value
   );
+  const userEntity = event.context?.entities?.find((entity) =>
+    entity.type?.includes("user_id") && entity.value
+  );
   return {
     channelId: channelEntity?.value || null,
+    userId: userEntity?.value || null,
     actionToken: event.action_token || null,
   };
 }
@@ -111,6 +116,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
+  const activeSlackContext = extractActiveSlackContext(event);
   scheduleSlackBackgroundTask(
     "Slack agent message response failed",
     respondToAgentMessage({
@@ -119,8 +125,9 @@ export async function POST(req: NextRequest) {
       channelId: event.channel,
       threadTs: event.thread_ts || event.ts || "",
       text: event.text,
-      activeChannelId: extractActiveSlackContext(event).channelId,
-      actionToken: extractActiveSlackContext(event).actionToken,
+      activeChannelId: activeSlackContext.channelId,
+      activeUserId: activeSlackContext.userId,
+      actionToken: activeSlackContext.actionToken,
     })
   );
 
@@ -185,6 +192,7 @@ async function respondToAgentMessage({
   threadTs,
   text,
   activeChannelId,
+  activeUserId,
   actionToken,
 }: {
   teamId: string;
@@ -193,6 +201,7 @@ async function respondToAgentMessage({
   threadTs: string;
   text: string;
   activeChannelId?: string | null;
+  activeUserId?: string | null;
   actionToken?: string | null;
 }) {
   const user = await lookupSlackConnectedUser(teamId, slackUserId);
@@ -251,6 +260,16 @@ async function respondToAgentMessage({
           channelId: activeChannelId,
         })
       : null;
+    const activeRelationship = await resolveSlackAuthorRelationshipContext({
+      user,
+      teamId,
+      slackAuthorUserId: activeUserId,
+      interactionType: "slack_agent_message",
+    });
+    const relationshipNote =
+      activeRelationship && !activeRelationship.linked && activeRelationship.slackIdentifier
+        ? `Add confirmed Slack ID ${activeRelationship.slackIdentifier} to this person's Beckett contact to use relationship context next time.`
+        : "";
 
     const guidedPrep = await handleGuidedSlackPrep({
       user,
@@ -261,6 +280,7 @@ async function respondToAgentMessage({
       text,
       activeChannelId,
       activeContext,
+      relationshipContext: activeRelationship?.promptContext || null,
       actionToken,
     });
 
@@ -304,6 +324,7 @@ async function respondToAgentMessage({
       contextFailureReason: coachingContext.failureReason,
       contextMessageCount: coachingContext.messageCount,
       broaderSearchUsed: coachingContext.broaderSearchUsed,
+      relationshipContext: activeRelationship?.promptContext || null,
       intent: "general",
       responseDetail: "longer",
     });
@@ -312,7 +333,10 @@ async function respondToAgentMessage({
       subtitle: "Communication coach",
       prompt: text,
       body: response,
-      footer: coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : undefined,
+      footer: [
+        coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : "",
+        relationshipNote,
+      ].filter(Boolean).join("\n") || undefined,
     });
 
     await slackApiPost(user.botAccessToken, "chat.postMessage", {

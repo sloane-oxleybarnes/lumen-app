@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { normalizeContactIdentifier } from "@/lib/contact-identifiers";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 type ContactRow = {
@@ -23,7 +24,7 @@ function mergeNotes(primary: string | null, duplicate: string | null) {
 }
 
 function uniqueIdentifiers(
-  identifiers: Array<{ platform: string; identifier: string }>
+  identifiers: Array<{ platform: string; identifier: string; label?: string | null; confirmed?: boolean | null }>
 ) {
   const seen = new Set<string>();
   return identifiers.filter((item) => {
@@ -32,6 +33,14 @@ function uniqueIdentifiers(
     seen.add(key);
     return true;
   });
+}
+
+function mergeText(primary: string | null, duplicate: string | null) {
+  const first = primary?.trim();
+  const second = duplicate?.trim();
+  if (!first) return second || null;
+  if (!second || first.includes(second)) return first;
+  return `${first}\n\n${second}`;
 }
 
 export async function POST(req: NextRequest) {
@@ -96,17 +105,27 @@ export async function POST(req: NextRequest) {
 
   const { data: duplicateIdentifiers, error: identifiersError } = await supabase
     .from("contact_identifiers")
-    .select("platform, identifier")
+    .select("platform, identifier, label, confirmed")
     .eq("user_id", userId)
     .eq("contact_id", duplicateContactId);
 
   if (identifiersError) return NextResponse.json({ error: identifiersError.message }, { status: 500 });
 
+  const duplicateLegacyIdentifiers = [
+    normalizeContactIdentifier({ platform: "email", identifier: duplicate.email, label: "Email", confirmed: true }),
+    normalizeContactIdentifier({
+      platform: "slack",
+      identifier: duplicate.slack_handle,
+      label: "Slack handle",
+      confirmed: false,
+    }),
+    normalizeContactIdentifier({ platform: "phone", identifier: duplicate.phone_number, label: "Phone", confirmed: true }),
+  ].filter(Boolean) as Array<{ platform: string; identifier: string; label?: string | null; confirmed?: boolean | null }>;
+
   const identifiersToMove = uniqueIdentifiers([
     ...(duplicateIdentifiers || []),
-    duplicate.email ? { platform: "email", identifier: duplicate.email.toLowerCase().trim() } : null,
-    duplicate.slack_handle ? { platform: "slack", identifier: duplicate.slack_handle.trim() } : null,
-  ].filter(Boolean) as Array<{ platform: string; identifier: string }>);
+    ...duplicateLegacyIdentifiers,
+  ]);
 
   if (identifiersToMove.length) {
     const movedIdentifiers = identifiersToMove.map((item) => ({
@@ -114,6 +133,8 @@ export async function POST(req: NextRequest) {
       user_id: userId,
       platform: item.platform,
       identifier: item.identifier,
+      label: item.label || null,
+      confirmed: item.confirmed ?? item.platform !== "slack",
     }));
 
     const { error: upsertError } = await supabase
@@ -125,16 +146,79 @@ export async function POST(req: NextRequest) {
 
   const { data: primaryInsight } = await supabase
     .from("contact_insights")
-    .select("id")
+    .select("*")
     .eq("contact_id", primaryContactId)
     .maybeSingle();
 
-  if (!primaryInsight) {
+  const { data: duplicateInsight } = await supabase
+    .from("contact_insights")
+    .select("*")
+    .eq("contact_id", duplicateContactId)
+    .maybeSingle();
+
+  if (!primaryInsight && duplicateInsight) {
     await supabase
       .from("contact_insights")
       .update({ contact_id: primaryContactId })
       .eq("contact_id", duplicateContactId);
+  } else if (primaryInsight && duplicateInsight) {
+    await supabase
+      .from("contact_insights")
+      .update({
+        summary: mergeText(primaryInsight.summary, duplicateInsight.summary),
+        communication_patterns: mergeText(primaryInsight.communication_patterns, duplicateInsight.communication_patterns),
+        common_topics: mergeText(primaryInsight.common_topics, duplicateInsight.common_topics),
+        tone_trend: mergeText(primaryInsight.tone_trend, duplicateInsight.tone_trend),
+        responsiveness: mergeText(primaryInsight.responsiveness, duplicateInsight.responsiveness),
+        generated_at: new Date().toISOString(),
+      })
+      .eq("contact_id", primaryContactId);
   }
+
+  const { data: primarySummary } = await supabase
+    .from("contact_relationship_summaries")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("contact_id", primaryContactId)
+    .maybeSingle();
+
+  const { data: duplicateSummary } = await supabase
+    .from("contact_relationship_summaries")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("contact_id", duplicateContactId)
+    .maybeSingle();
+
+  if (!primarySummary && duplicateSummary) {
+    await supabase
+      .from("contact_relationship_summaries")
+      .update({ contact_id: primaryContactId, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("contact_id", duplicateContactId);
+  } else if (primarySummary && duplicateSummary) {
+    await supabase
+      .from("contact_relationship_summaries")
+      .update({
+        communication_style: mergeText(primarySummary.communication_style, duplicateSummary.communication_style),
+        recurring_tension_points: mergeText(
+          primarySummary.recurring_tension_points,
+          duplicateSummary.recurring_tension_points
+        ),
+        what_tends_to_work: mergeText(primarySummary.what_tends_to_work, duplicateSummary.what_tends_to_work),
+        unresolved_topics: mergeText(primarySummary.unresolved_topics, duplicateSummary.unresolved_topics),
+        last_interaction_at: primarySummary.last_interaction_at || duplicateSummary.last_interaction_at,
+        generated_from: mergeText(primarySummary.generated_from, duplicateSummary.generated_from),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("user_id", userId)
+      .eq("contact_id", primaryContactId);
+  }
+
+  await supabase
+    .from("interaction_summaries")
+    .update({ contact_id: primaryContactId })
+    .eq("user_id", userId)
+    .eq("contact_id", duplicateContactId);
 
   const { error: deleteError } = await supabase
     .from("contacts")

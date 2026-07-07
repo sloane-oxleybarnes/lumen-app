@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { upsertRelationshipSummary } from '@/lib/contact-relationship-context'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getExtensionUserId } from '@/lib/extension-auth'
 
@@ -83,5 +84,16 @@ Respond with only the JSON object, no markdown wrapping.`
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ insights: data })
+
+  const relationshipSummary = await upsertRelationshipSummary({
+    userId,
+    contactId: params.id,
+    communicationStyle: insights.communication_patterns || insights.summary,
+    recurringTensionPoints: insights.tone_trend,
+    whatTendsToWork: insights.responsiveness,
+    unresolvedTopics: insights.common_topics,
+    generatedFrom: 'contact_profile',
+  }).catch(() => null)
+
+  return NextResponse.json({ insights: data, relationshipSummary })
 }

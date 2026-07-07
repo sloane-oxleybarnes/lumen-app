@@ -1,6 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
-import { getExtensionUserId } from '@/lib/extension-auth'
+import { NextRequest, NextResponse } from "next/server";
+import {
+  buildContactIdentifierRows,
+  ContactIdentifierInput,
+  legacyPlatformsFromPatch,
+} from "@/lib/contact-identifiers";
+import { getExtensionUserId } from "@/lib/extension-auth";
+import { createSupabaseServerClient } from "@/lib/supabase-server";
 
 async function getAuthedUserId(req: NextRequest): Promise<string | null> {
   const extUserId = await getExtensionUserId(req)
@@ -19,13 +24,14 @@ export async function PUT(
 
   const body = await req.json() as {
     name?: string
-    email?: string
-    slack_handle?: string
-    phone_number?: string
-    relationship_type?: string
-    relationship_other?: string
-    notes?: string
+    email?: string | null
+    slack_handle?: string | null
+    phone_number?: string | null
+    relationship_type?: string | null
+    relationship_other?: string | null
+    notes?: string | null
     trusted?: boolean
+    identifiers?: ContactIdentifierInput[]
   }
 
   const supabase = createSupabaseServerClient()
@@ -33,7 +39,7 @@ export async function PUT(
   // Ensure the contact belongs to this user
   const { data: existing } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id, email, slack_handle, phone_number')
     .eq('id', params.id)
     .eq('user_id', userId)
     .single()
@@ -50,36 +56,71 @@ export async function PUT(
   if (body.notes !== undefined) updates.notes = body.notes?.trim() || null
   if (body.trusted !== undefined) updates.trusted = body.trusted
 
-  const { data: contact, error } = await supabase
-    .from('contacts')
-    .update(updates)
-    .eq('id', params.id)
-    .select()
-    .single()
+  let contact = existing
+  if (Object.keys(updates).length > 0) {
+    const { data, error } = await supabase
+      .from('contacts')
+      .update(updates)
+      .eq('id', params.id)
+      .select()
+      .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Sync contact_identifiers for email/slack
-  if (body.email !== undefined) {
-    await supabase.from('contact_identifiers').delete().eq('contact_id', params.id).eq('platform', 'email')
-    if (body.email) {
-      await supabase.from('contact_identifiers').upsert({
-        contact_id: params.id,
-        user_id: userId,
-        platform: 'email',
-        identifier: body.email.toLowerCase().trim(),
-      }, { onConflict: 'user_id,platform,identifier' })
-    }
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    contact = data
   }
-  if (body.slack_handle !== undefined) {
-    await supabase.from('contact_identifiers').delete().eq('contact_id', params.id).eq('platform', 'slack')
-    if (body.slack_handle) {
-      await supabase.from('contact_identifiers').upsert({
-        contact_id: params.id,
-        user_id: userId,
-        platform: 'slack',
-        identifier: body.slack_handle.trim(),
-      }, { onConflict: 'user_id,platform,identifier' })
+
+  const shouldReplaceIdentifiers = Array.isArray(body.identifiers)
+  const legacyPlatforms = legacyPlatformsFromPatch(body)
+
+  if (shouldReplaceIdentifiers) {
+    const identifiers = buildContactIdentifierRows({
+      contactId: params.id,
+      userId,
+      email: body.email !== undefined ? body.email : existing.email,
+      slackHandle: body.slack_handle !== undefined ? body.slack_handle : existing.slack_handle,
+      phoneNumber: body.phone_number !== undefined ? body.phone_number : existing.phone_number,
+      identifiers: body.identifiers,
+    })
+
+    const { error: deleteError } = await supabase
+      .from('contact_identifiers')
+      .delete()
+      .eq('contact_id', params.id)
+      .eq('user_id', userId)
+
+    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+
+    if (identifiers.length) {
+      const { error: upsertError } = await supabase
+        .from('contact_identifiers')
+        .upsert(identifiers, { onConflict: 'user_id,platform,identifier' })
+
+      if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 })
+    }
+  } else if (legacyPlatforms.length) {
+    const identifiers = buildContactIdentifierRows({
+      contactId: params.id,
+      userId,
+      email: body.email,
+      slackHandle: body.slack_handle,
+      phoneNumber: body.phone_number,
+    })
+
+    const { error: deleteError } = await supabase
+      .from('contact_identifiers')
+      .delete()
+      .eq('contact_id', params.id)
+      .eq('user_id', userId)
+      .in('platform', legacyPlatforms)
+
+    if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 })
+
+    if (identifiers.length) {
+      const { error: upsertError } = await supabase
+        .from('contact_identifiers')
+        .upsert(identifiers, { onConflict: 'user_id,platform,identifier' })
+
+      if (upsertError) return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
   }
 
