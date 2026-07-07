@@ -13,7 +13,7 @@ This is the Slack-only hackathon path for using Beckett inside Slack Desktop. It
 - Active context plus relevant live Slack search across authorized public channels, private channels, DMs, and group DMs after the user reconnects with the latest scopes
 - Tool-style agent layer for `analyze_slack_thread`, `draft_slack_reply`, `coach_for_clarity`, `prep_difficult_conversation`, `summarize_relationship_context`, and `explain_tone_without_over_inference`
 - Sidebar-only guided flows for `/beckett respond`, `/beckett rewrite`, `/beckett decode`, `/beckett prep`, and `/beckett practice`; no pop-up modal intake in the hackathon demo
-- Slack Messages landing with Beckett action cards
+- Slack Messages native suggested prompts for Beckett starter actions
 - Slack App Home as the Beckett History hub for recent and archived coaching conversations
 
 ## Staging Setup
@@ -54,12 +54,12 @@ Use Slack Desktop or the Slack web app:
    - Expected: The response uses clean section labels and short bullets.
    - Expected: No public channel message is posted.
 
-### 1A. Beckett Messages Landing + Home History
+### 1A. Beckett Suggested Prompts + Home History
 
 1. Open Beckett in Slack and select the Messages tab.
-   - Expected: Messages shows a Beckett greeting and four action cards: Decode a Message, Respond to a Message, Rewrite a Message, and Prep / Practice.
-   - Expected: The prompt says `What can Beckett help with today?`
-2. Click a Messages action card, such as `Respond to a Message`.
+   - Expected: Slack's native suggested prompts show Decode a Message, Respond to a Message, Rewrite a Message, and Prep / Practice.
+   - Expected: The suggested prompt title says `What can Beckett help with today?`
+2. Click a suggested prompt, such as `Respond to a Message`.
    - Expected: Beckett starts a private Messages conversation.
    - Expected: No public channel message is posted.
 3. Open the Home tab.
@@ -69,7 +69,8 @@ Use Slack Desktop or the Slack web app:
    - Expected: Beckett posts a private continuation message with the prior summary and next-step buttons.
 5. Click `Archive conversation` inside an active Messages thread.
    - Expected: The conversation is archived.
-   - Expected: Beckett posts the landing card again in Messages.
+   - Expected: Beckett does not post a new landing card into Messages.
+   - Expected: The native suggested prompts remain the start surface for new work.
    - Expected: The archived conversation remains visible in Home history without an Archive button.
 
 ### 2. Message Shortcut: Decode + Respond

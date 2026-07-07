@@ -329,92 +329,6 @@ export async function publishSlackHome({
   });
 }
 
-function greetingFor(date = new Date()) {
-  const hour = date.getHours();
-  if (hour < 12) return "Good morning";
-  if (hour < 17) return "Good afternoon";
-  return "Good evening";
-}
-
-function firstName(name: string | null | undefined) {
-  return (name || "there").trim().split(/\s+/)[0] || "there";
-}
-
-function landingCard({
-  title,
-  description,
-  flowType,
-  emoji,
-}: {
-  title: string;
-  description: string;
-  flowType: Exclude<SlackHistoryFlowType, "message" | "practice">;
-  emoji: string;
-}): SlackBlock[] {
-  return [
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: `${emoji} *${title}*\n${description}`,
-      },
-      accessory: {
-        type: "button",
-        text: { type: "plain_text", text: "Start" },
-        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_${flowType}`,
-        value: JSON.stringify({ flowType }),
-      },
-    },
-    { type: "divider" },
-  ];
-}
-
-export function buildSlackMessagesLandingPayload(userName?: string | null) {
-  const blocks: SlackBlock[] = [
-    {
-      type: "header",
-      text: { type: "plain_text", text: `${greetingFor()}, ${firstName(userName)}.` },
-    },
-    {
-      type: "section",
-      text: {
-        type: "mrkdwn",
-        text: "*What can Beckett help with today?*",
-      },
-    },
-    { type: "divider" },
-    ...landingCard({
-      title: "Decode a Message",
-      description: "Understand the tone, intent, and meaning of specific messages.",
-      flowType: "decode",
-      emoji: ":mag:",
-    }),
-    ...landingCard({
-      title: "Respond to a Message",
-      description: "Pick a specific message and Beckett can help you draft a clear response.",
-      flowType: "respond",
-      emoji: ":speech_balloon:",
-    }),
-    ...landingCard({
-      title: "Rewrite a Message",
-      description: "Draft your response and Beckett can help you refine it.",
-      flowType: "rewrite",
-      emoji: ":pencil2:",
-    }),
-    ...landingCard({
-      title: "Prep / Practice",
-      description: "Prepare for difficult conversations and understand what to expect.",
-      flowType: "prep",
-      emoji: ":dart:",
-    }),
-  ];
-
-  return {
-    text: `${greetingFor()}, ${firstName(userName)}. What can Beckett help with today?`,
-    blocks: blocks.slice(0, 45),
-  };
-}
-
 export function buildSlackThreadArchiveAction(threadId: string | null | undefined) {
   if (!threadId) return [];
   return [
@@ -425,33 +339,6 @@ export function buildSlackThreadArchiveAction(threadId: string | null | undefine
       value: JSON.stringify({ threadId }),
     },
   ];
-}
-
-export async function postSlackMessagesLanding({
-  botAccessToken,
-  slackUserId,
-  userName,
-  channelId,
-}: {
-  botAccessToken: string | null;
-  slackUserId: string;
-  userName?: string | null;
-  channelId?: string | null;
-}) {
-  if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
-  let targetChannelId = channelId || "";
-  if (!targetChannelId) {
-    const opened = await slackApiPost<{ channel?: { id?: string } }>(botAccessToken, "conversations.open", {
-      users: slackUserId,
-    });
-    targetChannelId = opened.channel?.id || "";
-    if (!opened.ok || !targetChannelId) return { ok: false, error: opened.error || "dm_open_failed" };
-  }
-
-  return slackApiPost(botAccessToken, "chat.postMessage", {
-    channel: targetChannelId,
-    ...buildSlackMessagesLandingPayload(userName),
-  });
 }
 
 export async function publishSlackConnectHome({

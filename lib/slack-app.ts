@@ -590,7 +590,7 @@ async function openSlackAgentChannel(botAccessToken: string, slackUserId: string
 export async function setSlackAgentSuggestedPrompts({
   botAccessToken,
   channelId,
-  title = "What would you like to work through with Beckett?",
+  title = "What can Beckett help with today?",
 }: {
   botAccessToken: string | null;
   channelId: string;
@@ -603,20 +603,20 @@ export async function setSlackAgentSuggestedPrompts({
     title,
     prompts: [
       {
-        title: "Prep for a difficult conversation",
-        message: "/beckett prep I need to prepare for a difficult workplace conversation.",
+        title: "Decode a Message",
+        message: "/beckett decode help me understand this message without over-reading it.",
       },
       {
-        title: "Decode this Slack thread",
-        message: "/beckett decode help me understand what is visible in this Slack thread and what I should not over-read.",
+        title: "Respond to a Message",
+        message: "/beckett respond help me draft a clear response to this conversation.",
       },
       {
-        title: "Respond clearly",
-        message: "/beckett respond help me write a direct but kind Slack reply.",
+        title: "Rewrite a Message",
+        message: "/beckett rewrite help me make this response clearer and kinder.",
       },
       {
-        title: "Practice a conversation",
-        message: "/beckett practice my 1:1 with my manager about workload.",
+        title: "Prep / Practice",
+        message: "/beckett prep help me prepare for a difficult conversation.",
       },
     ],
   });
@@ -684,7 +684,6 @@ export async function postSlackAgentMessage({
   await setSlackAgentSuggestedPrompts({
     botAccessToken,
     channelId,
-    title: "Keep working with Beckett",
   }).catch(() => null);
 
   return { ok: true, channelId, ts: posted.ts };
