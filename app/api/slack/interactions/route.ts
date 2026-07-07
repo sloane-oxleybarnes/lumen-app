@@ -116,9 +116,12 @@ function parseInteractionPayload(rawBody: string): SlackInteractionPayload | nul
   }
 }
 
-function buildShortcutPrompt(payload: SlackInteractionPayload) {
-  const channel = payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation";
-  const author = payload.message?.username || payload.message?.user || "the other person";
+function buildShortcutPrompt(payload: SlackInteractionPayload, authorLabel?: string | null) {
+  const channel =
+    payload.channel?.name && payload.channel.name !== "directmessage"
+      ? `#${payload.channel.name}`
+      : "this DM";
+  const author = authorLabel || payload.message?.username || payload.message?.user || "the other person";
   return [
     `Help me understand this message from ${author} in ${channel}.`,
     "What might be happening underneath it, what should I pay attention to, and what could I say next?",
@@ -542,11 +545,9 @@ async function sendMessageShortcutResponse({
   const responseUrl = payload.response_url || "";
 
   try {
-    const prompt = buildShortcutPrompt(payload);
     const preparing = buildBeckettPayload({
       title: "Beckett",
       subtitle: "Message coaching",
-      prompt,
       body: "Beckett is reading that message...",
       hideTitle: true,
     });
@@ -571,18 +572,19 @@ async function sendMessageShortcutResponse({
         return;
       }
 
+      const guestPrompt = buildShortcutPrompt(payload);
       const response = await runSlackGuestCoaching({
         teamId,
         slackUserId,
         action: "message_shortcut",
-        prompt,
+        prompt: guestPrompt,
         messageText,
         intent: "respond",
       });
       const responsePayload = buildBeckettPayload({
         title: "Beckett",
         subtitle: "",
-        prompt,
+        prompt: guestPrompt,
         body: response,
         footer: "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved Beckett conversations.",
         hideTitle: true,
@@ -593,6 +595,19 @@ async function sendMessageShortcutResponse({
       });
       return;
     }
+
+    const authorRelationship = await resolveSlackAuthorRelationshipContext({
+      user,
+      teamId,
+      slackAuthorUserId: payload.message?.user,
+      interactionType: "slack_message_shortcut",
+    });
+    const authorLabel =
+      authorRelationship?.contact?.name ||
+      authorRelationship?.slackProfile?.name ||
+      payload.message?.username ||
+      null;
+    const prompt = buildShortcutPrompt(payload, authorLabel);
 
     if (!isAllowedSlackPlan(user)) {
       await postSlackResponse(responseUrl, "Beckett Slack coaching is available for beta and pro users.", {
@@ -613,12 +628,6 @@ async function sendMessageShortcutResponse({
       prompt,
       activeContext: channelContext,
       contextChannelId: payload.channel?.id,
-    });
-    const authorRelationship = await resolveSlackAuthorRelationshipContext({
-      user,
-      teamId,
-      slackAuthorUserId: payload.message?.user,
-      interactionType: "slack_message_shortcut",
     });
     const relationshipNote =
       authorRelationship && !authorRelationship.linked && authorRelationship.slackIdentifier
@@ -664,7 +673,7 @@ async function sendMessageShortcutResponse({
           teamId,
           slackUserId,
           flowType: "message",
-          title: slackHistoryTitle("message", payload.channel?.name ? `#${payload.channel.name}` : payload.message?.username || payload.message?.user || "this Slack conversation"),
+          title: slackHistoryTitle("message", authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
           promptSnippet: prompt,
           summary: summarizeSlackCoachingResponse(response, prompt),
           slackChannelId: agentChannelId,

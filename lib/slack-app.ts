@@ -845,7 +845,7 @@ function buildBroaderSearchQuery(prompt: string, activeContext?: string | null) 
 export async function lookupSlackUserProfile(accessToken: string, userId: string) {
   const cacheKey = `${accessToken.slice(-8)}:${userId}`;
   const cached = slackUserNameCache.get(cacheKey);
-  if (cached) return { id: userId, name: cached };
+  if (cached) return { id: userId, name: cached, aliases: [cached] };
 
   const data = await slackApiFetch<SlackUserInfo>(
     accessToken,
@@ -858,9 +858,22 @@ export async function lookupSlackUserProfile(accessToken: string, userId: string
     data?.user?.real_name ||
     data?.user?.name ||
     userId;
+  const aliases = Array.from(
+    new Set(
+      [
+        data?.user?.profile?.display_name,
+        data?.user?.profile?.real_name,
+        data?.user?.real_name,
+        data?.user?.name,
+        name,
+      ]
+        .map((value) => String(value || "").trim())
+        .filter(Boolean)
+    )
+  );
 
   slackUserNameCache.set(cacheKey, name);
-  return { id: data?.user?.id || userId, name };
+  return { id: data?.user?.id || userId, name, aliases };
 }
 
 async function lookupSlackUserName(accessToken: string, userId: string) {
@@ -1086,11 +1099,26 @@ export async function resolveSlackAuthorRelationshipContext({
     user.accessToken && slackAuthorUserId
       ? await lookupSlackUserProfile(user.accessToken, slackAuthorUserId).catch(() => null)
       : null;
-  const relationshipContext = await lookupRelationshipContextByIdentifier({
+  let relationshipContext = await lookupRelationshipContextByIdentifier({
     userId: user.id,
     identifier,
     requireConfirmed: true,
   });
+  let matchedBy = "confirmed_slack_user_id";
+
+  for (const alias of slackProfile?.aliases || []) {
+    if (relationshipContext) break;
+    relationshipContext = await lookupRelationshipContextByIdentifier({
+      userId: user.id,
+      identifier: {
+        platform: "slack",
+        identifier: alias,
+        confirmed: false,
+      },
+      requireConfirmed: false,
+    });
+    matchedBy = "slack_profile_alias";
+  }
 
   if (!relationshipContext) {
     return {
@@ -1106,12 +1134,13 @@ export async function resolveSlackAuthorRelationshipContext({
     contactId: relationshipContext.contact.id,
     platform: "slack",
     interactionType,
-    summary: `Slack coaching was requested for ${relationshipContext.contact.name}. Beckett matched this person by confirmed Slack user ID and used stored relationship context.`,
+    summary: `Slack coaching was requested for ${relationshipContext.contact.name}. Beckett matched this person by ${matchedBy} and used stored relationship context.`,
     metadata: {
       source: interactionType,
       slack_team_id: teamId,
       slack_user_id: slackAuthorUserId || null,
       slack_display_name: slackProfile?.name || null,
+      matched_by: matchedBy,
     },
     updateRelationshipSummary: false,
   }).catch((error) => {
