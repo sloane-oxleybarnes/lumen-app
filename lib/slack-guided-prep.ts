@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/server-admin";
 import {
+  buildSlackThreadArchiveAction,
   createSlackCoachingThread,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
@@ -936,7 +937,10 @@ export async function startGuidedSlackFlow({
         subtitle: "",
         body: response,
         hideTitle: true,
-        actions: buildSlackDraftUseActions(session.id, draftOptions),
+        actions: [
+          ...buildSlackDraftUseActions(session.id, draftOptions),
+          ...buildSlackThreadArchiveAction(coachingThread?.id),
+        ],
       });
       await slackApiPost(user.botAccessToken, "chat.postMessage", {
         channel: postedChannelId,

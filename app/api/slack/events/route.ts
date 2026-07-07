@@ -16,7 +16,8 @@ import {
   verifySlackRequest,
 } from "@/lib/slack-app";
 import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
-import { publishSlackConnectHome, publishSlackHomeResult } from "@/lib/slack-history";
+import { postSlackMessagesLanding, publishSlackConnectHome, publishSlackHomeResult } from "@/lib/slack-history";
+import { supabaseAdmin } from "@/lib/server-admin";
 
 export const runtime = "nodejs";
 
@@ -82,18 +83,20 @@ export async function POST(req: NextRequest) {
     event?.type === "app_home_opened" &&
     event.user
   ) {
-    scheduleSlackBackgroundTask(
-      "Slack app home publish failed",
-      publishHome({
-        teamId: body.team_id || "",
-        slackUserId: event.user,
-      })
-    );
+    if (!event.tab || event.tab === "home") {
+      scheduleSlackBackgroundTask(
+        "Slack app home publish failed",
+        publishHome({
+          teamId: body.team_id || "",
+          slackUserId: event.user,
+        })
+      );
+    }
 
     if (!event.tab || event.tab === "messages") {
       scheduleSlackBackgroundTask(
         "Slack agent surface setup failed",
-        setupAgentSurface({
+        setupMessagesSurface({
           teamId: body.team_id || "",
           slackUserId: event.user,
           channelId: event.channel,
@@ -134,7 +137,40 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ ok: true });
 }
 
-async function setupAgentSurface({
+async function shouldPostMessagesLanding(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("user_integrations")
+    .select("metadata")
+    .eq("user_id", userId)
+    .eq("provider", "slack")
+    .maybeSingle();
+
+  if (error) throw error;
+  const metadata =
+    data?.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata)
+      ? (data.metadata as Record<string, unknown>)
+      : {};
+  const lastPosted = typeof metadata.messages_landing_posted_at === "string"
+    ? new Date(metadata.messages_landing_posted_at).getTime()
+    : 0;
+  if (Number.isFinite(lastPosted) && Date.now() - lastPosted < 10 * 60 * 1000) return false;
+
+  await supabaseAdmin
+    .from("user_integrations")
+    .update({
+      metadata: {
+        ...metadata,
+        messages_landing_posted_at: new Date().toISOString(),
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .eq("provider", "slack");
+
+  return true;
+}
+
+async function setupMessagesSurface({
   teamId,
   slackUserId,
   channelId,
@@ -149,6 +185,15 @@ async function setupAgentSurface({
   await configureSlackAgentSurface({
     botAccessToken: user.botAccessToken,
     slackUserId,
+    channelId,
+  });
+
+  if (!(await shouldPostMessagesLanding(user.id))) return;
+
+  await postSlackMessagesLanding({
+    botAccessToken: user.botAccessToken,
+    slackUserId,
+    userName: user.name,
     channelId,
   });
 }

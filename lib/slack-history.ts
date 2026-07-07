@@ -128,7 +128,6 @@ export async function listRecentSlackCoachingThreads(userId: string, limit = 8) 
     .from("slack_coaching_threads")
     .select("*")
     .eq("user_id", userId)
-    .is("archived_at", null)
     .order("updated_at", { ascending: false })
     .limit(limit);
 
@@ -184,42 +183,39 @@ function relativeTime(value: string) {
   return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
-function homeQuickAction(action: SlackHistoryFlowType, text: string) {
-  return {
-    type: "button",
-    text: { type: "plain_text", text },
-    action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_${action}`,
-    value: JSON.stringify({ flowType: action }),
-  };
-}
-
 function historyCard(thread: SlackCoachingThread): SlackBlock[] {
   const summary = thread.summary || thread.prompt_snippet || "Open this coaching thread to keep working with Beckett.";
+  const status = thread.archived_at ? "archived" : thread.status;
+  const elements: Record<string, unknown>[] = [
+    {
+      type: "button",
+      text: { type: "plain_text", text: "Continue" },
+      style: "primary",
+      action_id: SLACK_HISTORY_CONTINUE_ACTION_ID,
+      value: JSON.stringify({ threadId: thread.id }),
+    },
+  ];
+
+  if (!thread.archived_at) {
+    elements.push({
+      type: "button",
+      text: { type: "plain_text", text: "Archive" },
+      action_id: SLACK_HISTORY_ARCHIVE_ACTION_ID,
+      value: JSON.stringify({ threadId: thread.id }),
+    });
+  }
+
   return [
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `*${thread.title}*\n${summary}\n_${flowLabel(thread.flow_type)} · ${thread.status} · ${relativeTime(thread.updated_at)}_`,
+        text: `*${thread.title}*\n${summary}\n_${flowLabel(thread.flow_type)} · ${status} · ${relativeTime(thread.updated_at)}_`,
       },
     },
     {
       type: "actions",
-      elements: [
-        {
-          type: "button",
-          text: { type: "plain_text", text: "Continue" },
-          style: "primary",
-          action_id: SLACK_HISTORY_CONTINUE_ACTION_ID,
-          value: JSON.stringify({ threadId: thread.id }),
-        },
-        {
-          type: "button",
-          text: { type: "plain_text", text: "Archive" },
-          action_id: SLACK_HISTORY_ARCHIVE_ACTION_ID,
-          value: JSON.stringify({ threadId: thread.id }),
-        },
-      ],
+      elements,
     },
     { type: "divider" },
   ];
@@ -229,13 +225,13 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: st
   const blocks: SlackBlock[] = [
     {
       type: "header",
-      text: { type: "plain_text", text: "Beckett" },
+      text: { type: "plain_text", text: "Beckett History" },
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "Your communication coach for the conversations that matter.",
+        text: "Recent Beckett coaching conversations. Continue anything you want to revisit, or archive active threads when you are done.",
       },
     },
     ...(notice
@@ -249,21 +245,7 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: st
           },
         ]
       : []),
-    {
-      type: "actions",
-      elements: [
-        homeQuickAction("respond", "Respond"),
-        homeQuickAction("decode", "Decode"),
-        homeQuickAction("rewrite", "Rewrite"),
-        homeQuickAction("prep", "Prep"),
-        homeQuickAction("practice", "Practice"),
-      ],
-    },
     { type: "divider" },
-    {
-      type: "section",
-      text: { type: "mrkdwn", text: "*Recent Beckett conversations*" },
-    },
   ];
 
   if (!threads.length) {
@@ -271,7 +253,7 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: st
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "No active Beckett conversations yet. Start with a quick action above or run `/beckett respond` from a Slack conversation. Archived conversations are hidden from this list.",
+        text: "No Beckett conversations yet. Open Messages to start with Decode, Respond, Rewrite, or Prep / Practice.",
       },
     });
     return blocks;
@@ -285,13 +267,13 @@ export function buildSlackConnectHomeBlocks(settingsUrl: string): SlackBlock[] {
   return [
     {
       type: "header",
-      text: { type: "plain_text", text: "Beckett" },
+      text: { type: "plain_text", text: "Beckett History" },
     },
     {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "Your communication coach for the conversations that matter.",
+        text: "Connect Slack from Beckett Settings to see your coaching history here.",
       },
     },
     { type: "divider" },
@@ -299,7 +281,7 @@ export function buildSlackConnectHomeBlocks(settingsUrl: string): SlackBlock[] {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "Connect Slack from Beckett Settings to see your coaching history and start private Beckett conversations from here.",
+        text: "Messages is where you work with Beckett. Home stores your recent and archived coaching conversations.",
       },
     },
     {
@@ -344,6 +326,131 @@ export async function publishSlackHome({
       type: "home",
       blocks: buildSlackHomeBlocks(threads, notice),
     },
+  });
+}
+
+function greetingFor(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
+
+function firstName(name: string | null | undefined) {
+  return (name || "there").trim().split(/\s+/)[0] || "there";
+}
+
+function landingCard({
+  title,
+  description,
+  flowType,
+  emoji,
+}: {
+  title: string;
+  description: string;
+  flowType: Exclude<SlackHistoryFlowType, "message" | "practice">;
+  emoji: string;
+}): SlackBlock[] {
+  return [
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: `${emoji} *${title}*\n${description}`,
+      },
+      accessory: {
+        type: "button",
+        text: { type: "plain_text", text: "Start" },
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_${flowType}`,
+        value: JSON.stringify({ flowType }),
+      },
+    },
+    { type: "divider" },
+  ];
+}
+
+export function buildSlackMessagesLandingPayload(userName?: string | null) {
+  const blocks: SlackBlock[] = [
+    {
+      type: "header",
+      text: { type: "plain_text", text: `${greetingFor()}, ${firstName(userName)}.` },
+    },
+    {
+      type: "section",
+      text: {
+        type: "mrkdwn",
+        text: "*What can Beckett help with today?*",
+      },
+    },
+    { type: "divider" },
+    ...landingCard({
+      title: "Decode a Message",
+      description: "Understand the tone, intent, and meaning of specific messages.",
+      flowType: "decode",
+      emoji: ":mag:",
+    }),
+    ...landingCard({
+      title: "Respond to a Message",
+      description: "Pick a specific message and Beckett can help you draft a clear response.",
+      flowType: "respond",
+      emoji: ":speech_balloon:",
+    }),
+    ...landingCard({
+      title: "Rewrite a Message",
+      description: "Draft your response and Beckett can help you refine it.",
+      flowType: "rewrite",
+      emoji: ":pencil2:",
+    }),
+    ...landingCard({
+      title: "Prep / Practice",
+      description: "Prepare for difficult conversations and understand what to expect.",
+      flowType: "prep",
+      emoji: ":dart:",
+    }),
+  ];
+
+  return {
+    text: `${greetingFor()}, ${firstName(userName)}. What can Beckett help with today?`,
+    blocks: blocks.slice(0, 45),
+  };
+}
+
+export function buildSlackThreadArchiveAction(threadId: string | null | undefined) {
+  if (!threadId) return [];
+  return [
+    {
+      type: "button",
+      text: { type: "plain_text", text: "Archive conversation" },
+      action_id: SLACK_HISTORY_ARCHIVE_ACTION_ID,
+      value: JSON.stringify({ threadId }),
+    },
+  ];
+}
+
+export async function postSlackMessagesLanding({
+  botAccessToken,
+  slackUserId,
+  userName,
+  channelId,
+}: {
+  botAccessToken: string | null;
+  slackUserId: string;
+  userName?: string | null;
+  channelId?: string | null;
+}) {
+  if (!botAccessToken) return { ok: false, error: "missing_bot_token" };
+  let targetChannelId = channelId || "";
+  if (!targetChannelId) {
+    const opened = await slackApiPost<{ channel?: { id?: string } }>(botAccessToken, "conversations.open", {
+      users: slackUserId,
+    });
+    targetChannelId = opened.channel?.id || "";
+    if (!opened.ok || !targetChannelId) return { ok: false, error: opened.error || "dm_open_failed" };
+  }
+
+  return slackApiPost(botAccessToken, "chat.postMessage", {
+    channel: targetChannelId,
+    ...buildSlackMessagesLandingPayload(userName),
   });
 }
 

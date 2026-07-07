@@ -13,7 +13,8 @@ This is the Slack-only hackathon path for using Beckett inside Slack Desktop. It
 - Active context plus relevant live Slack search across authorized public channels, private channels, DMs, and group DMs after the user reconnects with the latest scopes
 - Tool-style agent layer for `analyze_slack_thread`, `draft_slack_reply`, `coach_for_clarity`, `prep_difficult_conversation`, `summarize_relationship_context`, and `explain_tone_without_over_inference`
 - Sidebar-only guided flows for `/beckett respond`, `/beckett rewrite`, `/beckett decode`, `/beckett prep`, and `/beckett practice`; no pop-up modal intake in the hackathon demo
-- Slack App Home history hub with quick actions and recent Beckett coaching conversations
+- Slack Messages landing with Beckett action cards
+- Slack App Home as the Beckett History hub for recent and archived coaching conversations
 
 ## Staging Setup
 
@@ -53,20 +54,23 @@ Use Slack Desktop or the Slack web app:
    - Expected: The response uses clean section labels and short bullets.
    - Expected: No public channel message is posted.
 
-### 1A. Beckett Home History
+### 1A. Beckett Messages Landing + Home History
 
-1. Open Beckett in Slack and select the Home tab.
-   - Expected: The Home tab shows Beckett's coach intro, quick actions, and recent Beckett conversations.
-   - Expected: If there is no history yet, Beckett shows an empty state with a prompt to start.
-2. Click a Home quick action, such as `Respond`.
+1. Open Beckett in Slack and select the Messages tab.
+   - Expected: Messages shows a Beckett greeting and four action cards: Decode a Message, Respond to a Message, Rewrite a Message, and Prep / Practice.
+   - Expected: The prompt says `What can Beckett help with today?`
+2. Click a Messages action card, such as `Respond to a Message`.
    - Expected: Beckett starts a private Messages conversation.
    - Expected: No public channel message is posted.
-3. After running a Slack coaching flow, reopen the Home tab.
-   - Expected: The new conversation appears in recent history.
-4. Click `Continue` on a history card.
+3. Open the Home tab.
+   - Expected: Home shows `Beckett History`.
+   - Expected: Recent active and archived conversations appear.
+4. Click `Continue` on a Home history card.
    - Expected: Beckett posts a private continuation message with the prior summary and next-step buttons.
-5. Click `Archive`.
-   - Expected: The history item disappears from active Home history.
+5. Click `Archive conversation` inside an active Messages thread.
+   - Expected: The conversation is archived.
+   - Expected: Beckett posts the landing card again in Messages.
+   - Expected: The archived conversation remains visible in Home history without an Archive button.
 
 ### 2. Message Shortcut: Decode + Respond
 

@@ -36,6 +36,7 @@ import {
   createSlackCoachingThread,
   loadSlackCoachingThread,
   parseSlackHistoryAction,
+  postSlackMessagesLanding,
   publishSlackHome,
   slackHistoryTitle,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
@@ -826,11 +827,21 @@ async function handleHistoryButtonResponse({
 
     if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
       await archiveSlackCoachingThread({ threadId, userId: user.id });
+      await postSlackMessagesLanding({
+        botAccessToken: user.botAccessToken,
+        slackUserId,
+        userName: user.name,
+        channelId: payload.channel?.id,
+      }).catch((error) => {
+        console.error("Slack landing post after archive failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+      });
       await publishSlackHome({
         botAccessToken: user.botAccessToken,
         slackUserId,
         userId: user.id,
-        notice: "Archived. That conversation is hidden from your active Beckett history.",
+        notice: "Archived. That conversation is still available here in Beckett History.",
       });
       return;
     }
