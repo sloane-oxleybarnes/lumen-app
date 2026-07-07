@@ -99,6 +99,8 @@ async function callAnthropicBedrock(system: string | null, messages: AnthropicMe
   const service = 'bedrock'
   const host = `bedrock-runtime.${region}.amazonaws.com`
   const path = `/model/${encodeURIComponent(modelId)}/invoke`
+  // AWS SigV4 canonical URI encoding double-encodes path parameter escapes.
+  const canonicalPath = path.replace(/%/g, '%25')
   const endpoint = `https://${host}${path}`
   const { amzDate, dateStamp } = awsDateParts()
   const payloadHash = sha256Hex(payload)
@@ -114,7 +116,7 @@ async function callAnthropicBedrock(system: string | null, messages: AnthropicMe
   const signedHeaderNames = Object.keys(headers).sort()
   const canonicalHeaders = signedHeaderNames.map((name) => `${name}:${headers[name].trim()}\n`).join('')
   const signedHeaders = signedHeaderNames.join(';')
-  const canonicalRequest = ['POST', path, '', canonicalHeaders, signedHeaders, payloadHash].join('\n')
+  const canonicalRequest = ['POST', canonicalPath, '', canonicalHeaders, signedHeaders, payloadHash].join('\n')
   const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`
   const stringToSign = [
     'AWS4-HMAC-SHA256',
