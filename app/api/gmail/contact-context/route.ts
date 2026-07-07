@@ -1,4 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import {
+  lookupRelationshipContextByIdentifier,
+  recordSafeInteractionSummary,
+} from '@/lib/contact-relationship-context'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 async function callAnthropic(prompt: string): Promise<string> {
@@ -69,5 +73,31 @@ ${snippets.map((s, i) => `${i + 1}. ${s}`).join('\n')}
 Return only the description — no preamble, no labels.`
   )
 
-  return NextResponse.json({ summary })
+  const relationshipContext = await lookupRelationshipContextByIdentifier({
+    userId: session.user.id,
+    identifier: { platform: 'email', identifier: email, confirmed: true },
+  })
+
+  if (relationshipContext) {
+    await recordSafeInteractionSummary({
+      userId: session.user.id,
+      contactId: relationshipContext.contact.id,
+      platform: 'gmail',
+      interactionType: 'requested_contact_context',
+      summary,
+      metadata: {
+        source: 'gmail_contact_context',
+        contact_email: email.toLowerCase().trim(),
+      },
+    }).catch((error) => {
+      console.error('Gmail contact summary storage failed', error)
+    })
+  }
+
+  return NextResponse.json({
+    summary,
+    contact: relationshipContext
+      ? { id: relationshipContext.contact.id, name: relationshipContext.contact.name }
+      : null,
+  })
 }

@@ -5,6 +5,11 @@ import { AiUsageLimitError, recordAiUsage } from "@/lib/ai-usage";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { beckettBoundaryPrompt } from "@/lib/beckett-boundaries";
 import { formatCoachingProfileForPrompt } from "@/lib/coaching-profile";
+import { slackUserIdentifier } from "@/lib/contact-identifiers";
+import {
+  lookupRelationshipContextByIdentifier,
+  recordSafeInteractionSummary,
+} from "@/lib/contact-relationship-context";
 import { getPublicSiteUrl } from "@/lib/deployment-env";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
@@ -783,10 +788,10 @@ function buildBroaderSearchQuery(prompt: string, activeContext?: string | null) 
   return deduped || prompt.slice(0, 240);
 }
 
-async function lookupSlackUserName(accessToken: string, userId: string) {
+export async function lookupSlackUserProfile(accessToken: string, userId: string) {
   const cacheKey = `${accessToken.slice(-8)}:${userId}`;
   const cached = slackUserNameCache.get(cacheKey);
-  if (cached) return cached;
+  if (cached) return { id: userId, name: cached };
 
   const data = await slackApiFetch<SlackUserInfo>(
     accessToken,
@@ -801,7 +806,12 @@ async function lookupSlackUserName(accessToken: string, userId: string) {
     userId;
 
   slackUserNameCache.set(cacheKey, name);
-  return name;
+  return { id: data?.user?.id || userId, name };
+}
+
+async function lookupSlackUserName(accessToken: string, userId: string) {
+  const profile = await lookupSlackUserProfile(accessToken, userId);
+  return profile.name;
 }
 
 async function formatSlackHistoryMessage(accessToken: string, message: SlackHistoryMessage) {
@@ -1004,6 +1014,65 @@ export async function buildSlackCoachingContext({
   };
 }
 
+export async function resolveSlackAuthorRelationshipContext({
+  user,
+  teamId,
+  slackAuthorUserId,
+  interactionType,
+}: {
+  user: SlackConnectedUser;
+  teamId: string;
+  slackAuthorUserId?: string | null;
+  interactionType: string;
+}) {
+  const identifier = slackUserIdentifier(teamId, slackAuthorUserId);
+  if (!identifier) return null;
+
+  const slackProfile =
+    user.accessToken && slackAuthorUserId
+      ? await lookupSlackUserProfile(user.accessToken, slackAuthorUserId).catch(() => null)
+      : null;
+  const relationshipContext = await lookupRelationshipContextByIdentifier({
+    userId: user.id,
+    identifier,
+    requireConfirmed: true,
+  });
+
+  if (!relationshipContext) {
+    return {
+      linked: false,
+      slackProfile,
+      slackIdentifier: identifier.identifier,
+      promptContext: null,
+    };
+  }
+
+  await recordSafeInteractionSummary({
+    userId: user.id,
+    contactId: relationshipContext.contact.id,
+    platform: "slack",
+    interactionType,
+    summary: `Slack coaching was requested for ${relationshipContext.contact.name}. Beckett matched this person by confirmed Slack user ID and used stored relationship context.`,
+    metadata: {
+      source: interactionType,
+      slack_team_id: teamId,
+      slack_user_id: slackAuthorUserId || null,
+      slack_display_name: slackProfile?.name || null,
+    },
+    updateRelationshipSummary: false,
+  }).catch((error) => {
+    console.error("Slack relationship summary storage failed", error);
+  });
+
+  return {
+    linked: true,
+    slackProfile,
+    slackIdentifier: identifier.identifier,
+    contact: relationshipContext.contact,
+    promptContext: relationshipContext.promptContext,
+  };
+}
+
 export function slackContextUserNote(context: SlackConversationContext) {
   if (context.status === "available") return "";
   switch (context.failureReason) {
@@ -1031,6 +1100,7 @@ export async function runSlackCoaching({
   contextFailureReason,
   contextMessageCount,
   broaderSearchUsed,
+  relationshipContext,
   responseDetail,
   intent = "general",
 }: {
@@ -1043,6 +1113,7 @@ export async function runSlackCoaching({
   contextFailureReason?: SlackContextFailureReason | null;
   contextMessageCount?: number;
   broaderSearchUsed?: boolean;
+  relationshipContext?: string | null;
   responseDetail?: SlackResponseDetail;
   intent?: SlackCoachingIntent;
 }) {
@@ -1065,12 +1136,13 @@ export async function runSlackCoaching({
       contextFailureReason: contextFailureReason || null,
       contextMessageCount: contextMessageCount || 0,
       broaderSearchUsed: Boolean(broaderSearchUsed),
+      relationshipContextIncluded: Boolean(relationshipContext),
       responseDetail: responseDetail || null,
       intent,
       agentTool: selectSlackAgentTool({
         intent,
         action,
-        hasSlackContext: Boolean(messageText || contextStatus === "available"),
+        hasSlackContext: Boolean(messageText || relationshipContext || contextStatus === "available"),
       }),
     },
   });
@@ -1078,7 +1150,7 @@ export async function runSlackCoaching({
   const agentTool = selectSlackAgentTool({
     intent,
     action,
-    hasSlackContext: Boolean(messageText || contextStatus === "available"),
+    hasSlackContext: Boolean(messageText || relationshipContext || contextStatus === "available"),
   });
 
   const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
@@ -1129,13 +1201,16 @@ ${beckettBoundaryPrompt()}`;
     : contextStatus === "unavailable"
       ? "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
       : "";
+  const relationshipLine = relationshipContext
+    ? `\n\nConfirmed relationship context:\n${relationshipContext}`
+    : "";
   const userPrompt = `${coachingProfileContext || "The user has not set specific Beckett coaching preferences yet."}
 ${responseDetailLine}
 ${contextLine}
 ${slackIntentInstruction(intent)}
 
 User request:
-${prompt}${messageLine}`;
+${prompt}${relationshipLine}${messageLine}`;
 
   const maxTokens = responseDetail === "longer" ? 700 : responseDetail === "quick" ? 420 : 800;
   const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], maxTokens);
@@ -1153,6 +1228,7 @@ ${prompt}${messageLine}`;
       contextFailureReason: contextFailureReason || null,
       contextMessageCount: contextMessageCount || 0,
       broaderSearchUsed: Boolean(broaderSearchUsed),
+      relationshipContextIncluded: Boolean(relationshipContext),
       responseDetail: responseDetail || null,
       intent,
       agentTool,

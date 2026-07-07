@@ -9,11 +9,13 @@ import {
   lookupSlackConnectedUser,
   postSlackAgentMessage,
   postSlackResponse,
+  resolveSlackAuthorRelationshipContext,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
   slackApiPost,
   slackConnectText,
   slackContextUserNote,
+  slackMessageResponse,
   SlackBlock,
   SlackCoachingIntent,
   SLACK_SLASH_LONGER_ACTION_ID,
@@ -564,6 +566,16 @@ async function sendMessageShortcutResponse({
       activeContext: channelContext,
       contextChannelId: payload.channel?.id,
     });
+    const authorRelationship = await resolveSlackAuthorRelationshipContext({
+      user,
+      teamId,
+      slackAuthorUserId: payload.message?.user,
+      interactionType: "slack_message_shortcut",
+    });
+    const relationshipNote =
+      authorRelationship && !authorRelationship.linked && authorRelationship.slackIdentifier
+        ? `Slack note: I saw ${authorRelationship.slackProfile?.name || "this person"} as a real Slack user. To use relationship context next time, add confirmed Slack ID ${authorRelationship.slackIdentifier} to their Beckett contact.`
+        : "";
     const combinedContext = [
       "Selected Slack message:",
       messageText,
@@ -579,6 +591,7 @@ async function sendMessageShortcutResponse({
       contextFailureReason: coachingContext.failureReason,
       contextMessageCount: coachingContext.messageCount,
       broaderSearchUsed: coachingContext.broaderSearchUsed,
+      relationshipContext: authorRelationship?.promptContext || null,
       intent: "respond",
     });
 
@@ -589,6 +602,7 @@ async function sendMessageShortcutResponse({
       title: "Message coaching",
       text: [
         contextNote || (coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : ""),
+        relationshipNote,
         response,
       ].filter(Boolean).join("\n\n"),
     });
@@ -661,6 +675,7 @@ async function sendMessageShortcutResponse({
       body: [
         "I prepared this privately here because the Beckett coach panel was not available.",
         contextNote || "",
+        relationshipNote,
         response,
       ].filter(Boolean).join("\n\n"),
     });
@@ -935,16 +950,17 @@ export async function POST(req: NextRequest) {
   const messageText = extractMessageText(payload);
 
   if (!teamId || !slackUserId) {
-    await postSlackResponse(responseUrl, "Beckett could not read the Slack workspace and user context.");
-    return NextResponse.json({ ok: true });
+    return slackMessageResponse("Beckett could not read the Slack workspace and user context.");
   }
 
   if (!messageText) {
-    await postSlackResponse(responseUrl, "Beckett could not read message text from that Slack shortcut.");
-    return NextResponse.json({ ok: true });
+    return slackMessageResponse("Beckett could not read message text from that Slack shortcut.");
   }
 
-  await postSlackResponse(responseUrl, "Beckett is reading this Slack context privately...");
+  if (!responseUrl) {
+    return slackMessageResponse("Beckett could not read Slack's response URL for that shortcut.");
+  }
+
   scheduleSlackBackgroundTask(
     "Slack message shortcut response failed",
     sendMessageShortcutResponse({
@@ -953,5 +969,13 @@ export async function POST(req: NextRequest) {
       messageText,
     })
   );
-  return NextResponse.json({ ok: true });
+  const prompt = buildShortcutPrompt(payload);
+  const preparing = buildBeckettPayload({
+    title: "Beckett",
+    subtitle: "Message coaching",
+    prompt,
+    body: "Beckett is reading that message...",
+    hideTitle: true,
+  });
+  return slackMessageResponse(preparing.text, { blocks: preparing.blocks });
 }

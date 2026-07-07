@@ -75,6 +75,7 @@ type GuidedFlowInput = {
   text: string;
   activeChannelId?: string | null;
   activeContext?: SlackConversationContext | null;
+  relationshipContext?: string | null;
   actionToken?: string | null;
 };
 
@@ -779,6 +780,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     contextFailureReason: coachingContext.failureReason,
     contextMessageCount: coachingContext.messageCount,
     broaderSearchUsed: coachingContext.broaderSearchUsed || session.evidence_suggestions.length > 0,
+    relationshipContext: input.relationshipContext || null,
     responseDetail: session.flow_type === "respond" || session.flow_type === "rewrite" || session.flow_type === "decode" ? undefined : "longer",
     intent: session.flow_type,
   });

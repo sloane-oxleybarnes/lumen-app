@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { normalizeContactIdentifier } from '@/lib/contact-identifiers'
 import { createSupabaseServerClient } from '@/lib/supabase-server'
 import { getExtensionUserId } from '@/lib/extension-auth'
 
@@ -18,18 +19,19 @@ export async function GET(req: NextRequest) {
   const identifier = req.nextUrl.searchParams.get('identifier')
   const name = req.nextUrl.searchParams.get('name')?.trim()
 
-  if (!platform || !identifier) {
+  const normalized = normalizeContactIdentifier({ platform, identifier })
+  if (!normalized) {
     return NextResponse.json({ error: 'platform and identifier required' }, { status: 400 })
   }
 
   const supabase = createSupabaseServerClient()
   const { data } = await supabase
     .from('contact_identifiers')
-    .select('contact_id, contacts(id, name, trusted)')
+    .select('contact_id, platform, identifier, confirmed, contacts(id, name, trusted)')
     .eq('user_id', userId)
-    .eq('platform', platform)
-    .eq('identifier', identifier.toLowerCase())
-    .single()
+    .eq('platform', normalized.platform)
+    .eq('identifier', normalized.identifier)
+    .maybeSingle()
 
   if (!data && name) {
     const { data: nameMatch } = await supabase
@@ -40,12 +42,35 @@ export async function GET(req: NextRequest) {
       .limit(1)
       .maybeSingle()
 
-    if (nameMatch) return NextResponse.json({ contact: nameMatch })
+    if (nameMatch) {
+      return NextResponse.json({
+        contact: null,
+        suggestion: nameMatch,
+        match: { confidence: 'suggested_name', platform: normalized.platform },
+      })
+    }
     return NextResponse.json({ contact: null })
   }
 
   if (!data) return NextResponse.json({ contact: null })
 
   const contact = (Array.isArray(data.contacts) ? data.contacts[0] : data.contacts) as { id: string; name: string; trusted: boolean } | null
-  return NextResponse.json({ contact })
+  const isConfirmedSlackUser = normalized.platform === 'slack_user_id' && data.confirmed
+  const isSuggestedSlackHandle = normalized.platform === 'slack'
+  if (isSuggestedSlackHandle) {
+    return NextResponse.json({
+      contact: null,
+      suggestion: contact,
+      match: { confidence: 'suggested_identifier', platform: normalized.platform },
+    })
+  }
+
+  return NextResponse.json({
+    contact,
+    suggestion: null,
+    match: {
+      confidence: isConfirmedSlackUser || data.confirmed ? 'confirmed' : 'identifier',
+      platform: normalized.platform,
+    },
+  })
 }

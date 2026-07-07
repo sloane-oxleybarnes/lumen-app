@@ -7,6 +7,11 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "demo:plan": "node scripts/demo-seed.js --plan",
+    "demo:seed:gmail": "node scripts/demo-seed.js --gmail",
+    "demo:seed:slack": "node scripts/demo-seed.js --slack",
+    "demo:seed:contacts": "node scripts/demo-seed.js --contacts",
+    "demo:seed:all": "node scripts/demo-seed.js --all",
     "package:extension": "node scripts/package-extension.js"
   },
   "dependencies": {
