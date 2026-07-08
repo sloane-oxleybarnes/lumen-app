@@ -254,6 +254,7 @@ function initialAnswers(
 
 function nextStepForAnswers(flowType: GuidedFlowType, answers: GuidedAnswers): GuidedStep | null {
   if (flowType === "rewrite") {
+    if (!answers.audience) return "ask_audience";
     if (!hasPastedMessage(answers.initial_request)) return "ask_rewrite_draft";
     return null;
   }
@@ -655,7 +656,7 @@ function askForStep(session: SlackAgentSession) {
         "For example: `DM to my manager`, `channel reply to the whole team`, or `channel reply to Priya`.",
       ].join("\n");
     case "ask_rewrite_draft":
-      return "Paste the message you want to rewrite, and I'll tighten it up for the person you're sending it to, making sure to keep it clear and kind.";
+      return `Paste the message you want to rewrite, and I'll tighten it up for ${answers.audience || "the person you're sending it to"}, making sure to keep it clear and kind.`;
     case "ask_opening_draft":
       return "Paste the opening you want to try, and I’ll help you make it clear, calm, and ready to say.";
     case "ask_person":

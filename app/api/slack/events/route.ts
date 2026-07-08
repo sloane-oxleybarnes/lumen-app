@@ -113,9 +113,9 @@ function isAssistantStarterPrompt(text: string) {
 function starterPromptMissingContextMessage(intent: SlackCoachingIntent) {
   if (intent === "rewrite") {
     return [
-      "Paste the message you want to rewrite, and I'll tighten it up for the person you're sending it to, making sure to keep it clear and kind.",
+      "I can help with that.",
       "",
-      "If the rewrite depends on a specific Slack conversation, use the message’s ⋯ menu or send me a Slack message link too.",
+      "Who are you sending this to?",
     ].join("\n");
   }
 
@@ -125,7 +125,7 @@ function starterPromptMissingContextMessage(intent: SlackCoachingIntent) {
   return [
     `How to get my help ${action} a message:`,
     `- Click the message’s ⋯ menu and choose ‘${shortcut}’ or`,
-    `- Type /beckett ${intent} in the Slack conversation you want me to use.`,
+    `- Type \`/beckett ${intent}\` in the Slack conversation you want me to use or`,
     "- Send me a Slack message link.",
   ].join("\n");
 }
@@ -570,6 +570,30 @@ async function respondToAgentMessage({
       activeRelationship && !activeRelationship.linked && activeRelationship.slackIdentifier
         ? `Add confirmed Slack ID ${activeRelationship.slackIdentifier} to this person's Beckett contact to use relationship context next time.`
         : "";
+
+    if (
+      isAssistantStarterPrompt(text) &&
+      (assistantIntent === "decode" || assistantIntent === "respond")
+    ) {
+      const payload = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "",
+        body: starterPromptMissingContextMessage(assistantIntent),
+        hideTitle: true,
+      });
+
+      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: threadTs,
+        ...payload,
+      });
+      await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
+        channel_id: channelId,
+        thread_ts: threadTs,
+        status: "",
+      }).catch(() => null);
+      return;
+    }
 
     const guidedPrep = await handleGuidedSlackPrep({
       user,

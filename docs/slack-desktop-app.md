@@ -57,22 +57,22 @@ Use Slack Desktop or the Slack web app:
 ### 1A. Beckett Suggested Prompts + Home History
 
 1. Open Beckett in Slack and select the Messages tab.
-   - Expected: Slack's native suggested prompts show Decode a Message, Respond to a Message, Rewrite a Message, and Prep / Practice.
+   - Expected: Slack's native suggested prompts show `Decode a Selected Message`, `Respond to a Selected Message`, `Edit a Draft`, and `Prep / Practice`.
    - Expected: The suggested prompt title says `What can Beckett help with today?`
-2. Click a suggested prompt, such as `Respond to a Message`.
-   - Expected: Beckett starts a private Messages conversation.
+2. Click a selected-message suggested prompt, such as `Respond to a Selected Message`.
+   - Expected: Beckett gives instructions for using the message’s `...` menu, `/beckett respond` in the source conversation, or a Slack message link.
    - Expected: The prompt sends normal assistant text, not a literal `/beckett` command.
-   - Expected: If Slack does not provide current message context, Beckett asks the user to paste/paraphrase or use `Beckett - Decode` / `Beckett - Respond` from a specific message.
    - Expected: No public channel message is posted.
-3. Open the Home tab.
+3. Click `Edit a Draft`.
+   - Expected: Beckett asks who the message is going to before asking for draft text.
+4. Open the Home tab.
    - Expected: Home shows `Beckett History`.
    - Expected: Recent active and archived conversations appear.
-4. Click `Continue` on a Home history card.
+5. Click `Continue` on a Home history card.
    - Expected: Beckett posts a private continuation message with the prior summary and next-step buttons.
-5. Click `Archive conversation` inside an active Messages thread.
+6. Click `Archive conversation` inside an active Messages thread.
    - Expected: The conversation is archived.
-   - Expected: Beckett does not post a new landing card into Messages.
-   - Expected: The native suggested prompts remain the start surface for new work.
+   - Expected: Beckett posts the bottom start card with the same starter labels as the native suggested prompts.
    - Expected: The archived conversation remains visible in Home history without an Archive button.
 
 ### 2. Message Shortcut: Decode + Respond
@@ -86,6 +86,7 @@ Use Slack Desktop or the Slack web app:
 3. Use the message shortcut: `Beckett - Respond`.
    - Expected: Beckett starts a private response thread.
    - Expected: Beckett gives a concise read, a next move, and 2-3 reply options.
+   - If Slack still shows only `Ask Beckett`, update and reinstall the Slack app from the current staging manifest.
 4. Repeat with the passive-aggressive teammate thread.
    - Expected: Beckett helps the user avoid over-reading and gives a practical reply option.
 

@@ -613,19 +613,19 @@ export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = 
     actions: [
       {
         type: "button",
-        text: { type: "plain_text", text: "Decode" },
+        text: { type: "plain_text", text: "Decode a Selected Message" },
         action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_decode`,
         value: JSON.stringify({ flowType: "decode" }),
       },
       {
         type: "button",
-        text: { type: "plain_text", text: "Respond" },
+        text: { type: "plain_text", text: "Respond to a Selected Message" },
         action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_respond`,
         value: JSON.stringify({ flowType: "respond" }),
       },
       {
         type: "button",
-        text: { type: "plain_text", text: "Rewrite" },
+        text: { type: "plain_text", text: "Edit a Draft" },
         action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_rewrite`,
         value: JSON.stringify({ flowType: "rewrite" }),
       },

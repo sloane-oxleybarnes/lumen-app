@@ -938,6 +938,18 @@ function quickPrompt(flowType: SlackHistoryFlowType, thread?: { title?: string |
   }
 }
 
+function selectedMessageInstructions(flowType: "decode" | "respond") {
+  const action = flowType === "respond" ? "responding to" : "decoding";
+  const shortcut = flowType === "respond" ? "Beckett - Respond" : "Beckett - Decode";
+
+  return [
+    `How to get my help ${action} a message:`,
+    `- Click the message’s ⋯ menu and choose ‘${shortcut}’ or`,
+    `- Type \`/beckett ${flowType}\` in the Slack conversation you want me to use or`,
+    "- Send me a Slack message link.",
+  ].join("\n");
+}
+
 async function handleHistoryButtonResponse({
   payload,
   actionId,
@@ -1128,6 +1140,23 @@ async function handleHistoryButtonResponse({
         flowType === "prep" ||
         flowType === "practice")
     ) {
+      if (flowType === "decode" || flowType === "respond") {
+        const channelId = payload.channel?.id;
+        if (channelId) {
+          const instructionPayload = buildBeckettPayload({
+            title: "Beckett",
+            subtitle: "",
+            body: selectedMessageInstructions(flowType),
+            hideTitle: true,
+          });
+          await slackApiPost(user.botAccessToken, "chat.postMessage", {
+            channel: channelId,
+            ...instructionPayload,
+          });
+        }
+        return;
+      }
+
       const started = await startGuidedSlackFlow({
         user,
         teamId,
