@@ -168,6 +168,8 @@ function slackHistoryFailureMessage(reason: string | null | undefined) {
       return "Context pulled: active/linked conversation: unavailable (missing_token). How to resolve: Slack is not connected for this account. Connect Slack from Beckett Settings.";
     case "missing_scope":
       return "Context pulled: active/linked conversation: unavailable (missing_scope). How to resolve: I’m missing the Slack permissions needed to read this context. Reconnect Slack from Beckett Settings, then reinstall or reauthorize the Slack app if prompted.";
+    case "feature_not_enabled":
+      return "Context pulled: active/linked conversation: unavailable (feature_not_enabled). How to resolve: Slack broader search is not enabled for this app or workspace yet. I can still use the active conversation and linked Slack threads.";
     case "not_in_channel":
       return "Context pulled: active/linked conversation: unavailable (not_in_channel). How to resolve: I do not have access to this channel or DM. Add Beckett to the channel or use a conversation Beckett is authorized to read.";
     case "channel_not_found":

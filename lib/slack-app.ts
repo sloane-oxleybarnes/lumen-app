@@ -58,6 +58,7 @@ export type SlackContextFailureReason =
   | "missing_channel"
   | "no_messages"
   | "missing_scope"
+  | "feature_not_enabled"
   | "not_in_channel"
   | "channel_not_found"
   | "slack_api_error";
@@ -179,6 +180,14 @@ function splitSlackScopes(value: unknown) {
 
 function slackUnavailable(reason: SlackContextFailureReason, retrievalMethod?: string): SlackConversationContext {
   return { text: null, status: "unavailable", failureReason: reason, messageCount: 0, retrievalMethod };
+}
+
+function slackContextFailureReasonForError(error?: string | null): SlackContextFailureReason {
+  if (error === "missing_scope") return "missing_scope";
+  if (error === "feature_not_enabled") return "feature_not_enabled";
+  if (error === "not_in_channel") return "not_in_channel";
+  if (error === "channel_not_found") return "channel_not_found";
+  return "slack_api_error";
 }
 
 function normalizeSlackUserId(value: string | null | undefined) {
@@ -1183,7 +1192,7 @@ async function runSlackBroaderSearch({
   const method = `assistant.search.context ${strategy}`;
   if (!data?.ok) {
     return slackUnavailable(
-      data?.error === "missing_scope" ? "missing_scope" : "slack_api_error",
+      slackContextFailureReasonForError(data?.error),
       `${method}${data?.error ? ` error:${data.error}` : " request_failed"}`
     );
   }
@@ -1250,7 +1259,9 @@ export async function fetchSlackBroaderContext({
       if (targeted.status === "available") return targeted;
       attempted.push(targeted.retrievalMethod || `assistant.search.context with:<@${userId}>`);
       firstFailure ||= targeted;
-      if (targeted.failureReason === "missing_scope") return targeted;
+      if (targeted.failureReason === "missing_scope" || targeted.failureReason === "feature_not_enabled") {
+        return targeted;
+      }
     }
   }
 
@@ -1408,6 +1419,8 @@ export function slackContextUserNote(context: SlackConversationContext) {
   switch (context.failureReason) {
     case "missing_scope":
       return "How to resolve: I’m missing the Slack permissions needed to read this context. Reconnect Slack from Beckett Settings, then reinstall or reauthorize the Slack app if prompted.";
+    case "feature_not_enabled":
+      return "How to resolve: Slack broader search is not enabled for this app or workspace yet. I can still use the active conversation and linked Slack threads.";
     case "not_in_channel":
       return "How to resolve: I do not have access to this channel or DM. Add Beckett to the channel or use a conversation Beckett is authorized to read.";
     case "channel_not_found":
