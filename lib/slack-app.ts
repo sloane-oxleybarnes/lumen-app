@@ -73,6 +73,12 @@ export function isCompactSlackIntent(intent: SlackCoachingIntent) {
   return intent === "decode" || intent === "respond" || intent === "rewrite";
 }
 
+export function shouldUseBroaderSlackContext(intent: SlackCoachingIntent, prompt: string) {
+  if (intent === "prep" || intent === "practice") return true;
+  const normalized = prompt.toLowerCase();
+  return /\b(history|relationship|pattern|before|previous|recently|again|evidence|proof|accomplishment|raise|promotion|manager|1:1|one-on-one|context with|how are things with)\b/.test(normalized);
+}
+
 type SlackMessageOptions = {
   blocks?: SlackBlock[];
   replaceOriginal?: boolean;
@@ -1142,20 +1148,24 @@ export async function buildSlackCoachingContext({
   activeContext,
   contextChannelId,
   actionToken,
+  includeBroaderContext = true,
 }: {
   user: SlackConnectedUser;
   prompt: string;
   activeContext?: SlackConversationContext | null;
   contextChannelId?: string | null;
   actionToken?: string | null;
+  includeBroaderContext?: boolean;
 }) {
-  const broaderContext = await fetchSlackBroaderContext({
-    accessToken: user.accessToken,
-    prompt,
-    activeContext: activeContext?.text,
-    contextChannelId,
-    actionToken,
-  });
+  const broaderContext = includeBroaderContext
+    ? await fetchSlackBroaderContext({
+        accessToken: user.accessToken,
+        prompt,
+        activeContext: activeContext?.text,
+        contextChannelId,
+        actionToken,
+      })
+    : slackUnavailable("no_messages");
 
   const sections = [
     activeContext?.text ? `Active Slack context:\n${activeContext.text}` : "",

@@ -13,6 +13,7 @@ import {
   runSlackGuestCoaching,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
+  shouldUseBroaderSlackContext,
   slackApiPost,
   type SlackCoachingIntent,
   verifySlackRequest,
@@ -20,6 +21,7 @@ import {
 import { handleGuidedSlackPrep } from "@/lib/slack-guided-prep";
 import {
   appendSlackCoachingMessage,
+  buildSlackExplainMoreAction,
   buildSlackThreadArchiveAction,
   createSlackCoachingThread,
   findSlackCoachingThreadBySlackThread,
@@ -573,6 +575,7 @@ async function respondToAgentMessage({
       activeContext,
       contextChannelId: activeChannelId,
       actionToken,
+      includeBroaderContext: shouldUseBroaderSlackContext(assistantIntent, text),
     });
 
     if (
@@ -669,12 +672,19 @@ async function respondToAgentMessage({
       title: "Beckett",
       subtitle: "Communication coach",
       prompt: text,
-      body: response,
+      body: [
+        "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.",
+        "",
+        response,
+      ].join("\n"),
       footer: [
         coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : "",
         relationshipNote,
       ].filter(Boolean).join("\n") || undefined,
-      actions: buildSlackThreadArchiveAction(coachingThread?.id),
+      actions: [
+        ...(isCompactSlackIntent(assistantIntent) ? buildSlackExplainMoreAction(coachingThread?.id) : []),
+        ...buildSlackThreadArchiveAction(coachingThread?.id),
+      ],
     });
 
     const postedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {

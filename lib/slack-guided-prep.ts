@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/server-admin";
 import {
   appendSlackCoachingMessage,
   buildSlackThreadArchiveAction,
+  buildSlackExplainMoreAction,
   createSlackCoachingThread,
   recordSlackCoachingBotMessage,
   summarizeSlackCoachingResponse,
@@ -14,6 +15,7 @@ import {
   isCompactSlackIntent,
   postSlackAgentMessage,
   runSlackCoaching,
+  shouldUseBroaderSlackContext,
   slackApiPost,
   SlackCoachingIntent,
   SlackConnectedUser,
@@ -234,17 +236,18 @@ function sourceLabelForFlow({
 
 function sidebarOpener(flowType: GuidedFlowType, sourceLabel: string, answers: GuidedAnswers) {
   const prepTarget = answers.person || answers.conversation_type || sourceLabel;
+  const threadGuidance = "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.";
   switch (flowType) {
     case "respond":
-      return `We’re working through how to respond to the last message from ${sourceLabel}. I started this conversation here so we can work through it privately, one step at a time.`;
+      return `We’re working through how to respond to the last message from ${sourceLabel}. I started this conversation here so we can work through it privately, one step at a time.\n\n${threadGuidance}`;
     case "decode":
-      return `We’re looking at what may be happening in the latest message from ${sourceLabel}. I started this conversation here so we can sort visible facts from possible interpretation privately.`;
+      return `We’re looking at what may be happening in the latest message from ${sourceLabel}. I started this conversation here so we can sort visible facts from possible interpretation privately.\n\n${threadGuidance}`;
     case "rewrite":
-      return `We’re working on rewriting your message for ${sourceLabel}. I started this conversation here so we can make the wording clearer before anything gets sent.`;
+      return `We’re working on rewriting your message for ${sourceLabel}. I started this conversation here so we can make the wording clearer before anything gets sent.\n\n${threadGuidance}`;
     case "prep":
-      return `We’re preparing for ${prepTarget}. I started this conversation here so we can work through the setup privately, one step at a time.`;
+      return `We’re preparing for ${prepTarget}. I started this conversation here so we can work through the setup privately, one step at a time.\n\n${threadGuidance}`;
     case "practice":
-      return `We’re setting up practice for ${prepTarget}. I started this conversation here so you can rehearse privately before the real conversation.`;
+      return `We’re setting up practice for ${prepTarget}. I started this conversation here so you can rehearse privately before the real conversation.\n\n${threadGuidance}`;
   }
 }
 
@@ -611,6 +614,9 @@ function askForStep(session: SlackAgentSession) {
 function guidedActions(session: SlackAgentSession, draftOptions: SlackDraftOption[] = []) {
   return [
     ...buildSlackDraftUseActions(session.id, draftOptions),
+    ...(session.flow_type === "decode" || session.flow_type === "respond"
+      ? buildSlackExplainMoreAction(session.coaching_thread_id)
+      : []),
     ...buildSlackThreadArchiveAction(session.coaching_thread_id),
   ];
 }
@@ -833,6 +839,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     activeContext,
     contextChannelId,
     actionToken: input.actionToken,
+    includeBroaderContext: shouldUseBroaderSlackContext(session.flow_type, contextPrompt),
   });
   const messageText = [
     prompt,

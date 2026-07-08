@@ -14,6 +14,7 @@ import {
   runSlackGuestCoaching,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
+  shouldUseBroaderSlackContext,
   slackApiPost,
   slackConnectText,
   slackContextUserNote,
@@ -36,7 +37,10 @@ import {
 import {
   archiveSlackCoachingThread,
   appendSlackCoachingMessage,
+  buildSlackExplainMoreAction,
   buildSlackHistoryContinuePayload,
+  buildSlackStartCardPayload,
+  buildSlackThreadArchiveAction,
   cleanupSlackCoachingBotMessages,
   createSlackCoachingThread,
   loadSlackCoachingMessages,
@@ -45,6 +49,7 @@ import {
   publishSlackHome,
   recordSlackCoachingBotMessage,
   slackHistoryTitle,
+  SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
   SLACK_HISTORY_CONTINUE_ACTION_ID,
   SLACK_HISTORY_QUICK_ACTION_ID,
@@ -210,6 +215,7 @@ function getDraftAction(payload: SlackInteractionPayload) {
 function getHistoryAction(payload: SlackInteractionPayload) {
   const action = payload.actions?.find((item) =>
     item.action_id === SLACK_HISTORY_CONTINUE_ACTION_ID ||
+    item.action_id === SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID ||
     item.action_id === SLACK_HISTORY_ARCHIVE_ACTION_ID ||
     item.action_id?.startsWith(SLACK_HISTORY_QUICK_ACTION_ID)
   );
@@ -453,6 +459,7 @@ async function sendPendingSlashResponse({
       prompt: pending.prompt,
       activeContext: channelContext,
       contextChannelId: pending.slack_channel_id,
+      includeBroaderContext: shouldUseBroaderSlackContext(intent, pending.prompt),
     });
     console.info("Slack slash channel context fetched", {
       requestId,
@@ -633,6 +640,7 @@ async function sendMessageShortcutResponse({
       prompt,
       activeContext: channelContext,
       contextChannelId: payload.channel?.id,
+      includeBroaderContext: shouldUseBroaderSlackContext("respond", prompt),
     });
     const relationshipNote =
       authorRelationship && !authorRelationship.linked && authorRelationship.slackIdentifier
@@ -662,8 +670,10 @@ async function sendMessageShortcutResponse({
     const agentDelivery = await postSlackAgentMessage({
       botAccessToken: user.botAccessToken,
       slackUserId,
-      title: "Message coaching",
+      title: slackHistoryTitle("respond", authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
       text: [
+        "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.",
+        "",
         contextNote || (coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : ""),
         relationshipNote,
         response,
@@ -678,8 +688,8 @@ async function sendMessageShortcutResponse({
           user,
           teamId,
           slackUserId,
-          flowType: "message",
-          title: slackHistoryTitle("message", authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
+          flowType: "respond",
+          title: slackHistoryTitle("respond", authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
           promptSnippet: prompt,
           summary: summarizeSlackCoachingResponse(response, prompt),
           slackChannelId: agentChannelId,
@@ -738,7 +748,11 @@ async function sendMessageShortcutResponse({
             subtitle: "Choose a draft",
             body: "Pick the version you want to review before sending.",
             hideTitle: true,
-            actions: draftSession.actions,
+            actions: [
+              ...draftSession.actions,
+              ...buildSlackExplainMoreAction(coachingThread?.id),
+              ...buildSlackThreadArchiveAction(coachingThread?.id),
+            ],
           });
           const postedAction = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
             channel: agentChannelId,
@@ -911,6 +925,9 @@ async function handleHistoryButtonResponse({
 
     if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
       await archiveSlackCoachingThread({ threadId, userId: user.id });
+      // Archive closes Beckett's internal case. Slack does not let third-party apps
+      // clear a user's DM history, so cleanup below is best-effort for Beckett-owned
+      // bot messages only; the fresh start card becomes the new bottom entry point.
       await cleanupSlackCoachingBotMessages({
         botAccessToken: user.botAccessToken,
         threadId,
@@ -926,13 +943,87 @@ async function handleHistoryButtonResponse({
           botAccessToken: user.botAccessToken,
           channelId: thread.slack_channel_id,
         }).catch(() => null);
+        const startPayload = buildSlackStartCardPayload();
+        await slackApiPost(user.botAccessToken, "chat.postMessage", {
+          channel: thread.slack_channel_id,
+          ...startPayload,
+        }).catch((error) => {
+          console.error("Slack archive start card post failed", {
+            threadId,
+            message: error instanceof Error ? error.message : String(error),
+          });
+          return null;
+        });
       }
       await publishSlackHome({
         botAccessToken: user.botAccessToken,
         slackUserId,
         userId: user.id,
-        notice: "Archived. That conversation is still available here in Beckett History.",
+        notice: "Archived to Beckett History. Start something new from Messages when you are ready.",
       });
+      return;
+    }
+
+    if (actionId === SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID && thread) {
+      const messages = await loadSlackCoachingMessages({
+        threadId: thread.id,
+        userId: user.id,
+        limit: 10,
+      }).catch(() => []);
+      const transcript = messages
+        .map((message) => `${message.role === "beckett" ? "Beckett" : "User"}: ${message.content}`)
+        .join("\n")
+        .slice(0, 3000);
+      const response = await runSlackCoaching({
+        user,
+        action: "agent_message",
+        prompt: [
+          `The user clicked Explain more for this Beckett case: ${thread.title}.`,
+          thread.summary ? `Current summary: ${thread.summary}` : "",
+          transcript ? `Recent Beckett conversation:\n${transcript}` : "",
+          "",
+          "Give a slightly deeper explanation while staying Slack-native and practical. Do not add new draft options unless they materially help.",
+        ].filter(Boolean).join("\n"),
+        sourceLabel: `${thread.title}:explain_more`,
+        messageText: transcript || thread.summary || thread.prompt_snippet || "",
+        contextStatus: "available",
+        contextMessageCount: messages.length,
+        broaderSearchUsed: false,
+        intent: thread.flow_type === "respond" || thread.flow_type === "decode" || thread.flow_type === "rewrite"
+          ? thread.flow_type
+          : "general",
+        responseDetail: "longer",
+      });
+      await appendSlackCoachingMessage({
+        threadId: thread.id,
+        user,
+        teamId,
+        slackUserId,
+        role: "beckett",
+        content: response,
+      }).catch(() => null);
+      const payloadToPost = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "",
+        body: response,
+        hideTitle: true,
+      });
+      if (thread.slack_channel_id && thread.thread_ts) {
+        const postedExplain = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
+          channel: thread.slack_channel_id,
+          thread_ts: thread.thread_ts,
+          ...payloadToPost,
+        });
+        if (postedExplain.ok && postedExplain.ts) {
+          await recordSlackCoachingBotMessage({
+            threadId: thread.id,
+            userId: user.id,
+            channelId: thread.slack_channel_id,
+            messageTs: postedExplain.ts,
+            kind: "explain_more",
+          }).catch(() => null);
+        }
+      }
       return;
     }
 

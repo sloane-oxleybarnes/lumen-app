@@ -4,6 +4,7 @@ import { buildBeckettPayload, slackApiPost, SlackBlock, SlackConnectedUser } fro
 export const SLACK_HISTORY_CONTINUE_ACTION_ID = "beckett_history_continue";
 export const SLACK_HISTORY_ARCHIVE_ACTION_ID = "beckett_history_archive";
 export const SLACK_HISTORY_QUICK_ACTION_ID = "beckett_history_quick";
+export const SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID = "beckett_history_explain_more";
 export const SLACK_HISTORY_SETTINGS_ACTION_ID = "beckett_history_settings";
 
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "prep" | "practice" | "message";
@@ -239,6 +240,8 @@ export async function cleanupSlackCoachingBotMessages({
   if (error) throw error;
   const messages = (data || []) as SlackCoachingBotMessage[];
   for (const message of messages) {
+    // Slack only permits third-party apps to delete messages posted by the same bot.
+    // User-authored messages and some older/untracked app messages may remain visible.
     const result = await slackApiPost(botAccessToken, "chat.delete", {
       channel: message.slack_channel_id,
       ts: message.slack_message_ts,
@@ -249,6 +252,13 @@ export async function cleanupSlackCoachingBotMessages({
         .update({ deleted_at: new Date().toISOString() })
         .eq("id", message.id)
         .eq("user_id", userId);
+    } else if (result && !result.ok) {
+      console.info("Slack bot message cleanup skipped", {
+        threadId,
+        channelId: message.slack_channel_id,
+        messageTs: message.slack_message_ts,
+        error: result.error || "unknown_error",
+      });
     }
   }
 }
@@ -550,6 +560,59 @@ export function buildSlackThreadArchiveAction(threadId: string | null | undefine
       value: JSON.stringify({ threadId }),
     },
   ];
+}
+
+export function buildSlackExplainMoreAction(threadId: string | null | undefined) {
+  if (!threadId) return [];
+  return [
+    {
+      type: "button",
+      text: { type: "plain_text", text: "Explain more" },
+      action_id: SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
+      value: JSON.stringify({ threadId }),
+    },
+  ];
+}
+
+export function buildSlackStartCardPayload() {
+  return buildBeckettPayload({
+    title: "Beckett",
+    subtitle: "",
+    body: [
+      "Conversation archived to Beckett History.",
+      "",
+      "What can Beckett help with next?",
+      "",
+      "Archived conversations live in Home.",
+    ].join("\n"),
+    hideTitle: true,
+    actions: [
+      {
+        type: "button",
+        text: { type: "plain_text", text: "Decode" },
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_decode`,
+        value: JSON.stringify({ flowType: "decode" }),
+      },
+      {
+        type: "button",
+        text: { type: "plain_text", text: "Respond" },
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_respond`,
+        value: JSON.stringify({ flowType: "respond" }),
+      },
+      {
+        type: "button",
+        text: { type: "plain_text", text: "Rewrite" },
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_rewrite`,
+        value: JSON.stringify({ flowType: "rewrite" }),
+      },
+      {
+        type: "button",
+        text: { type: "plain_text", text: "Prep / Practice" },
+        action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_prep`,
+        value: JSON.stringify({ flowType: "prep" }),
+      },
+    ],
+  });
 }
 
 export async function publishSlackConnectHome({
