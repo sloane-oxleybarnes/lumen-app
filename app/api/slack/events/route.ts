@@ -31,6 +31,7 @@ import {
   publishSlackConnectHome,
   publishSlackHomeResult,
   recordSlackCoachingBotMessage,
+  scheduleSlackInactivityStartCard,
   slackHistoryTitle,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
@@ -582,6 +583,17 @@ async function respondToAgentMessage({
           messageTs: postedGuided.ts,
           kind: "reply",
         }).catch(() => null);
+        if (guidedPrep.coachingThreadId) {
+          scheduleSlackBackgroundTask(
+            "Slack inactivity start card failed",
+            scheduleSlackInactivityStartCard({
+              botAccessToken: user.botAccessToken,
+              threadId: guidedPrep.coachingThreadId,
+              userId: user.id,
+              channelId,
+            })
+          );
+        }
       }
 
       await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
@@ -622,6 +634,15 @@ async function respondToAgentMessage({
           messageTs: postedContinuation.ts,
           kind: "reply",
         }).catch(() => null);
+        scheduleSlackBackgroundTask(
+          "Slack inactivity start card failed",
+          scheduleSlackInactivityStartCard({
+            botAccessToken: user.botAccessToken,
+            threadId: continuedThread.thread.id,
+            userId: user.id,
+            channelId,
+          })
+        );
       }
       await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
         channel_id: channelId,
@@ -805,6 +826,17 @@ async function respondToAgentMessage({
           messageTs: postedLinkedResponse.ts,
           kind: "reply",
         }).catch(() => null);
+        if (coachingThread?.id) {
+          scheduleSlackBackgroundTask(
+            "Slack inactivity start card failed",
+            scheduleSlackInactivityStartCard({
+              botAccessToken: user.botAccessToken,
+              threadId: coachingThread.id,
+              userId: user.id,
+              channelId,
+            })
+          );
+        }
       }
 
       await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
@@ -978,6 +1010,17 @@ async function respondToAgentMessage({
         messageTs: postedResponse.ts,
         kind: "reply",
       }).catch(() => null);
+      if (coachingThread?.id) {
+        scheduleSlackBackgroundTask(
+          "Slack inactivity start card failed",
+          scheduleSlackInactivityStartCard({
+            botAccessToken: user.botAccessToken,
+            threadId: coachingThread.id,
+            userId: user.id,
+            channelId,
+          })
+        );
+      }
     }
 
     await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {

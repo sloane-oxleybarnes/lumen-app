@@ -42,13 +42,13 @@ import {
   buildSlackHistoryContinuePayload,
   buildSlackStartCardPayload,
   buildSlackThreadArchiveAction,
-  cleanupSlackCoachingBotMessages,
   createSlackCoachingThread,
   loadSlackCoachingMessages,
   loadSlackCoachingThread,
   parseSlackHistoryAction,
   publishSlackHome,
   recordSlackCoachingBotMessage,
+  scheduleSlackInactivityStartCard,
   slackHistoryTitle,
   SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
@@ -799,6 +799,17 @@ async function sendMessageShortcutResponse({
             }).catch(() => null);
           }
         }
+        if (coachingThread?.id) {
+          scheduleSlackBackgroundTask(
+            "Slack inactivity start card failed",
+            scheduleSlackInactivityStartCard({
+              botAccessToken: user.botAccessToken,
+              threadId: coachingThread.id,
+              userId: user.id,
+              channelId: agentChannelId,
+            })
+          );
+        }
       }
 
       const ack = buildBeckettPayload({
@@ -954,26 +965,15 @@ async function handleHistoryButtonResponse({
 
     if (actionId === SLACK_HISTORY_ARCHIVE_ACTION_ID && threadId) {
       await archiveSlackCoachingThread({ threadId, userId: user.id });
-      // Archive closes Beckett's internal case. Slack does not let third-party apps
-      // clear a user's DM history, so cleanup below is best-effort for Beckett-owned
-      // bot messages only; the fresh start card becomes the new bottom entry point.
-      await cleanupSlackCoachingBotMessages({
-        botAccessToken: user.botAccessToken,
-        threadId,
-        userId: user.id,
-      }).catch((error) => {
-        console.error("Slack archive bot message cleanup failed", {
-          threadId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      });
+      // Slack does not let third-party apps fully clear a user's DM history.
+      // Archive means Beckett saves/closes the case and posts a fresh bottom entry point.
       if (thread?.slack_channel_id) {
         await setSlackAgentSuggestedPrompts({
           botAccessToken: user.botAccessToken,
           channelId: thread.slack_channel_id,
         }).catch(() => null);
-        const startPayload = buildSlackStartCardPayload();
-        await slackApiPost(user.botAccessToken, "chat.postMessage", {
+        const startPayload = buildSlackStartCardPayload("archived");
+        const postedStartCard = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
           channel: thread.slack_channel_id,
           ...startPayload,
         }).catch((error) => {
@@ -983,6 +983,15 @@ async function handleHistoryButtonResponse({
           });
           return null;
         });
+        if (postedStartCard?.ok && postedStartCard.ts) {
+          await recordSlackCoachingBotMessage({
+            threadId,
+            userId: user.id,
+            channelId: thread.slack_channel_id,
+            messageTs: postedStartCard.ts,
+            kind: "archive_start_card",
+          }).catch(() => null);
+        }
       }
       await publishSlackHome({
         botAccessToken: user.botAccessToken,
@@ -1054,6 +1063,15 @@ async function handleHistoryButtonResponse({
             messageTs: postedExplain.ts,
             kind: "explain_more",
           }).catch(() => null);
+          scheduleSlackBackgroundTask(
+            "Slack inactivity start card failed",
+            scheduleSlackInactivityStartCard({
+              botAccessToken: user.botAccessToken,
+              threadId: thread.id,
+              userId: user.id,
+              channelId: thread.slack_channel_id,
+            })
+          );
         }
       }
       return;
@@ -1080,6 +1098,15 @@ async function handleHistoryButtonResponse({
             messageTs: postedContinue.ts,
             kind: "continue",
           }).catch(() => null);
+          scheduleSlackBackgroundTask(
+            "Slack inactivity start card failed",
+            scheduleSlackInactivityStartCard({
+              botAccessToken: user.botAccessToken,
+              threadId: thread.id,
+              userId: user.id,
+              channelId: thread.slack_channel_id,
+            })
+          );
         }
       } else {
         await postSlackAgentMessage({

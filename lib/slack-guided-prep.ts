@@ -5,6 +5,7 @@ import {
   buildSlackExplainMoreAction,
   createSlackCoachingThread,
   recordSlackCoachingBotMessage,
+  scheduleSlackInactivityStartCard,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
 } from "@/lib/slack-history";
@@ -15,6 +16,7 @@ import {
   isCompactSlackIntent,
   postSlackAgentMessage,
   runSlackCoaching,
+  scheduleSlackBackgroundTask,
   shouldUseBroaderSlackContext,
   slackApiPost,
   SlackCoachingIntent,
@@ -1142,6 +1144,17 @@ export async function startGuidedSlackFlow({
           kind: "reply",
         }).catch(() => null);
       }
+      if (coachingThread?.id) {
+        scheduleSlackBackgroundTask(
+          "Slack inactivity start card failed",
+          scheduleSlackInactivityStartCard({
+            botAccessToken: user.botAccessToken,
+            threadId: coachingThread.id,
+            userId: user.id,
+            channelId: postedChannelId,
+          })
+        );
+      }
     }
   } catch (error) {
     console.error("Slack guided flow response failed after opener", {
@@ -1174,6 +1187,17 @@ export async function startGuidedSlackFlow({
           messageTs: postedError.ts,
           kind: "error",
         }).catch(() => null);
+      }
+      if (coachingThread?.id) {
+        scheduleSlackBackgroundTask(
+          "Slack inactivity start card failed",
+          scheduleSlackInactivityStartCard({
+            botAccessToken: user.botAccessToken,
+            threadId: coachingThread.id,
+            userId: user.id,
+            channelId: postedChannelId,
+          })
+        );
       }
     }
   }

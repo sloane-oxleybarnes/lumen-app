@@ -6,6 +6,8 @@ export const SLACK_HISTORY_ARCHIVE_ACTION_ID = "beckett_history_archive";
 export const SLACK_HISTORY_QUICK_ACTION_ID = "beckett_history_quick";
 export const SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID = "beckett_history_explain_more";
 export const SLACK_HISTORY_SETTINGS_ACTION_ID = "beckett_history_settings";
+export const SLACK_INACTIVITY_START_CARD_DELAY_MS =
+  Number(process.env.SLACK_INACTIVITY_START_CARD_DELAY_MS || 5 * 60 * 1000);
 
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "relationship" | "prep" | "practice" | "message";
 
@@ -46,6 +48,7 @@ type SlackCoachingBotMessage = {
   slack_channel_id: string;
   slack_message_ts: string;
   kind: string | null;
+  created_at?: string | null;
   deleted_at: string | null;
 };
 
@@ -589,15 +592,23 @@ export function buildSlackExplainMoreAction(threadId: string | null | undefined)
   ];
 }
 
-export function buildSlackStartCardPayload() {
+export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = "archived") {
+  const body = variant === "inactivity"
+    ? [
+        "Want to start something new? This conversation is still saved in Beckett History.",
+        "",
+        "What can I help with next?",
+      ].join("\n")
+    : [
+        "The last conversation was archived. If you’d like to revisit that conversation, you can find it under the Home tab.",
+        "",
+        "What can I help with next?",
+      ].join("\n");
+
   return buildBeckettPayload({
     title: "Beckett",
     subtitle: "",
-    body: [
-      "The last conversation was archived. If you’d like to revisit that conversation, you can find it under the Home tab.",
-      "",
-      "What can I help with next?",
-    ].join("\n"),
+    body,
     hideTitle: true,
     actions: [
       {
@@ -626,6 +637,59 @@ export function buildSlackStartCardPayload() {
       },
     ],
   });
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export async function scheduleSlackInactivityStartCard({
+  botAccessToken,
+  threadId,
+  userId,
+  channelId,
+}: {
+  botAccessToken?: string | null;
+  threadId?: string | null;
+  userId?: string | null;
+  channelId?: string | null;
+}) {
+  if (!botAccessToken || !threadId || !userId || !channelId) return;
+
+  const scheduledThread = await loadSlackCoachingThread({ threadId, userId }).catch(() => null);
+  const scheduledUpdatedAt = scheduledThread?.updated_at;
+  if (!scheduledThread || scheduledThread.archived_at || !scheduledUpdatedAt) return;
+
+  await wait(SLACK_INACTIVITY_START_CARD_DELAY_MS);
+
+  const latestThread = await loadSlackCoachingThread({ threadId, userId }).catch(() => null);
+  if (!latestThread || latestThread.archived_at || latestThread.status === "archived") return;
+  if (latestThread.updated_at !== scheduledUpdatedAt) return;
+
+  const { count, error } = await supabaseAdmin
+    .from("slack_coaching_bot_messages")
+    .select("id", { count: "exact", head: true })
+    .eq("coaching_thread_id", threadId)
+    .eq("user_id", userId)
+    .eq("kind", "inactivity_start_card")
+    .gte("created_at", scheduledUpdatedAt);
+
+  if (error) throw error;
+  if ((count || 0) > 0) return;
+
+  const posted = await slackApiPost<{ ts?: string }>(botAccessToken, "chat.postMessage", {
+    channel: channelId,
+    ...buildSlackStartCardPayload("inactivity"),
+  });
+  if (posted.ok && posted.ts) {
+    await recordSlackCoachingBotMessage({
+      threadId,
+      userId,
+      channelId,
+      messageTs: posted.ts,
+      kind: "inactivity_start_card",
+    });
+  }
 }
 
 export async function publishSlackConnectHome({
