@@ -7,7 +7,7 @@ export const SLACK_HISTORY_QUICK_ACTION_ID = "beckett_history_quick";
 export const SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID = "beckett_history_explain_more";
 export const SLACK_HISTORY_SETTINGS_ACTION_ID = "beckett_history_settings";
 
-export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "prep" | "practice" | "message";
+export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "relationship" | "prep" | "practice" | "message";
 
 export type SlackCoachingThread = {
   id: string;
@@ -84,6 +84,8 @@ function flowLabel(flowType: SlackHistoryFlowType) {
       return "Rewrite";
     case "decode":
       return "Decode";
+    case "relationship":
+      return "Relationship read";
     case "prep":
       return "Prep";
     case "practice":

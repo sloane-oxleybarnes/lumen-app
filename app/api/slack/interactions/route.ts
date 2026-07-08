@@ -996,7 +996,10 @@ async function handleHistoryButtonResponse({
         contextStatus: "available",
         contextMessageCount: messages.length,
         broaderSearchUsed: false,
-        intent: thread.flow_type === "respond" || thread.flow_type === "decode" || thread.flow_type === "rewrite"
+        intent: thread.flow_type === "respond" ||
+          thread.flow_type === "decode" ||
+          thread.flow_type === "rewrite" ||
+          thread.flow_type === "relationship"
           ? thread.flow_type
           : "general",
         responseDetail: "longer",
@@ -1073,7 +1076,14 @@ async function handleHistoryButtonResponse({
       return;
     }
 
-    if (actionId.startsWith(SLACK_HISTORY_QUICK_ACTION_ID) && flowType && flowType !== "message") {
+    if (
+      actionId.startsWith(SLACK_HISTORY_QUICK_ACTION_ID) &&
+      (flowType === "respond" ||
+        flowType === "rewrite" ||
+        flowType === "decode" ||
+        flowType === "prep" ||
+        flowType === "practice")
+    ) {
       const started = await startGuidedSlackFlow({
         user,
         teamId,

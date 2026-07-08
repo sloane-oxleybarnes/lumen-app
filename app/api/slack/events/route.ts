@@ -80,6 +80,9 @@ function extractActiveSlackContext(event: NonNullable<SlackEventEnvelope["event"
 
 function inferAssistantIntent(text: string): SlackCoachingIntent {
   const normalized = text.toLowerCase();
+  if (/\b(relationship|history|pattern|vibe|dynamic|overall|usually|typically|how are things with|where.*stand|what.*between us|context with|relationship like)\b/i.test(text)) {
+    return "relationship";
+  }
   if (normalized.includes("decode") || normalized.includes("understand this message") || normalized.includes("over-reading")) {
     return "decode";
   }
@@ -154,6 +157,7 @@ function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: Sl
     flowType === "respond" ||
     flowType === "rewrite" ||
     flowType === "decode" ||
+    flowType === "relationship" ||
     flowType === "prep" ||
     flowType === "practice"
   ) {
@@ -673,7 +677,9 @@ async function respondToAgentMessage({
         "The user sent a Slack conversation link so I can recover the relevant context for this Beckett thread.",
         "Use the linked Slack conversation as the source context.",
         "Also use relevant prior Slack history if it is available, but do not block the answer if broader history is unavailable.",
-        "If the user included a follow-up question with the link, answer that question. If they only sent the link, give a concise read and next move.",
+        linkIntent === "relationship"
+          ? "If the user asked a relationship or history question, answer that question directly from the linked visible context. Do not ask for an exact message or add a Next move unless the user asks what to say next."
+          : "If the user included a follow-up question with the link, answer that question. If they only sent the link, give a concise read and next move.",
         linkedContext.messageCount <= 1
           ? "Important: I could only retrieve one visible message from the direct link. Be clear that the context is limited."
           : "",
@@ -721,14 +727,16 @@ async function respondToAgentMessage({
           linkIntent === "respond" ||
           linkIntent === "rewrite" ||
           linkIntent === "decode" ||
+          linkIntent === "relationship" ||
           linkIntent === "prep" ||
           linkIntent === "practice"
             ? linkIntent
             : "message",
         title: slackHistoryTitle(
-          linkIntent === "respond" ||
+            linkIntent === "respond" ||
             linkIntent === "rewrite" ||
             linkIntent === "decode" ||
+            linkIntent === "relationship" ||
             linkIntent === "prep" ||
             linkIntent === "practice"
             ? linkIntent
@@ -893,6 +901,7 @@ async function respondToAgentMessage({
         assistantIntent === "respond" ||
         assistantIntent === "rewrite" ||
         assistantIntent === "decode" ||
+        assistantIntent === "relationship" ||
         assistantIntent === "prep" ||
         assistantIntent === "practice"
           ? assistantIntent
@@ -901,6 +910,7 @@ async function respondToAgentMessage({
         assistantIntent === "respond" ||
           assistantIntent === "rewrite" ||
           assistantIntent === "decode" ||
+          assistantIntent === "relationship" ||
           assistantIntent === "prep" ||
           assistantIntent === "practice"
           ? assistantIntent

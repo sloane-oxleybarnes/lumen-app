@@ -46,6 +46,7 @@ export type SlackCoachingIntent =
   | "rewrite"
   | "decode"
   | "draft"
+  | "relationship"
   | "prep"
   | "tone"
   | "followup"
@@ -75,7 +76,7 @@ export type SlackConversationContext = {
 };
 
 export function isCompactSlackIntent(intent: SlackCoachingIntent) {
-  return intent === "decode" || intent === "respond" || intent === "rewrite";
+  return intent === "decode" || intent === "respond" || intent === "rewrite" || intent === "relationship";
 }
 
 export function shouldUseBroaderSlackContext(intent: SlackCoachingIntent, prompt: string) {
@@ -306,7 +307,7 @@ function removeStandaloneSlackUncertaintySections(text: string) {
   const uncertaintyHeading =
     /^(?:~\s*)?(?:what(?:['’]s| is| isn['’]t)? not knowable|what not to over-?read|what (?:i|beckett) can(?:not|'t|’t) know|unknowns?)(?:\s*~)?\s*:?\s*$/i;
   const knownHeading =
-    /^(?:~\s*)?(?:possible read|next move|draft options|what is visible|visible facts|rewritten message|why this works|prep notes|talking points|opening sentence|likely pushback|follow-up draft|conversation goal|practice prompt|direct but kind|warm and collaborative|concise)(?:\s*~)?\s*:?\s*$/i;
+    /^(?:~\s*)?(?:possible read|next move|draft options|relationship read|what i['’]m basing this on|what is visible|visible facts|rewritten message|why this works|prep notes|talking points|opening sentence|likely pushback|follow-up draft|conversation goal|practice prompt|direct but kind|warm and collaborative|concise)(?:\s*~)?\s*:?\s*$/i;
   const lines = text.split("\n");
   const kept: string[] = [];
   let skipping = false;
@@ -331,6 +332,8 @@ function canonicalSlackHeading(value: string) {
   if (normalized === "possible read") return "Possible read";
   if (normalized === "next move") return "Next move";
   if (normalized === "draft options") return "Draft options";
+  if (normalized === "relationship read") return "Relationship read";
+  if (normalized === "what i'm basing this on" || normalized === "what i’m basing this on") return "What I’m basing this on";
   return null;
 }
 
@@ -404,7 +407,7 @@ export function cleanSlackDisplayText(text: string) {
 
 function formatSlackMrkdwnForBlocks(text: string) {
   return text
-    .replace(/^(Possible read|Next move|Draft options)\s*:?\s*$/gim, "*$1*")
+    .replace(/^(Possible read|Next move|Draft options|Relationship read|What I['’]m basing this on)\s*:?\s*$/gim, "*$1*")
     .replace(/^[-•]?\s*(Direct but kind|Warm and collaborative|Concise)\s*:\s*/gim, "- $1: ")
     .replace(/^(What(?:['’]s| is| isn['’]t) not knowable|What not to over-?read)\s*:?\s*$/gim, "");
 }
@@ -609,6 +612,8 @@ export function slackAskedLabel(intent: SlackCoachingIntent = "general") {
       return "You asked Beckett to rewrite:";
     case "decode":
       return "You asked Beckett to decode:";
+    case "relationship":
+      return "You asked Beckett about:";
     case "draft":
       return "You asked Beckett to draft:";
     case "prep":
@@ -663,6 +668,8 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
       return "Slack task: Rewrite or improve the user's draft. Preserve the meaning, make it natural for workplace Slack/email, and briefly explain the main tone choice.";
     case "decode":
       return "Slack task: Decode the pasted message or recent context. Use Possible read and Next move. Answer from visible Slack context first when available. Keep uncertainty inside Possible read instead of making a separate not-knowable section.";
+    case "relationship":
+      return "Slack task: Answer a broad relationship, history, vibe, pattern, or dynamic question. Do not decode a single message. Do not say you are missing the original message. Do not ask for the exact message. Use Relationship read and What I’m basing this on. Do not include Next move unless the user explicitly asks what to say or do next.";
     case "draft":
       return "Slack task: Draft a message from the user's goal. Provide ready-to-use wording and briefly name any assumptions.";
     case "prep":
