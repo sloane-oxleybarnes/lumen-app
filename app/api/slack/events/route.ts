@@ -688,6 +688,7 @@ async function respondToAgentMessage({
         actionToken,
         includeBroaderContext: true,
         relevantSlackUserIds: activeUserId ? [activeUserId] : [],
+        currentSlackUserId: slackUserId,
       });
       console.info("Slack linked broader context retrieval", {
         linkParsed: true,
@@ -814,6 +815,7 @@ async function respondToAgentMessage({
       actionToken,
       includeBroaderContext: shouldUseBroaderSlackContext(assistantIntent, text),
       relevantSlackUserIds: activeUserId ? [activeUserId] : [],
+      currentSlackUserId: slackUserId,
     });
 
     if (

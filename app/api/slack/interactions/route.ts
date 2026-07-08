@@ -461,6 +461,7 @@ async function sendPendingSlashResponse({
       activeContext: channelContext,
       contextChannelId: pending.slack_channel_id,
       includeBroaderContext: shouldUseBroaderSlackContext(intent, pending.prompt),
+      currentSlackUserId: slackUserId,
     });
     console.info("Slack slash channel context fetched", {
       requestId,
@@ -644,6 +645,7 @@ async function sendMessageShortcutResponse({
       contextChannelId: payload.channel?.id,
       includeBroaderContext: shouldUseBroaderSlackContext("respond", prompt),
       relevantSlackUserIds: [payload.message?.user].filter(Boolean) as string[],
+      currentSlackUserId: slackUserId,
     });
     const relationshipNote =
       authorRelationship && !authorRelationship.linked && authorRelationship.slackIdentifier

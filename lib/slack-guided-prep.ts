@@ -778,6 +778,7 @@ async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSess
     activeContext,
     contextChannelId: input.activeChannelId,
     actionToken: input.actionToken,
+    currentSlackUserId: input.slackUserId,
   });
   const debugLine = slackContextDebugLine(coachingContext);
   const note = [debugLine, slackContextUserNote(coachingContext)].filter(Boolean).join("\n");
@@ -916,6 +917,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     contextChannelId,
     actionToken: input.actionToken,
     includeBroaderContext: shouldUseBroaderSlackContext(session.flow_type, contextPrompt),
+    currentSlackUserId: input.slackUserId,
   });
   const messageText = [
     prompt,

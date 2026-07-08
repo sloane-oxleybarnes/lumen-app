@@ -19,6 +19,8 @@ const MAX_SLACK_CONTEXT_MESSAGES = 8;
 const MAX_SLACK_CONTEXT_LENGTH = 2600;
 const MAX_SLACK_BROAD_CONTEXT_LENGTH = 2600;
 const MAX_SLACK_BROAD_CONTEXT_RESULTS = 12;
+const SLACK_MCP_ENDPOINT = "https://mcp.slack.com/mcp";
+const SLACK_MCP_TIMEOUT_MS = 4500;
 const MAX_SLACK_ASKED_PROMPT_LENGTH = 650;
 const MAX_QUICK_SLACK_ANSWER_LENGTH = 1200;
 const MAX_LONGER_SLACK_ANSWER_LENGTH = 2000;
@@ -162,6 +164,13 @@ type SlackSearchContextResponse = {
   matches?: unknown[];
   messages?: { matches?: unknown[] };
   items?: unknown[];
+};
+
+type SlackMcpResponse = {
+  jsonrpc?: string;
+  id?: string | number;
+  result?: unknown;
+  error?: { code?: number; message?: string; data?: unknown };
 };
 
 const slackUserNameCache = new Map<string, string>();
@@ -962,6 +971,159 @@ function getSearchResults(data: SlackSearchContextResponse | null) {
   return [];
 }
 
+function collectMcpToolNames(value: unknown): string[] {
+  const root = metadataRecord(value);
+  const rawTools = Array.isArray(root.tools)
+    ? root.tools
+    : Array.isArray(metadataRecord(root.result).tools)
+      ? metadataRecord(root.result).tools
+      : [];
+  const tools = Array.isArray(rawTools) ? rawTools : [];
+  return tools
+    .map((tool) => pickString(tool, ["name", "title"]))
+    .filter(Boolean)
+    .slice(0, 12);
+}
+
+function collectMcpText(value: unknown, output: string[] = []): string[] {
+  if (typeof value === "string") {
+    if (value.trim()) output.push(value.trim());
+    return output;
+  }
+  if (Array.isArray(value)) {
+    for (const item of value) collectMcpText(item, output);
+    return output;
+  }
+  if (!value || typeof value !== "object") return output;
+
+  const record = value as Record<string, unknown>;
+  for (const key of ["text", "content", "snippet", "summary", "title", "message"]) {
+    const candidate = record[key];
+    if (typeof candidate === "string" && candidate.trim()) output.push(candidate.trim());
+  }
+  for (const key of ["messages", "results", "items", "data", "content", "structuredContent"]) {
+    const candidate = record[key];
+    if (candidate && typeof candidate === "object") collectMcpText(candidate, output);
+  }
+  return output;
+}
+
+async function slackMcpRequest({
+  accessToken,
+  method,
+  params,
+}: {
+  accessToken: string;
+  method: string;
+  params?: Record<string, unknown>;
+}) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), SLACK_MCP_TIMEOUT_MS);
+  try {
+    const res = await fetch(SLACK_MCP_ENDPOINT, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        method,
+        params: params || {},
+      }),
+      signal: controller.signal,
+    });
+    return res.json().catch(() => ({})) as Promise<SlackMcpResponse>;
+  } catch (error) {
+    return {
+      error: {
+        message: error instanceof Error && error.name === "AbortError" ? "timeout" : "request_failed",
+      },
+    } satisfies SlackMcpResponse;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchSlackMcpBroaderContext({
+  accessToken,
+  prompt,
+  activeContext,
+  relevantSlackUserIds,
+}: {
+  accessToken: string;
+  prompt: string;
+  activeContext?: string | null;
+  relevantSlackUserIds: string[];
+}) {
+  const toolsResponse = await slackMcpRequest({
+    accessToken,
+    method: "tools/list",
+  });
+  if (toolsResponse.error) {
+    return slackUnavailable(
+      "slack_api_error",
+      `slack_mcp tools/list error:${toolsResponse.error.message || toolsResponse.error.code || "unknown"}`
+    );
+  }
+
+  const toolNames = collectMcpToolNames(toolsResponse.result || toolsResponse);
+  const searchTool =
+    toolNames.find((name) => /search.*message/i.test(name)) ||
+    toolNames.find((name) => /message.*search/i.test(name)) ||
+    toolNames.find((name) => /search/i.test(name));
+  if (!searchTool) {
+    return slackUnavailable(
+      "slack_api_error",
+      `slack_mcp tool_not_found${toolNames.length ? ` available:${toolNames.join(",")}` : ""}`
+    );
+  }
+
+  const query = [
+    relevantSlackUserIds.length ? relevantSlackUserIds.slice(0, 3).map((id) => `with:<@${id}>`).join(" ") : "",
+    buildBroaderSearchQuery(prompt, activeContext),
+  ].filter(Boolean).join(" ");
+  const toolResponse = await slackMcpRequest({
+    accessToken,
+    method: "tools/call",
+    params: {
+      name: searchTool,
+      arguments: {
+        query,
+        channel_types: "public_channel,private_channel,mpim,im",
+        content_types: "messages",
+        limit: MAX_SLACK_BROAD_CONTEXT_RESULTS,
+      },
+    },
+  });
+  if (toolResponse.error) {
+    return slackUnavailable(
+      "slack_api_error",
+      `slack_mcp ${searchTool} error:${toolResponse.error.message || toolResponse.error.code || "unknown"}`
+    );
+  }
+
+  const lines = Array.from(new Set(collectMcpText(toolResponse.result || toolResponse).map((line) => compactText(line, 380))))
+    .filter(Boolean)
+    .slice(0, MAX_SLACK_BROAD_CONTEXT_RESULTS);
+  if (!lines.length) return slackUnavailable("no_messages", `slack_mcp ${searchTool} no_results`);
+
+  const context = ["Relevant prior Slack history from Slack MCP:", ...lines].join("\n");
+  return {
+    text:
+      context.length <= MAX_SLACK_BROAD_CONTEXT_LENGTH
+        ? context
+        : `${context.slice(0, MAX_SLACK_BROAD_CONTEXT_LENGTH - 40).trim()}\n[MCP context trimmed]`,
+    status: "available",
+    failureReason: null,
+    messageCount: lines.length,
+    broaderSearchUsed: true,
+    retrievalMethod: `slack_mcp ${searchTool}`,
+  } satisfies SlackConversationContext;
+}
+
 function buildBroaderSearchQuery(prompt: string, activeContext?: string | null) {
   const base = [prompt, activeContext ? activeContext.replace(/\n/g, " ") : ""].join(" ");
   const withoutSlackSyntax = stripSlackMarkup(base);
@@ -1232,6 +1394,7 @@ export async function fetchSlackBroaderContext({
   contextChannelId,
   actionToken,
   relevantSlackUserIds = [],
+  currentSlackUserId,
 }: {
   accessToken: string | null;
   prompt: string;
@@ -1239,16 +1402,38 @@ export async function fetchSlackBroaderContext({
   contextChannelId?: string | null;
   actionToken?: string | null;
   relevantSlackUserIds?: string[];
+  currentSlackUserId?: string | null;
 }) {
   if (!accessToken) return slackUnavailable("missing_token");
 
   const normalizedUserIds = uniqueSlackUserIds(relevantSlackUserIds);
+  const currentUserId = normalizeSlackUserId(currentSlackUserId);
+  const orderedUserIds =
+    currentUserId && normalizedUserIds.some((id) => id !== currentUserId)
+      ? [...normalizedUserIds.filter((id) => id !== currentUserId), currentUserId]
+      : normalizedUserIds;
   const relationshipSearch = isRelationshipHistoryPrompt(prompt);
   const attempted: string[] = [];
   let firstFailure: SlackConversationContext | null = null;
+  const tryMcpFallback = async (previousFailure: SlackConversationContext) => {
+    const mcpContext = await fetchSlackMcpBroaderContext({
+      accessToken,
+      prompt,
+      activeContext,
+      relevantSlackUserIds: orderedUserIds,
+    });
+    if (mcpContext.status === "available") return mcpContext;
+    return slackUnavailable(
+      mcpContext.failureReason || previousFailure.failureReason || "slack_api_error",
+      [
+        previousFailure.retrievalMethod || "assistant.search.context feature_not_enabled",
+        mcpContext.retrievalMethod || "slack_mcp unavailable",
+      ].join("; ")
+    );
+  };
 
-  if (relationshipSearch && normalizedUserIds.length) {
-    for (const userId of normalizedUserIds.slice(0, 3)) {
+  if (relationshipSearch && orderedUserIds.length) {
+    for (const userId of orderedUserIds.slice(0, 3)) {
       const targeted = await runSlackBroaderSearch({
         accessToken,
         query: buildTargetedBroaderSearchQuery({ prompt, activeContext, slackUserId: userId }),
@@ -1259,7 +1444,10 @@ export async function fetchSlackBroaderContext({
       if (targeted.status === "available") return targeted;
       attempted.push(targeted.retrievalMethod || `assistant.search.context with:<@${userId}>`);
       firstFailure ||= targeted;
-      if (targeted.failureReason === "missing_scope" || targeted.failureReason === "feature_not_enabled") {
+      if (targeted.failureReason === "feature_not_enabled") {
+        return tryMcpFallback(targeted);
+      }
+      if (targeted.failureReason === "missing_scope") {
         return targeted;
       }
     }
@@ -1270,9 +1458,12 @@ export async function fetchSlackBroaderContext({
     query: buildBroaderSearchQuery(prompt, activeContext),
     contextChannelId,
     actionToken,
-    strategy: relationshipSearch && normalizedUserIds.length ? "generic_fallback" : "generic",
+    strategy: relationshipSearch && orderedUserIds.length ? "generic_fallback" : "generic",
   });
   if (generic.status === "available") return generic;
+  if (generic.failureReason === "feature_not_enabled") {
+    return tryMcpFallback(generic);
+  }
 
   if (attempted.length) {
     return slackUnavailable(
@@ -1292,6 +1483,7 @@ export async function buildSlackCoachingContext({
   actionToken,
   includeBroaderContext = true,
   relevantSlackUserIds = [],
+  currentSlackUserId,
 }: {
   user: SlackConnectedUser;
   prompt: string;
@@ -1300,6 +1492,7 @@ export async function buildSlackCoachingContext({
   actionToken?: string | null;
   includeBroaderContext?: boolean;
   relevantSlackUserIds?: string[];
+  currentSlackUserId?: string | null;
 }) {
   const broaderContext = includeBroaderContext
     ? await fetchSlackBroaderContext({
@@ -1312,6 +1505,7 @@ export async function buildSlackCoachingContext({
           ...(activeContext?.relevantUserIds || []),
           ...relevantSlackUserIds,
         ]),
+        currentSlackUserId,
       })
     : slackUnavailable("no_messages");
 
