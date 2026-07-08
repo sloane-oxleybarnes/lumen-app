@@ -104,7 +104,7 @@ function isAssistantStarterPrompt(text: string) {
 }
 
 function guestModeFooter() {
-  return "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved Beckett conversations.";
+  return "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved conversations.";
 }
 
 function responseDetailForSlackIntent(intent: SlackCoachingIntent) {
@@ -305,7 +305,7 @@ async function continueExistingSlackCoachingThread({
   const prompt = [
     `The user is continuing this Beckett coaching thread: ${thread.title}.`,
     thread.summary ? `Current summary: ${thread.summary}` : "",
-    transcript ? `Previous Beckett conversation:\n${transcript}` : "",
+    transcript ? `Previous conversation:\n${transcript}` : "",
     "",
     `User follow-up: ${text}`,
   ].filter(Boolean).join("\n");
@@ -673,7 +673,7 @@ async function respondToAgentMessage({
       subtitle: "Communication coach",
       prompt: text,
       body: [
-        "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.",
+        "Reply in this thread so I can keep this message and follow-ups saved together.",
         "",
         response,
       ].join("\n"),

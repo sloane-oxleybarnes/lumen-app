@@ -161,7 +161,7 @@ async function startSidebarFlow({
             subtitle: "",
             prompt: parsed.prompt,
             body: response,
-            footer: "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved Beckett conversations.",
+            footer: "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved conversations.",
             hideTitle: true,
           });
           await postSlackResponse(responseUrl, guestPayload.text, {
@@ -221,7 +221,7 @@ async function startSidebarFlow({
       return;
     }
 
-    await postSlackResponse(responseUrl, "I started this in your private Beckett conversation.", {
+    await postSlackResponse(responseUrl, "I started this in our private conversation.", {
       replaceOriginal: true,
     });
   } catch (error) {
@@ -281,6 +281,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     response_type: "ephemeral",
-    text: "I’m starting this in your private Beckett conversation.",
+    text: "I’m starting this in our private conversation.",
   });
 }

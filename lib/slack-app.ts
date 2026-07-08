@@ -751,7 +751,7 @@ async function openSlackAgentChannel(botAccessToken: string, slackUserId: string
 export async function setSlackAgentSuggestedPrompts({
   botAccessToken,
   channelId,
-  title = "What can Beckett help with today?",
+  title = "What can I help with today?",
 }: {
   botAccessToken: string | null;
   channelId: string;
@@ -1361,7 +1361,7 @@ Avoid generic encouragement. Give concrete language the user could use.
 Format with short plain-language section labels and bullets. Do not use markdown tables, markdown bold markers, or literal asterisks; Beckett formats headings separately.
 For decode/respond work, prefer these section labels when they fit: Possible read, Next move, Draft options.
 Never include a standalone "What's not knowable", "What is not knowable", "What isn't knowable", or "What not to over-read" section.
-For preparation work, prefer these section labels when they fit: Prep notes, Talking points, Opening sentence, Likely pushback, Follow-up draft.
+For preparation work, prefer short coach-card sections when they fit: Goal, Say this first, If they push back, Watch for, Practice next.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
 For reply drafting, include 2-3 Slack-ready bullet options when useful: - Direct but kind, - Warm and collaborative, and - Concise.
 For difficult conversation prep, include talking points, an opening sentence, likely pushback, and a short follow-up draft.

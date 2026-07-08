@@ -97,15 +97,28 @@ export function slackHistoryTitle(flowType: SlackHistoryFlowType, sourceLabel?: 
   return truncate(`${flowLabel(flowType)}: ${sourceLabel || "this Slack conversation"}`, 120);
 }
 
+function oneSentenceSummary(value: string | null | undefined, fallback: string) {
+  const cleaned = (value || fallback || "")
+    .replace(/\bReply in this Beckett thread to keep this saved as one conversation\..*$/i, "")
+    .replace(/\bStart a new Beckett message to begin a separate case\./i, "")
+    .replace(/\n+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const firstSentence = cleaned.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim() || cleaned;
+  return truncate(firstSentence, 140) || "Open this coaching thread to keep working with Beckett.";
+}
+
 export function summarizeSlackCoachingResponse(response: string, fallback: string) {
   const cleaned = response
     .replace(/\n{3,}/g, "\n\n")
     .split("\n")
     .map((line) => line.replace(/^[-•\s]+/, "").trim())
     .filter(Boolean)
-    .filter((line) => !/^(Possible read|Next move|Draft options|What is visible|What not to over-read|Rewritten message|Why this works)$/i.test(line));
+    .filter((line) => !/^(Possible read|Next move|Draft options|What is visible|What not to over-read|Rewritten message|Why this works)$/i.test(line))
+    .filter((line) => !/^Reply in this Beckett thread to keep this saved as one conversation/i.test(line))
+    .filter((line) => !/^Start a new Beckett message to begin a separate case/i.test(line));
 
-  return truncate(cleaned.slice(0, 2).join(" "), 220) || truncate(fallback, 220);
+  return oneSentenceSummary(cleaned.join(" "), fallback);
 }
 
 export async function createSlackCoachingThread(input: UpsertThreadInput) {
@@ -405,7 +418,7 @@ function relativeTime(value: string) {
 }
 
 function historyCard(thread: SlackCoachingThread): SlackBlock[] {
-  const summary = thread.summary || thread.prompt_snippet || "Open this coaching thread to keep working with Beckett.";
+  const summary = oneSentenceSummary(thread.summary, thread.prompt_snippet || "Open this coaching thread to keep working with Beckett.");
   const status = thread.archived_at ? "archived" : thread.status;
   const elements: Record<string, unknown>[] = [
     {
@@ -474,7 +487,7 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: st
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "No Beckett conversations yet. Open Messages to start with Decode, Respond, Rewrite, or Prep / Practice.",
+        text: "No conversations yet. Open Messages to start with Decode, Respond, Rewrite, or Prep / Practice.",
       },
     });
     return blocks;
@@ -579,11 +592,9 @@ export function buildSlackStartCardPayload() {
     title: "Beckett",
     subtitle: "",
     body: [
-      "Conversation archived to Beckett History.",
+      "The last conversation was archived. If you’d like to revisit that conversation, you can find it under the Home tab.",
       "",
-      "What can Beckett help with next?",
-      "",
-      "Archived conversations live in Home.",
+      "What can I help with next?",
     ].join("\n"),
     hideTitle: true,
     actions: [
@@ -659,7 +670,7 @@ export function buildSlackHistoryContinuePayload(thread: SlackCoachingThread, me
       `Picking this back up: ${thread.title}`,
       "",
       thread.summary || thread.prompt_snippet || "We were working through this conversation together.",
-      transcript ? `\nRecent Beckett conversation:\n${transcript}` : "",
+      transcript ? `\nRecent conversation:\n${transcript}` : "",
       "",
       "What do you want to do next?",
     ].join("\n"),

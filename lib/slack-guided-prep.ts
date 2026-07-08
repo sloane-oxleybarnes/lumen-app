@@ -234,20 +234,18 @@ function sourceLabelForFlow({
   return cleanSourceChannelName(channelName) || inferSourceLabelFromContext(activeContext, userName) || "this Slack conversation";
 }
 
-function sidebarOpener(flowType: GuidedFlowType, sourceLabel: string, answers: GuidedAnswers) {
-  const prepTarget = answers.person || answers.conversation_type || sourceLabel;
-  const threadGuidance = "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.";
+function sidebarOpener(flowType: GuidedFlowType) {
   switch (flowType) {
     case "respond":
-      return `We’re working through how to respond to the last message from ${sourceLabel}. I started this conversation here so we can work through it privately, one step at a time.\n\n${threadGuidance}`;
+      return "Let’s draft a response privately. Reply in this thread so I can keep this message, drafts, and follow-ups saved together.";
     case "decode":
-      return `We’re looking at what may be happening in the latest message from ${sourceLabel}. I started this conversation here so we can sort visible facts from possible interpretation privately.\n\n${threadGuidance}`;
+      return "Let’s read this message privately. Reply in this thread so I can keep the context and follow-up questions saved together.";
     case "rewrite":
-      return `We’re working on rewriting your message for ${sourceLabel}. I started this conversation here so we can make the wording clearer before anything gets sent.\n\n${threadGuidance}`;
+      return "Let’s clean up this wording privately. Reply in this thread so I can keep the draft and revisions saved together.";
     case "prep":
-      return `We’re preparing for ${prepTarget}. I started this conversation here so we can work through the setup privately, one step at a time.\n\n${threadGuidance}`;
+      return "Let’s prep this conversation privately. Reply in this thread so I can keep the setup, practice, and next steps saved together.";
     case "practice":
-      return `We’re setting up practice for ${prepTarget}. I started this conversation here so you can rehearse privately before the real conversation.\n\n${threadGuidance}`;
+      return "Let’s practice this conversation privately. Reply in this thread so I can keep the setup and role-play saved together.";
   }
 }
 
@@ -571,24 +569,21 @@ function askForStep(session: SlackAgentSession) {
       ].join("\n");
     case "ask_person":
       return [
-        session.flow_type === "practice" ? "Let’s set up the practice." : "Let’s prep this together.",
+        session.flow_type === "practice" ? "Let’s set up the practice." : "Let’s prep for this conversation together.",
         "",
         "First, who are you talking to?",
-        "For example: my manager, a teammate, a client, or a direct report.",
+        "Ex: my manager, a teammate, a client, or a direct report. You can also tag a Slack teammate with @.",
       ].join("\n");
     case "ask_outcome":
       return [
-        `Got it. I’ll treat this as ${answers.conversation_type || "a difficult workplace conversation"} with ${answers.person || "this person"}.`,
+        `Got it, this will be a conversation with ${answers.person || "this person"}.`,
         "",
         "What outcome do you want from the conversation?",
-        "For example: alignment, more time, a clearer decision, a boundary, or next steps.",
+        "Ex: alignment, more time, a clearer decision, a boundary, or next steps.",
       ].join("\n");
     case "ask_concern":
       return [
-        "That helps.",
-        "",
-        "What are you most worried they may push back on, misunderstand, or react to?",
-        "A short answer is enough.",
+        "Finally, what are you worried they may push back on, misunderstand, or react poorly to?",
       ].join("\n");
     case "ask_practice_goal":
       return [
@@ -728,11 +723,7 @@ async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSess
   });
 
   if (!suggestions.length) {
-    return [
-      note || "I could not find enough relevant Slack history this time.",
-      "",
-      "We can still prep from what you told me. Reply `none` to continue without evidence, or add one detail you want included.",
-    ].join("\n");
+    return "I tried to find a relevant Slack conversation or context for this, but I couldn’t find anything useful. Is there anything else you want me to know, or are we good to move on?";
   }
 
   return formatEvidencePrompt(nextSession.evidence_suggestions, note);
@@ -802,7 +793,10 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Create final guided prep for this workplace conversation.",
         base,
         "",
-        "Return only these sections: Conversation goal, Talking points, Opening sentence, Likely pushback, Practice prompt, Follow-up draft.",
+        "Return only these sections: Goal, Say this first, If they push back, Watch for, Practice next.",
+        "Keep each section to 1-3 short bullets or sentences. Do not include long talking-points lists, likely-pushback lists, or a follow-up draft unless the user explicitly asked for that detail.",
+        "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
+        "End with: Want to practice the opening or the pushback?",
         "Keep it Slack-ready, concise, direct but kind, and avoid claiming unconfirmed Slack evidence as fact.",
       ].join("\n");
   }
@@ -862,7 +856,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
 
   await updateSession(session.id, { status: session.flow_type === "decode" ? "active" : "completed" });
   if (session.flow_type === "prep") {
-    return ["Here’s the prep based on what you confirmed.", "", response, "", "If you want to keep practicing, reply with the part you want to rehearse."].join("\n");
+    return response;
   }
   return response;
 }
@@ -939,7 +933,7 @@ export async function startGuidedSlackFlow({
     userName: user.name,
   });
   const step = nextStepForAnswers(intent, answers) || (intent === "decode" ? "decode_followup" : "ask_audience");
-  const initialText = sidebarOpener(intent, sourceLabel, answers);
+  const initialText = sidebarOpener(intent);
   const posted = await postSlackAgentMessage({
     botAccessToken: user.botAccessToken,
     slackUserId,

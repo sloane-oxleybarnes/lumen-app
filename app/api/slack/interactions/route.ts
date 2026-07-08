@@ -598,7 +598,7 @@ async function sendMessageShortcutResponse({
         subtitle: "",
         prompt: guestPrompt,
         body: response,
-        footer: "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved Beckett conversations.",
+        footer: "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved conversations.",
         hideTitle: true,
       });
       await postSlackResponse(responseUrl, responsePayload.text, {
@@ -672,7 +672,7 @@ async function sendMessageShortcutResponse({
       slackUserId,
       title: slackHistoryTitle("respond", authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
       text: [
-        "Reply in this Beckett thread to keep this saved as one conversation. Start a new Beckett message to begin a separate case.",
+        "Let’s draft a response privately. Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
         "",
         contextNote || (coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : ""),
         relationshipNote,
@@ -774,7 +774,7 @@ async function sendMessageShortcutResponse({
       const ack = buildBeckettPayload({
         title: "Beckett",
         subtitle: "Message coaching",
-        body: "I moved this into your private Beckett conversation.",
+        body: "I moved this into our private conversation.",
       });
       await postSlackResponse(responseUrl, ack.text, { blocks: ack.blocks, replaceOriginal: true });
       return;
@@ -980,7 +980,7 @@ async function handleHistoryButtonResponse({
         prompt: [
           `The user clicked Explain more for this Beckett case: ${thread.title}.`,
           thread.summary ? `Current summary: ${thread.summary}` : "",
-          transcript ? `Recent Beckett conversation:\n${transcript}` : "",
+          transcript ? `Recent conversation:\n${transcript}` : "",
           "",
           "Give a slightly deeper explanation while staying Slack-native and practical. Do not add new draft options unless they materially help.",
         ].filter(Boolean).join("\n"),
@@ -1061,7 +1061,7 @@ async function handleHistoryButtonResponse({
         botAccessToken: user.botAccessToken,
         slackUserId,
         userId: user.id,
-        notice: "I reopened that Beckett conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going.",
+        notice: "I reopened that conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going.",
       }).catch(() => null);
       return;
     }
@@ -1079,8 +1079,8 @@ async function handleHistoryButtonResponse({
         slackUserId,
         userId: user.id,
         notice: started.ok
-          ? "I started that Beckett conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going."
-          : "I had trouble starting that private Beckett conversation. Try opening Messages and sending Beckett a note directly.",
+          ? "I started that conversation in Messages. Slack keeps the Home tab here, so switch to Messages to keep going."
+          : "I had trouble starting that private conversation. Try opening Messages and sending me a note directly.",
       }).catch(() => null);
     }
   } catch (error) {
