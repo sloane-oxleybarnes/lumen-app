@@ -67,6 +67,7 @@ export type SlackConversationContext = {
   failureReason: SlackContextFailureReason | null;
   messageCount: number;
   broaderSearchUsed?: boolean;
+  retrievalMethod?: string;
 };
 
 export function isCompactSlackIntent(intent: SlackCoachingIntent) {
@@ -155,7 +156,7 @@ type SlackUserInfo = {
 type SlackSearchContextResponse = {
   ok?: boolean;
   error?: string;
-  results?: unknown[];
+  results?: unknown[] | { messages?: unknown[]; files?: unknown[]; channels?: unknown[] };
   matches?: unknown[];
   messages?: { matches?: unknown[] };
   items?: unknown[];
@@ -893,7 +894,7 @@ function pickString(value: unknown, keys: string[]): string {
 function extractSearchText(result: unknown): string {
   if (!result || typeof result !== "object") return "";
   const record = result as Record<string, unknown>;
-  const directText = pickString(record, ["text", "snippet", "summary", "title"]);
+  const directText = pickString(record, ["content", "text", "snippet", "summary", "title"]);
   const contentText =
     typeof record.content === "object" && record.content
       ? pickString(record.content, ["text", "snippet", "summary", "title"])
@@ -902,14 +903,19 @@ function extractSearchText(result: unknown): string {
     typeof record.message === "object" && record.message
       ? pickString(record.message, ["text", "snippet", "summary"])
       : "";
-  const contextMessages = Array.isArray(record.context_messages)
+  const contextRecord = metadataRecord(record.context_messages);
+  const contextValues = Array.isArray(record.context_messages)
     ? record.context_messages
-        .map((item) => (typeof item === "object" && item ? pickString(item, ["text", "snippet", "summary"]) : ""))
-        .filter(Boolean)
-        .join(" / ")
-    : "";
+    : [
+        ...(Array.isArray(contextRecord.before) ? contextRecord.before : []),
+        ...(Array.isArray(contextRecord.after) ? contextRecord.after : []),
+      ];
+  const contextMessages = contextValues
+    .map((item) => (typeof item === "object" && item ? pickString(item, ["text", "snippet", "summary", "content"]) : ""))
+    .filter(Boolean)
+    .join(" / ");
 
-  return [directText, contentText, messageText, contextMessages].filter(Boolean).join(" / ");
+  return [contextMessages, directText, contentText, messageText].filter(Boolean).join(" / ");
 }
 
 function extractSearchLabel(result: unknown) {
@@ -917,14 +923,15 @@ function extractSearchLabel(result: unknown) {
   const record = result as Record<string, unknown>;
   const channel = metadataRecord(record.channel);
   const user = metadataRecord(record.user);
-  const channelName = pickString(channel, ["name", "id"]);
-  const userName = pickString(user, ["name", "real_name", "id"]);
+  const channelName = pickString(channel, ["name", "id"]) || pickString(record, ["channel_name", "channel_id"]);
+  const userName = pickString(user, ["name", "real_name", "id"]) || pickString(record, ["author_name", "author_user_id", "user_id"]);
   const source = pickString(record, ["source", "type"]);
   return channelName ? `#${channelName}` : userName ? userName : source || "Slack result";
 }
 
 function getSearchResults(data: SlackSearchContextResponse | null) {
   if (!data?.ok) return [];
+  if (data.results && !Array.isArray(data.results) && Array.isArray(data.results.messages)) return data.results.messages;
   if (Array.isArray(data.results)) return data.results;
   if (Array.isArray(data.matches)) return data.matches;
   if (Array.isArray(data.messages?.matches)) return data.messages.matches;
@@ -1028,9 +1035,8 @@ export async function fetchSlackConversationContext({
     ).catch(() => null);
   };
 
-  const replyTs = threadTs || messageTs || null;
-  const replyData = replyTs
-    ? await slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
+  const fetchThreadReplies = (replyTs: string) =>
+    slackApiFetch<{ messages?: SlackHistoryMessage[] }>(
         accessToken,
         "conversations.replies",
         new URLSearchParams({
@@ -1039,41 +1045,66 @@ export async function fetchSlackConversationContext({
           limit: String(MAX_SLACK_CONTEXT_MESSAGES),
           inclusive: "true",
         })
-      ).catch(() => null)
-    : null;
-  const recentData =
-    !replyData?.ok || (Array.isArray(replyData.messages) && replyData.messages.length <= 1)
-      ? await fetchRecentHistory()
-      : null;
-  const data =
-    recentData?.ok && Array.isArray(recentData.messages) && recentData.messages.length > (replyData?.messages?.length || 0)
-      ? recentData
-      : replyData?.ok
-        ? replyData
-        : recentData;
+      ).catch(() => null);
 
-  if (!data?.ok) {
-    const reason =
-      data?.error === "missing_scope"
-        ? "missing_scope"
-        : data?.error === "not_in_channel"
-          ? "not_in_channel"
-          : data?.error === "channel_not_found"
-            ? "channel_not_found"
-            : "slack_api_error";
+  const historyData = await fetchRecentHistory();
+  const replyTs = threadTs || null;
+  const replyData = replyTs ? await fetchThreadReplies(replyTs) : null;
+  const fallbackReplyData =
+    !replyData && messageTs && (!historyData?.ok || (Array.isArray(historyData.messages) && historyData.messages.length <= 1))
+      ? await fetchThreadReplies(messageTs)
+      : null;
+
+  const reasonFor = (data: { ok?: boolean; error?: string } | null | undefined): SlackContextFailureReason => {
+    if (data?.error === "missing_scope") return "missing_scope";
+    if (data?.error === "not_in_channel") return "not_in_channel";
+    if (data?.error === "channel_not_found") return "channel_not_found";
+    return "slack_api_error";
+  };
+
+  const formatMessages = async (messages: SlackHistoryMessage[] | undefined) =>
+    (
+      await Promise.all((messages || []).slice().reverse().map((message) => formatSlackHistoryMessage(accessToken, message)))
+    ).filter(Boolean) as string[];
+
+  const historyMessages = historyData?.ok ? await formatMessages(historyData.messages) : [];
+  const threadMessages = replyData?.ok
+    ? await formatMessages(replyData.messages)
+    : fallbackReplyData?.ok
+      ? await formatMessages(fallbackReplyData.messages)
+      : [];
+
+  if (!historyMessages.length && !threadMessages.length) {
+    const failedData = historyData && !historyData.ok ? historyData : replyData && !replyData.ok ? replyData : fallbackReplyData;
+    const reason = failedData ? reasonFor(failedData) : "no_messages";
     return slackUnavailable(reason);
   }
-  if (!Array.isArray(data.messages) || data.messages.length === 0) return slackUnavailable("no_messages");
-
-  const formatted = (
-    await Promise.all(data.messages.slice().reverse().map((message) => formatSlackHistoryMessage(accessToken, message)))
-  ).filter(Boolean) as string[];
-
-  if (!formatted.length) return slackUnavailable("no_messages");
 
   const label = channelName ? `#${channelName}` : "this Slack conversation";
-  const contextLabel = data === replyData ? `Slack thread context from ${label}` : `Recent Slack context from ${label}`;
-  const context = [`${contextLabel} (oldest to newest):`, ...formatted].join("\n");
+  const sections: string[] = [];
+  const seen = new Set<string>();
+
+  const addSection = (heading: string, lines: string[]) => {
+    const unique = lines.filter((line) => {
+      const key = line.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    if (unique.length) sections.push([heading, ...unique].join("\n"));
+  };
+
+  addSection(`Recent Slack context from ${label} (oldest to newest):`, historyMessages);
+  addSection(`Slack thread context from ${label} (oldest to newest):`, threadMessages);
+
+  const context = sections.join("\n\n");
+  const messageCount = seen.size;
+  const retrievalMethod =
+    historyMessages.length && threadMessages.length
+      ? "history_and_replies"
+      : threadMessages.length
+        ? "replies"
+        : "history";
   return {
     text:
       context.length <= MAX_SLACK_CONTEXT_LENGTH
@@ -1081,7 +1112,8 @@ export async function fetchSlackConversationContext({
         : `${context.slice(0, MAX_SLACK_CONTEXT_LENGTH - 40).trim()}\n[Context trimmed]`,
     status: "available",
     failureReason: null,
-    messageCount: formatted.length,
+    messageCount,
+    retrievalMethod,
   } satisfies SlackConversationContext;
 }
 

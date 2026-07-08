@@ -24,6 +24,15 @@ import {
 } from "@/lib/slack-app";
 
 type GuidedFlowType = "respond" | "rewrite" | "decode" | "prep" | "practice";
+type PrepScenario =
+  | "pto"
+  | "raise"
+  | "workload"
+  | "clarity"
+  | "feedback"
+  | "checkin"
+  | "client"
+  | "general";
 type GuidedStep =
   | "ask_audience"
   | "ask_person"
@@ -38,6 +47,7 @@ type GuidedAnswers = {
   initial_request?: string;
   person?: string;
   conversation_type?: string;
+  scenario?: PrepScenario;
   source_channel_id?: string;
   source_channel_name?: string;
   source_thread_ts?: string;
@@ -137,12 +147,79 @@ function inferPerson(text: string) {
 
 function inferConversationType(text: string) {
   const lower = text.toLowerCase();
+  if (/\bpto\b|\btime off\b|\bvacation\b|\bweek off\b|\bday off\b|\bwedding\b|\bout of office\b|\booo\b/.test(lower)) return "time off conversation";
   if (/\braise\b|\bpromotion\b|\bsalary\b/.test(lower)) return "raise or promotion conversation";
   if (/\bworkload\b|\btoo much\b|\bcapacity\b|\bboundary\b|\bafter-hours\b/.test(lower)) return "workload or boundary conversation";
-  if (/\bfeedback\b|\bconstructive\b/.test(lower)) return "feedback conversation";
-  if (/\bclarity\b|\bunclear\b|\bclean this up\b/.test(lower)) return "clarity conversation";
-  if (/\b1:1\b|\bone-on-one\b/.test(lower)) return "1:1 conversation";
+  if (/\bfeedback\b|\bconstructive\b|\bconflict\b|\btension\b|\bdisagree\b|\bfrustrated\b|\bnot pulling\b/.test(lower)) return "feedback or conflict conversation";
+  if (/\bclarity\b|\bunclear\b|\bclean this up\b|\bdecision\b|\bdefinition of done\b|\bpriority\b|\bprioritize\b/.test(lower)) return "clarity or decision conversation";
+  if (/\b1:1\b|\bone-on-one\b|\bcheck-?in\b/.test(lower)) return "1:1 or check-in conversation";
+  if (/\bclient\b|\bcustomer\b|\bstakeholder\b|\bvendor\b|\bpartner\b/.test(lower)) return "client or stakeholder conversation";
   return "Slack conversation";
+}
+
+function inferPrepScenario(text: string): PrepScenario {
+  const lower = text.toLowerCase();
+  if (/\bpto\b|\btime off\b|\bvacation\b|\bweek off\b|\bday off\b|\bwedding\b|\bout of office\b|\booo\b/.test(lower)) return "pto";
+  if (/\braise\b|\bpromotion\b|\bsalary\b|\bcompensation\b|\bcareer level\b|\btitle\b/.test(lower)) return "raise";
+  if (/\bworkload\b|\btoo much\b|\bcapacity\b|\bboundary\b|\bafter-hours\b|\bdeadline\b|\bscope\b|\bpriorit/.test(lower)) return "workload";
+  if (/\bclarity\b|\bunclear\b|\bclean this up\b|\bdecision\b|\bdefinition of done\b|\bpriority\b|\bowner\b|\btimeline\b/.test(lower)) return "clarity";
+  if (/\bfeedback\b|\bconstructive\b|\bconflict\b|\btension\b|\bdisagree\b|\bfrustrated\b|\bnot pulling\b|\bhandoff\b/.test(lower)) return "feedback";
+  if (/\b1:1\b|\bone-on-one\b|\bcheck-?in\b|\bmanager meeting\b/.test(lower)) return "checkin";
+  if (/\bclient\b|\bcustomer\b|\bstakeholder\b|\bvendor\b|\bpartner\b/.test(lower)) return "client";
+  return "general";
+}
+
+function scenarioFromAnswers(answers: GuidedAnswers): PrepScenario {
+  if (answers.scenario && answers.scenario !== "general") return answers.scenario;
+  return inferPrepScenario([
+    answers.initial_request,
+    answers.person,
+    answers.conversation_type,
+    answers.outcome,
+    answers.concern,
+  ].filter(Boolean).join(" "));
+}
+
+function outcomeExampleForScenario(scenario: PrepScenario) {
+  switch (scenario) {
+    case "pto":
+      return "Ex: approval for the dates, a coverage plan, timing clarity, or a clean handoff.";
+    case "raise":
+      return "Ex: compensation alignment, a promotion path, feedback on your evidence, or clear next steps.";
+    case "workload":
+      return "Ex: clearer priorities, a deadline adjustment, reduced scope, or clearer ownership.";
+    case "clarity":
+      return "Ex: the decision owner, definition of done, priority order, timeline, or next step.";
+    case "feedback":
+      return "Ex: shared expectations, a specific behavior change, less tension, or a repair plan.";
+    case "checkin":
+      return "Ex: alignment, feedback, a decision, clearer priorities, or next steps before the next 1:1.";
+    case "client":
+      return "Ex: alignment on scope, a decision, timeline clarity, expectations, or next steps.";
+    default:
+      return "Ex: alignment, more time, a clearer decision, a boundary, or next steps.";
+  }
+}
+
+function concernExampleForScenario(scenario: PrepScenario) {
+  switch (scenario) {
+    case "pto":
+      return "Ex: the timing, coverage, workload, or whether the team can plan around it.";
+    case "raise":
+      return "Ex: budget, timing, performance evidence, or whether this is the right cycle.";
+    case "workload":
+      return "Ex: urgency, team expectations, ownership, or pressure to make an exception.";
+    case "clarity":
+      return "Ex: they think it was already clear, they want speed over precision, or they give another vague answer.";
+    case "feedback":
+      return "Ex: defensiveness, hurt feelings, disagreement about what happened, or blame shifting.";
+    case "checkin":
+      return "Ex: they avoid a clear answer, focus on a different priority, or run out of time.";
+    case "client":
+      return "Ex: scope creep, urgency, budget, timeline pressure, or unclear decision-making.";
+    default:
+      return "";
+  }
 }
 
 function initialAnswers(
@@ -162,6 +239,7 @@ function initialAnswers(
     initial_request: normalizeText(text),
     person: flowType === "prep" || flowType === "practice" ? inferPerson(text) : "",
     conversation_type: inferConversationType(text),
+    scenario: flowType === "prep" || flowType === "practice" ? inferPrepScenario(text) : "general",
     source_channel_id: source?.channelId || undefined,
     source_channel_name: source?.channelName || undefined,
     source_thread_ts: source?.threadTs || undefined,
@@ -559,6 +637,7 @@ function isLikelyTopicChange(text: string) {
 
 function askForStep(session: SlackAgentSession) {
   const answers = session.answers;
+  const scenario = scenarioFromAnswers(answers);
   switch (session.step) {
     case "ask_audience":
       return [
@@ -579,12 +658,13 @@ function askForStep(session: SlackAgentSession) {
         `Got it, this will be a conversation with ${answers.person || "this person"}.`,
         "",
         "What outcome do you want from the conversation?",
-        "Ex: alignment, more time, a clearer decision, a boundary, or next steps.",
+        outcomeExampleForScenario(scenario),
       ].join("\n");
     case "ask_concern":
       return [
         "Finally, what are you worried they may push back on, misunderstand, or react poorly to?",
-      ].join("\n");
+        concernExampleForScenario(scenario),
+      ].filter(Boolean).join("\n");
     case "ask_practice_goal":
       return [
         `Got it. I’ll role-play as ${answers.person || "the other person"}.`,
@@ -740,6 +820,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
     `Initial request: ${answers.initial_request || "not specified"}`,
     `Audience/person: ${answers.audience || answers.person || "not specified"}`,
     `Conversation type: ${answers.conversation_type || "not specified"}`,
+    `Scenario: ${scenarioFromAnswers(answers)}`,
     `Source Slack channel: ${answers.source_channel_name ? `#${answers.source_channel_name}` : answers.source_channel_id || "not specified"}`,
     `Outcome: ${answers.outcome || "not specified"}`,
     `Concern/pushback: ${answers.concern || answers.practice_pushback || "not specified"}`,
@@ -874,6 +955,9 @@ function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAn
   if (session.step === "ask_concern") answers.concern = cleaned;
   if (session.step === "ask_practice_goal") answers.practice_goal = cleaned;
   if (session.step === "ask_practice_pushback") answers.practice_pushback = cleaned;
+  if (session.flow_type === "prep" || session.flow_type === "practice") {
+    answers.scenario = scenarioFromAnswers(answers);
+  }
 
   return answers;
 }

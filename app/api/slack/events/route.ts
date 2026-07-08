@@ -103,6 +103,41 @@ function isAssistantStarterPrompt(text: string) {
   ].includes(normalized);
 }
 
+function slackTimestampFromPermalink(value: string | null | undefined) {
+  if (!value) return null;
+  const decoded = decodeURIComponent(value).trim().replace(/^p/i, "");
+  if (/^\d{10,}\.\d{1,6}$/.test(decoded)) return decoded;
+  const digits = decoded.replace(/\D/g, "");
+  if (digits.length <= 10) return null;
+  return `${digits.slice(0, -6)}.${digits.slice(-6)}`;
+}
+
+function extractSlackPermalinkContext(text: string) {
+  const normalized = text.replace(/&amp;/g, "&");
+  const match = normalized.match(/https?:\/\/[^\s>|]+\/archives\/[A-Z0-9]+\/p\d{10,}(?:\?[^\s>|]+)?/i);
+  if (!match) return null;
+
+  try {
+    const url = new URL(match[0]);
+    const parts = url.pathname.split("/").filter(Boolean);
+    const archiveIndex = parts.indexOf("archives");
+    const channelId = archiveIndex >= 0 ? parts[archiveIndex + 1] : null;
+    const messagePath = archiveIndex >= 0 ? parts[archiveIndex + 2] : null;
+    const messageTs = slackTimestampFromPermalink(messagePath);
+    const threadTs = slackTimestampFromPermalink(url.searchParams.get("thread_ts"));
+
+    if (!channelId || !messageTs) return null;
+    return {
+      channelId,
+      messageTs,
+      threadTs,
+      url: match[0],
+    };
+  } catch {
+    return null;
+  }
+}
+
 function guestModeFooter() {
   return "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved conversations.";
 }
@@ -124,6 +159,22 @@ function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: Sl
     return flowType;
   }
   return fallback;
+}
+
+function slackHistoryFailureMessage(reason: string | null | undefined) {
+  switch (reason) {
+    case "missing_token":
+      return "I couldn’t open that Slack link because Slack is not connected for this account. Reconnect Slack from Beckett Settings, then try again.";
+    case "missing_scope":
+      return "I couldn’t open that Slack link because I’m missing Slack history/search permissions. Reconnect Slack from Beckett Settings so I can request the newest scopes.";
+    case "not_in_channel":
+    case "channel_not_found":
+      return "I couldn’t open that Slack link because Slack says I do not have access to that DM/channel. Try a link from a conversation I’m connected to, or paste/paraphrase the message.";
+    case "no_messages":
+      return "I could open the Slack link, but I couldn’t find readable messages there. Try a different message or thread link, or paste/paraphrase the message.";
+    default:
+      return "I couldn’t open that Slack link. I may not have access to that channel or thread. Try a link from a channel I’m connected to, or paste/paraphrase the message.";
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -196,6 +247,7 @@ export async function POST(req: NextRequest) {
       activeChannelId: activeSlackContext.channelId,
       activeUserId: activeSlackContext.userId,
       actionToken: activeSlackContext.actionToken,
+      isThreadReply: Boolean(event.thread_ts),
     })
   );
 
@@ -358,6 +410,7 @@ async function respondToAgentMessage({
   activeChannelId,
   activeUserId,
   actionToken,
+  isThreadReply,
 }: {
   teamId: string;
   slackUserId: string;
@@ -367,6 +420,7 @@ async function respondToAgentMessage({
   activeChannelId?: string | null;
   activeUserId?: string | null;
   actionToken?: string | null;
+  isThreadReply?: boolean;
 }) {
   const assistantIntent = inferAssistantIntent(text);
   const user = await lookupSlackConnectedUser(teamId, slackUserId);
@@ -569,6 +623,186 @@ async function respondToAgentMessage({
       return;
     }
 
+    const linkedSlackContext = extractSlackPermalinkContext(text);
+    if (linkedSlackContext) {
+      const linkedContext = await fetchSlackConversationContext({
+        accessToken: user.accessToken,
+        channelId: linkedSlackContext.channelId,
+        messageTs: linkedSlackContext.messageTs,
+        threadTs: linkedSlackContext.threadTs,
+      });
+      console.info("Slack linked context retrieval", {
+        linkParsed: true,
+        channelPrefix: linkedSlackContext.channelId.slice(0, 1),
+        hasThreadTs: Boolean(linkedSlackContext.threadTs),
+        status: linkedContext.status,
+        failureReason: linkedContext.failureReason,
+        messageCount: linkedContext.messageCount,
+        retrievalMethod: linkedContext.retrievalMethod || null,
+        grantedUserScopes: user.grantedUserScopes,
+        missingUserScopes: user.missingUserScopes,
+      });
+
+      if (linkedContext.status !== "available" || !linkedContext.text) {
+        const payload = buildBeckettPayload({
+          title: "Beckett",
+          subtitle: "",
+          body: slackHistoryFailureMessage(linkedContext.failureReason),
+          hideTitle: true,
+        });
+
+        await slackApiPost(user.botAccessToken, "chat.postMessage", {
+          channel: channelId,
+          thread_ts: threadTs,
+          ...payload,
+        });
+        await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
+          channel_id: channelId,
+          thread_ts: threadTs,
+          status: "",
+        }).catch(() => null);
+        return;
+      }
+
+      const linkIntent = assistantIntent === "general" ? "decode" : assistantIntent;
+      const prompt = [
+        "The user sent a Slack conversation link so I can recover the relevant context for this Beckett thread.",
+        "Use the linked Slack conversation as the source context.",
+        "Also use relevant prior Slack history if it is available, but do not block the answer if broader history is unavailable.",
+        "If the user included a follow-up question with the link, answer that question. If they only sent the link, give a concise read and next move.",
+        linkedContext.messageCount <= 1
+          ? "Important: I could only retrieve one visible message from the direct link. Be clear that the context is limited."
+          : "",
+        "",
+        `User message: ${text}`,
+      ].filter(Boolean).join("\n");
+      const linkedCoachingContext = await buildSlackCoachingContext({
+        user,
+        prompt,
+        activeContext: linkedContext,
+        contextChannelId: linkedSlackContext.channelId,
+        actionToken,
+        includeBroaderContext: true,
+      });
+      console.info("Slack linked broader context retrieval", {
+        linkParsed: true,
+        activeMessageCount: linkedContext.messageCount,
+        activeRetrievalMethod: linkedContext.retrievalMethod || null,
+        combinedStatus: linkedCoachingContext.status,
+        combinedFailureReason: linkedCoachingContext.failureReason,
+        combinedMessageCount: linkedCoachingContext.messageCount,
+        broaderSearchUsed: linkedCoachingContext.broaderSearchUsed,
+      });
+      const response = await runSlackCoaching({
+        user,
+        action: "agent_message",
+        prompt,
+        sourceLabel: "linked_slack_conversation",
+        messageText: linkedCoachingContext.text || linkedContext.text,
+        contextStatus: linkedCoachingContext.status,
+        contextFailureReason: linkedCoachingContext.failureReason,
+        contextMessageCount: linkedCoachingContext.messageCount || linkedContext.messageCount,
+        broaderSearchUsed: linkedCoachingContext.broaderSearchUsed,
+        relationshipContext: activeRelationship?.promptContext || null,
+        intent: linkIntent,
+        responseDetail: responseDetailForSlackIntent(linkIntent),
+      });
+      const coachingThread = await createSlackCoachingThread({
+        user,
+        teamId,
+        slackUserId,
+        flowType:
+          linkIntent === "respond" ||
+          linkIntent === "rewrite" ||
+          linkIntent === "decode" ||
+          linkIntent === "prep" ||
+          linkIntent === "practice"
+            ? linkIntent
+            : "message",
+        title: slackHistoryTitle(
+          linkIntent === "respond" ||
+            linkIntent === "rewrite" ||
+            linkIntent === "decode" ||
+            linkIntent === "prep" ||
+            linkIntent === "practice"
+            ? linkIntent
+            : "message",
+          "linked Slack conversation"
+        ),
+        promptSnippet: text,
+        summary: summarizeSlackCoachingResponse(response, text),
+        slackChannelId: channelId,
+        threadTs,
+        sourceChannelId: linkedSlackContext.channelId,
+        status: "active",
+      }).catch((error) => {
+        console.error("Slack linked coaching history create failed", {
+          message: error instanceof Error ? error.message : String(error),
+        });
+        return null;
+      });
+      if (coachingThread?.id) {
+        await appendSlackCoachingMessage({
+          threadId: coachingThread.id,
+          user,
+          teamId,
+          slackUserId,
+          role: "user",
+          content: text,
+        }).catch(() => null);
+        await appendSlackCoachingMessage({
+          threadId: coachingThread.id,
+          user,
+          teamId,
+          slackUserId,
+          role: "beckett",
+          content: response,
+        }).catch(() => null);
+      }
+
+      const payload = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "",
+        body: [
+          linkedContext.messageCount <= 1
+            ? "I found the linked Slack conversation, but I could only see 1 message. Reply in this thread so I can keep the context and follow-ups saved together."
+            : "I found the linked Slack conversation. Reply in this thread so I can keep the context and follow-ups saved together.",
+          "",
+          response,
+        ].join("\n"),
+        footer: linkedCoachingContext.broaderSearchUsed
+          ? "Used the linked conversation plus relevant Slack history."
+          : "I could not find relevant prior Slack history, so I answered from the linked conversation.",
+        hideTitle: true,
+        actions: [
+          ...(isCompactSlackIntent(linkIntent) ? buildSlackExplainMoreAction(coachingThread?.id) : []),
+          ...buildSlackThreadArchiveAction(coachingThread?.id),
+        ],
+      });
+
+      const postedLinkedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: threadTs,
+        ...payload,
+      });
+      if (postedLinkedResponse.ok && postedLinkedResponse.ts) {
+        await recordSlackCoachingBotMessage({
+          threadId: coachingThread?.id,
+          userId: user.id,
+          channelId,
+          messageTs: postedLinkedResponse.ts,
+          kind: "reply",
+        }).catch(() => null);
+      }
+
+      await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
+        channel_id: channelId,
+        thread_ts: threadTs,
+        status: "",
+      }).catch(() => null);
+      return;
+    }
+
     const coachingContext = await buildSlackCoachingContext({
       user,
       prompt: text,
@@ -579,6 +813,32 @@ async function respondToAgentMessage({
     });
 
     if (
+      isThreadReply &&
+      assistantIntent !== "prep" &&
+      assistantIntent !== "practice" &&
+      !coachingContext.text
+    ) {
+      const payload = buildBeckettPayload({
+        title: "Beckett",
+        subtitle: "",
+        body: "I lost the saved context for this Beckett thread. Send me a link to the Slack message or thread you want to continue from, and I’ll pick it back up.",
+        hideTitle: true,
+      });
+
+      await slackApiPost(user.botAccessToken, "chat.postMessage", {
+        channel: channelId,
+        thread_ts: threadTs,
+        ...payload,
+      });
+      await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
+        channel_id: channelId,
+        thread_ts: threadTs,
+        status: "",
+      }).catch(() => null);
+      return;
+    }
+
+    if (
       isAssistantStarterPrompt(text) &&
       isCompactSlackIntent(assistantIntent) &&
       !coachingContext.text
@@ -586,7 +846,7 @@ async function respondToAgentMessage({
       const payload = buildBeckettPayload({
         title: "Beckett",
         subtitle: "",
-        body: "I could not read this Slack conversation. Paste or paraphrase the message and I’ll help.",
+        body: "I lost the saved context for this Beckett thread. Send me a link to the Slack message or thread you want to continue from, and I’ll pick it back up.",
         hideTitle: true,
       });
 
