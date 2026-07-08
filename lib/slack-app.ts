@@ -69,6 +69,10 @@ export type SlackConversationContext = {
   broaderSearchUsed?: boolean;
 };
 
+export function isCompactSlackIntent(intent: SlackCoachingIntent) {
+  return intent === "decode" || intent === "respond" || intent === "rewrite";
+}
+
 type SlackMessageOptions = {
   blocks?: SlackBlock[];
   replaceOriginal?: boolean;
@@ -259,8 +263,32 @@ function splitSlackSectionText(text: string, maxLength = 2850) {
   return chunks;
 }
 
+function removeStandaloneSlackUncertaintySections(text: string) {
+  const uncertaintyHeading =
+    /^(?:~\s*)?(?:what(?:['’]s| is| isn['’]t)? not knowable|what not to over-?read|what (?:i|beckett) can(?:not|'t|’t) know|unknowns?)(?:\s*~)?\s*:?\s*$/i;
+  const knownHeading =
+    /^(?:~\s*)?(?:possible read|next move|draft options|what is visible|visible facts|rewritten message|why this works|prep notes|talking points|opening sentence|likely pushback|follow-up draft|conversation goal|practice prompt|direct but kind|warm and collaborative|concise)(?:\s*~)?\s*:?\s*$/i;
+  const lines = text.split("\n");
+  const kept: string[] = [];
+  let skipping = false;
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (uncertaintyHeading.test(trimmed)) {
+      skipping = true;
+      continue;
+    }
+    if (skipping && knownHeading.test(trimmed)) {
+      skipping = false;
+    }
+    if (!skipping) kept.push(line);
+  }
+
+  return kept.join("\n");
+}
+
 export function cleanSlackDisplayText(text: string) {
-  return text
+  return removeStandaloneSlackUncertaintySections(text)
     .replace(/\*\*([^*\n][^*]*?)\*\*/g, "$1")
     .replace(/(^|\s)\*([^*\n][^*]*?)\*(?=\s|$|[.,!?;:])/g, "$1$2")
     .replace(/\*/g, "")
@@ -274,7 +302,7 @@ function formatSlackMrkdwnForBlocks(text: string) {
   return text
     .replace(/^(Possible read|Next move|Draft options)\s*:?\s*$/gim, "*$1*")
     .replace(/^[-•]?\s*(Direct but kind|Warm and collaborative|Concise)\s*:\s*/gim, "- $1: ")
-    .replace(/^(What(?:'s| is) not knowable|What not to over-read)\s*:?\s*$/gim, "");
+    .replace(/^(What(?:['’]s| is| isn['’]t) not knowable|What not to over-?read)\s*:?\s*$/gim, "");
 }
 
 export function buildBeckettBlocks({
@@ -530,7 +558,7 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
     case "rewrite":
       return "Slack task: Rewrite or improve the user's draft. Preserve the meaning, make it natural for workplace Slack/email, and briefly explain the main tone choice.";
     case "decode":
-      return "Slack task: Decode the pasted message or recent context. Use Possible read and Next move. Keep uncertainty inside Possible read instead of making a separate not-knowable section.";
+      return "Slack task: Decode the pasted message or recent context. Use Possible read and Next move. Answer from visible Slack context first when available. Keep uncertainty inside Possible read instead of making a separate not-knowable section.";
     case "draft":
       return "Slack task: Draft a message from the user's goal. Provide ready-to-use wording and briefly name any assumptions.";
     case "prep":
@@ -540,7 +568,7 @@ function slackIntentInstruction(intent: SlackCoachingIntent) {
     case "followup":
       return "Slack task: Help write or improve a follow-up. Keep it specific, low-pressure, and clear about the next step.";
     case "respond":
-      return "Slack task: Help the user respond to the Slack context. Use Possible read, Next move, and Draft options. Draft options should be bullets labeled Direct but kind, Warm and collaborative, and Concise.";
+      return "Slack task: Help the user respond to the Slack context. Answer from visible Slack context first when available. Use Possible read, Next move, and Draft options. Draft options should be bullets labeled Direct but kind, Warm and collaborative, and Concise.";
     case "clarity":
       return "Slack task: Help the user ask for clarity. Identify the missing information, draft a specific answerable question, and remove unnecessary apologies.";
     case "boundary":
@@ -1251,11 +1279,13 @@ Do not claim certainty about another person's intent. Use phrases like "may" or 
 Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushback that is not visible in the provided Slack text.
 Always separate "what is visible" from "possible interpretation" when decoding a Slack message or thread.
 When broader Slack history is included, clearly distinguish active-thread facts from relevant prior history. Prior history can shape preparation, but it does not prove current intent.
+When active Slack context is available, answer from that visible conversation first. Do not ask broad relationship-history or background questions unless the user explicitly asks for a broad relationship assessment.
+If active Slack context is available but broader Slack history or saved relationship context is missing, do not treat that as a blocker. Mention it only briefly when relevant.
 If the user is over-reading an ambiguous message, fold what is uncertain or not knowable into the Possible read section in one concise sentence.
 Avoid generic encouragement. Give concrete language the user could use.
 Format with short plain-language section labels and bullets. Do not use markdown tables, markdown bold markers, or literal asterisks; Beckett formats headings separately.
 For decode/respond work, prefer these section labels when they fit: Possible read, Next move, Draft options.
-Do not include a standalone "What's not knowable" or "What not to over-read" section.
+Never include a standalone "What's not knowable", "What is not knowable", "What isn't knowable", or "What not to over-read" section.
 For preparation work, prefer these section labels when they fit: Prep notes, Talking points, Opening sentence, Likely pushback, Follow-up draft.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
 For reply drafting, include 2-3 Slack-ready bullet options when useful: - Direct but kind, - Warm and collaborative, and - Concise.
@@ -1280,7 +1310,7 @@ ${beckettBoundaryPrompt()}`;
   );
   const responseDetailLine =
     responseDetail === "quick"
-      ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful. Keep the answer under 900 characters."
+      ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful. Keep the answer under 700 characters."
       : responseDetail === "longer"
         ? "Response length: Longer explanation. Give more context about likely tone/subtext, what to watch for, next steps, and suggested wording. Keep it scannable in Slack and under 1700 characters."
         : "Response length: Default Slack coaching response. Be concise but useful.";
@@ -1290,7 +1320,9 @@ ${beckettBoundaryPrompt()}`;
   const messageLine = messageText
     ? `\n\nSlack context packet:\n${messageText}`
     : contextStatus === "unavailable"
-      ? "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
+      ? isCompactSlackIntent(intent)
+        ? "\n\nNo recent Slack context was available. If the user did not provide message text, say exactly: I could not read this Slack conversation. Paste or paraphrase the message and I’ll help."
+        : "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
       : "";
   const relationshipLine = relationshipContext
     ? `\n\nConfirmed relationship context:\n${relationshipContext}`
@@ -1303,7 +1335,7 @@ ${slackIntentInstruction(intent)}
 User request:
 ${prompt}${relationshipLine}${messageLine}`;
 
-  const maxTokens = responseDetail === "longer" ? 700 : responseDetail === "quick" ? 420 : 800;
+  const maxTokens = responseDetail === "longer" ? 700 : responseDetail === "quick" ? 360 : 800;
   const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], maxTokens);
 
   await trackBetaEvent({
@@ -1380,7 +1412,7 @@ Do not refuse because a message is personal or casual.
 Do not claim certainty about another person's intent. Use phrases like "may" or "likely" when interpreting tone.
 Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushback that is not visible in the provided Slack text.
 Always separate visible facts from possible interpretation when decoding.
-Fold what is uncertain or not knowable into the Possible read section in one concise sentence; do not include a standalone "What's not knowable" or "What not to over-read" section.
+Fold what is uncertain or not knowable into the Possible read section in one concise sentence; never include a standalone "What's not knowable", "What is not knowable", "What isn't knowable", or "What not to over-read" section.
 If there is not enough text to analyze, ask the user to paste or paraphrase the message.
 For reply drafting, include 2-3 Slack-ready bullet options when useful: - Direct but kind, - Warm and collaborative, and - Concise.
 Format with short plain-language section labels and bullets. Do not use markdown tables, markdown bold markers, or literal asterisks; Beckett formats headings separately.
@@ -1397,8 +1429,8 @@ ${beckettBoundaryPrompt()}`;
     cleanMessageText,
   ].join("\n");
 
-  const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], 650);
-  return fitSlackAnswer(text.trim() || "I could not generate a response for that Slack request.", MAX_LONGER_SLACK_ANSWER_LENGTH);
+  const text = await callAnthropic(system, [{ role: "user", content: userPrompt }], 420);
+  return fitSlackAnswer(text.trim() || "I could not generate a response for that Slack request.", MAX_QUICK_SLACK_ANSWER_LENGTH);
 }
 
 export function handleSlackAiError(error: unknown) {

@@ -5,6 +5,7 @@ import {
   configureSlackAgentSurface,
   fetchSlackConversationContext,
   handleSlackAiError,
+  isCompactSlackIntent,
   isAllowedSlackPlan,
   lookupSlackConnectedUser,
   lookupSlackWorkspaceBotToken,
@@ -102,6 +103,25 @@ function isAssistantStarterPrompt(text: string) {
 
 function guestModeFooter() {
   return "Connect Slack in Beckett Settings to use your coaching profile, contact context, broader Slack history, and saved Beckett conversations.";
+}
+
+function responseDetailForSlackIntent(intent: SlackCoachingIntent) {
+  if (isCompactSlackIntent(intent)) return "quick";
+  if (intent === "prep" || intent === "practice") return "longer";
+  return undefined;
+}
+
+function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: SlackCoachingIntent): SlackCoachingIntent {
+  if (
+    flowType === "respond" ||
+    flowType === "rewrite" ||
+    flowType === "decode" ||
+    flowType === "prep" ||
+    flowType === "practice"
+  ) {
+    return flowType;
+  }
+  return fallback;
 }
 
 export async function POST(req: NextRequest) {
@@ -297,6 +317,8 @@ async function continueExistingSlackCoachingThread({
     content: text,
   }).catch(() => null);
 
+  const threadIntent = flowTypeAsSlackIntent(thread.flow_type, intent);
+
   const response = await runSlackCoaching({
     user,
     action: "agent_message",
@@ -306,8 +328,8 @@ async function continueExistingSlackCoachingThread({
     contextStatus: "available",
     contextMessageCount: previousMessages.length,
     broaderSearchUsed: false,
-    intent,
-    responseDetail: "longer",
+    intent: threadIntent,
+    responseDetail: responseDetailForSlackIntent(threadIntent),
   });
 
   await appendSlackCoachingMessage({
@@ -555,17 +577,13 @@ async function respondToAgentMessage({
 
     if (
       isAssistantStarterPrompt(text) &&
-      (assistantIntent === "decode" || assistantIntent === "respond" || assistantIntent === "rewrite") &&
+      isCompactSlackIntent(assistantIntent) &&
       !coachingContext.text
     ) {
       const payload = buildBeckettPayload({
         title: "Beckett",
         subtitle: "",
-        body: [
-          "I can help, but I could not read a current Slack message from here.",
-          "",
-          "Paste or paraphrase the message you want help with, or use Ask Beckett from the message’s menu.",
-        ].join("\n"),
+        body: "I could not read this Slack conversation. Paste or paraphrase the message and I’ll help.",
         hideTitle: true,
       });
 
@@ -594,7 +612,7 @@ async function respondToAgentMessage({
       broaderSearchUsed: coachingContext.broaderSearchUsed,
       relationshipContext: activeRelationship?.promptContext || null,
       intent: assistantIntent,
-      responseDetail: "longer",
+      responseDetail: responseDetailForSlackIntent(assistantIntent),
     });
     const coachingThread = await createSlackCoachingThread({
       user,

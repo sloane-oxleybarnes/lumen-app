@@ -17,8 +17,8 @@ export type SlackAgentTool = {
 export const SLACK_AGENT_TOOLS: SlackAgentTool[] = [
   {
     name: "analyze_slack_thread",
-    description: "Explain what is visible in a Slack message or thread and what is not knowable from the text.",
-    outputContract: "Return what is visible, possible interpretations, and one useful next step.",
+    description: "Explain what is visible in a Slack message or thread without over-reading ambiguous tone.",
+    outputContract: "Return a concise possible read and one useful next step. Fold uncertainty into the possible read instead of making a separate uncertainty section.",
   },
   {
     name: "draft_slack_reply",
@@ -43,7 +43,7 @@ export const SLACK_AGENT_TOOLS: SlackAgentTool[] = [
   {
     name: "explain_tone_without_over_inference",
     description: "Explain tone and subtext while protecting the user from over-reading ambiguous Slack messages.",
-    outputContract: "Separate visible facts from possible interpretations and explicitly name uncertainty.",
+    outputContract: "Ground the answer in visible facts, give possible interpretations carefully, and keep uncertainty concise inside the main read.",
   },
 ];
 

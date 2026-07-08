@@ -11,6 +11,7 @@ import {
   buildBeckettPayload,
   buildSlackCoachingContext,
   fetchSlackConversationContext,
+  isCompactSlackIntent,
   postSlackAgentMessage,
   runSlackCoaching,
   slackApiPost,
@@ -848,7 +849,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     contextMessageCount: coachingContext.messageCount,
     broaderSearchUsed: coachingContext.broaderSearchUsed || session.evidence_suggestions.length > 0,
     relationshipContext: input.relationshipContext || null,
-    responseDetail: session.flow_type === "respond" || session.flow_type === "rewrite" || session.flow_type === "decode" ? undefined : "longer",
+    responseDetail: isCompactSlackIntent(session.flow_type) ? "quick" : "longer",
     intent: session.flow_type,
   });
 

@@ -655,6 +655,7 @@ async function sendMessageShortcutResponse({
       broaderSearchUsed: coachingContext.broaderSearchUsed,
       relationshipContext: authorRelationship?.promptContext || null,
       intent: "respond",
+      responseDetail: "quick",
     });
 
     const contextNote = slackContextUserNote(coachingContext);
