@@ -595,7 +595,7 @@ export function buildSlackExplainMoreAction(threadId: string | null | undefined)
 export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = "archived") {
   const body = variant === "inactivity"
     ? [
-        "Want to start something new? This conversation is still saved in Beckett History.",
+        "Want to start something new? All conversations are saved on the Home tab.",
         "",
         "What can I help with next?",
       ].join("\n")
