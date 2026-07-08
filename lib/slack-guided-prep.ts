@@ -184,6 +184,25 @@ function scenarioFromAnswers(answers: GuidedAnswers): PrepScenario {
   ].filter(Boolean).join(" "));
 }
 
+function shouldIncludeEscalationGuidance(answers: GuidedAnswers, followupText?: string) {
+  const text = [
+    answers.initial_request,
+    answers.audience,
+    answers.person,
+    answers.conversation_type,
+    answers.outcome,
+    answers.concern,
+    ...(answers.extra_context || []),
+    followupText,
+  ].filter(Boolean).join(" ").toLowerCase();
+
+  if (/\b(manager|boss|supervisor|hr|human resources|people team|legal|compliance|policy)\b/.test(text)) return true;
+  if (/\b(outside (?:of )?my scope|not my scope|scope creep|workload|capacity|overloaded|too much work|boundary|ownership|deadline|priority|repeated|keeps asking|again)\b/.test(text)) return true;
+  if (/\b(harass|harassment|discriminat|retaliat|unsafe|safety|threat|bully|hostile|inappropriate|unethical|illegal)\b/.test(text)) return true;
+  if (/\b(power dynamic|senior|director|vp|executive|client|customer)\b/.test(text)) return true;
+  return false;
+}
+
 function outcomeExampleForScenario(scenario: PrepScenario) {
   switch (scenario) {
     case "pto":
@@ -649,8 +668,11 @@ function askForStep(session: SlackAgentSession) {
   const scenario = scenarioFromAnswers(answers);
   switch (session.step) {
     case "ask_audience":
+      if (session.flow_type === "rewrite") {
+        return "Let’s work on rewriting your message. First, who is this going to and where will you send it?";
+      }
       return [
-        session.flow_type === "rewrite" ? "I can help with that." : "I can help you respond.",
+        "I can help you respond.",
         "",
         "Who is this going to, and where will you send it?",
         "For example: `DM to my manager`, `channel reply to the whole team`, or `channel reply to Priya`.",
@@ -840,6 +862,9 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
     "Additional user context:",
     extra,
   ].join("\n");
+  const escalationInstruction = shouldIncludeEscalationGuidance(answers, followupText)
+    ? "Because the user mentioned scope, workload, manager/HR, policy, safety, repeated boundary issues, or a power dynamic, include a short manager/HR escalation note only if it is appropriate. For workload/scope, usually give the coworker reply first, then one concise note on when/how to loop in a manager. For harassment, discrimination, safety, retaliation, or policy concerns, suggest HR or the appropriate internal channel without over-dramatizing."
+    : "Do not add manager or HR escalation guidance unless the context clearly justifies it.";
 
   switch (session.flow_type) {
     case "respond":
@@ -850,6 +875,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Return sections: Possible read, Next move, Draft options.",
         "Fold what is uncertain or not knowable into Possible read in one concise sentence.",
         "Draft options must be bullet points labeled Direct but kind, Warm and collaborative, and Concise.",
+        escalationInstruction,
       ].join("\n");
     case "rewrite":
       return [
@@ -965,6 +991,19 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
   return response;
 }
 
+async function safeCompleteSession(input: GuidedFlowInput, session: SlackAgentSession, followupText?: string) {
+  try {
+    return await completeSession(input, session, followupText);
+  } catch (error) {
+    console.error("Slack guided flow completion failed", {
+      flowType: session.flow_type,
+      step: session.step,
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return "I had trouble finishing that response, but your thread is still here. Try once more, or send one more detail and I’ll pick it back up.";
+  }
+}
+
 function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAnswers {
   const answers: GuidedAnswers = {
     ...session.answers,
@@ -994,7 +1033,7 @@ function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAn
 
 async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentSession) {
   if (session.flow_type === "decode") {
-    return completeSession(input, session);
+    return safeCompleteSession(input, session);
   }
   if (session.flow_type === "respond" || session.flow_type === "rewrite") {
     const nextStep = nextStepForAnswers(session.flow_type, session.answers);
@@ -1002,7 +1041,7 @@ async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentS
       const updated = await updateSession(session.id, { step: nextStep });
       return askForStep(updated);
     }
-    return completeSession(input, session);
+    return safeCompleteSession(input, session);
   }
   if (session.flow_type === "practice") {
     const nextStep = nextStepForAnswers("practice", session.answers);
@@ -1010,7 +1049,7 @@ async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentS
       const updated = await updateSession(session.id, { step: nextStep });
       return askForStep(updated);
     }
-    return completeSession(input, session);
+    return safeCompleteSession(input, session);
   }
   return askForStep(session);
 }
@@ -1351,14 +1390,14 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
     }
     const updated = await updateSession(session.id, {
-      status: "completed",
+      status: "active",
       flow_type: "respond",
       answers: {
         ...session.answers,
         extra_context: [...(session.answers.extra_context || []), text],
       },
     });
-    const response = await completeSession(input, updated, text);
+    const response = await safeCompleteSession(input, updated, text);
     const draftOptions = await saveSlackDraftOptions(updated.id, response);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
     return {
@@ -1401,7 +1440,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       confirmed_evidence: confirmed,
       answers: { ...session.answers, extra_context },
     });
-    const response = await completeSession(input, updated);
+    const response = await safeCompleteSession(input, updated);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
     return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
@@ -1412,7 +1451,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       answers,
       step: "ask_opening_draft",
     });
-    const response = await completeSession(input, updated, text);
+    const response = await safeCompleteSession(input, updated, text);
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
     return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
@@ -1436,7 +1475,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
-  const response = await completeSession(input, updated);
+  const response = await safeCompleteSession(input, updated);
   const draftOptions = session.flow_type === "respond" ? await saveSlackDraftOptions(updated.id, response) : [];
   await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
   return {

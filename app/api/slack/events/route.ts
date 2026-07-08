@@ -112,11 +112,7 @@ function isAssistantStarterPrompt(text: string) {
 
 function starterPromptMissingContextMessage(intent: SlackCoachingIntent) {
   if (intent === "rewrite") {
-    return [
-      "I can help with that.",
-      "",
-      "Who are you sending this to?",
-    ].join("\n");
+    return "Let’s work on rewriting your message. First, who is this going to and where will you send it?";
   }
 
   const action = intent === "respond" ? "responding to" : "decoding";

@@ -421,6 +421,10 @@ export function cleanSlackDisplayText(text: string) {
 
 function formatSlackMrkdwnForBlocks(text: string) {
   return text
+    .replace(
+      /^(Reply in this thread so I can keep this message, (?:read|drafts), and follow-ups saved together\.)$/gim,
+      "*$1*"
+    )
     .replace(/^(Possible read|Next move|Draft options|Relationship read|What I['’]m basing this on)\s*:?\s*$/gim, "*$1*")
     .replace(/^[-•]?\s*(Direct but kind|Warm and collaborative|Concise)\s*:\s*/gim, "- $1: ")
     .replace(/^(What(?:['’]s| is| isn['’]t) not knowable|What not to over-?read)\s*:?\s*$/gim, "");
