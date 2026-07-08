@@ -176,8 +176,8 @@ function splitSlackScopes(value: unknown) {
     .filter(Boolean);
 }
 
-function slackUnavailable(reason: SlackContextFailureReason): SlackConversationContext {
-  return { text: null, status: "unavailable", failureReason: reason, messageCount: 0 };
+function slackUnavailable(reason: SlackContextFailureReason, retrievalMethod?: string): SlackConversationContext {
+  return { text: null, status: "unavailable", failureReason: reason, messageCount: 0, retrievalMethod };
 }
 
 async function noteSlackContextValidation(userId: string, failureReason: SlackContextFailureReason | null) {
@@ -1147,7 +1147,10 @@ export async function fetchSlackBroaderContext({
     () => null
   );
   if (!data?.ok) {
-    return slackUnavailable(data?.error === "missing_scope" ? "missing_scope" : "slack_api_error");
+    return slackUnavailable(
+      data?.error === "missing_scope" ? "missing_scope" : "slack_api_error",
+      `assistant.search.context${data?.error ? ` error:${data.error}` : " request_failed"}`
+    );
   }
 
   const formatted = getSearchResults(data)
@@ -1302,16 +1305,17 @@ export function slackContextUserNote(context: SlackConversationContext) {
   if (context.status === "available") return "";
   switch (context.failureReason) {
     case "missing_scope":
-      return "_I could not read broader Slack context because this Slack connection is missing the newest search/private-channel permissions. Reconnect Slack from Beckett Settings when you want broader context included._";
+      return "How to resolve: I’m missing the Slack permissions needed to read this context. Reconnect Slack from Beckett Settings, then reinstall or reauthorize the Slack app if prompted.";
     case "not_in_channel":
+      return "How to resolve: I do not have access to this channel or DM. Add Beckett to the channel or use a conversation Beckett is authorized to read.";
     case "channel_not_found":
-      return "_I could not read recent Slack context for this conversation, so I am answering from what you asked._";
+      return "How to resolve: I could not find that Slack channel or conversation. Check that the link is from the connected workspace.";
     case "no_messages":
-      return "_I could not find recent Slack messages to include, so I am answering from what you asked._";
+      return "How to resolve: I could open the conversation, but Slack did not return readable messages. Try linking a specific message or thread.";
     case "missing_token":
-      return "_Slack context is not connected yet, so I am answering from what you asked._";
+      return "How to resolve: Slack is not connected for this account. Connect Slack from Beckett Settings.";
     default:
-      return "_I could not read recent Slack context this time, so I am answering from what you asked._";
+      return "How to resolve: Slack returned an error while I was trying to read context. Try again, or reconnect Slack if this keeps happening.";
   }
 }
 
@@ -1326,8 +1330,8 @@ export function slackContextDebugLine(context: {
 }) {
   const describe = (label: string, item?: SlackConversationContext | null) => {
     if (!item) return `${label}: not requested`;
-    if (item.status !== "available") return `${label}: unavailable (${item.failureReason || "unknown"})`;
     const method = item.retrievalMethod ? `, ${item.retrievalMethod}` : "";
+    if (item.status !== "available") return `${label}: unavailable (${item.failureReason || "unknown"}${method})`;
     return `${label}: ${item.messageCount} message${item.messageCount === 1 ? "" : "s"}${method}`;
   };
 
@@ -1418,8 +1422,10 @@ Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushbac
 Always separate "what is visible" from "possible interpretation" when decoding a Slack message or thread.
 When broader Slack history is included, clearly distinguish active-thread facts from relevant prior history. Prior history can shape preparation, but it does not prove current intent.
 When active Slack context is available, answer from that visible conversation first. Do not ask broad relationship-history or background questions unless the user explicitly asks for a broad relationship assessment.
+If the user asks for relationship insight and active Slack context is available, give a limited read based on that visible context instead of saying there is nothing to assess. State the limitation briefly if broader history is unavailable.
 If active Slack context is available but broader Slack history or saved relationship context is missing, do not treat that as a blocker. Mention it only briefly when relevant.
 Do not say you cannot access DMs, direct messages, private channels, or Slack history as a general capability claim. You may only describe the specific Slack context status provided in the prompt, such as missing permissions, not in channel, no messages found, or linked context available.
+Do not explain Slack retrieval failures in your own words. The app renders the context diagnostic and resolution instructions separately; answer only from the Slack context and user text actually provided.
 If Slack context is unavailable for a prep request, continue coaching from the user's stated scenario instead of saying you need the actual pattern first.
 If the user is over-reading an ambiguous message, fold what is uncertain or not knowable into the Possible read section in one concise sentence.
 Avoid generic encouragement. Give concrete language the user could use.

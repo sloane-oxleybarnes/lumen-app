@@ -165,16 +165,17 @@ function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: Sl
 function slackHistoryFailureMessage(reason: string | null | undefined) {
   switch (reason) {
     case "missing_token":
-      return "I couldn’t open that Slack link because Slack is not connected for this account. Reconnect Slack from Beckett Settings, then try again.";
+      return "Context pulled: active/linked conversation: unavailable (missing_token). How to resolve: Slack is not connected for this account. Connect Slack from Beckett Settings.";
     case "missing_scope":
-      return "I couldn’t open that Slack link because I’m missing Slack history/search permissions. Reconnect Slack from Beckett Settings so I can request the newest scopes.";
+      return "Context pulled: active/linked conversation: unavailable (missing_scope). How to resolve: I’m missing the Slack permissions needed to read this context. Reconnect Slack from Beckett Settings, then reinstall or reauthorize the Slack app if prompted.";
     case "not_in_channel":
+      return "Context pulled: active/linked conversation: unavailable (not_in_channel). How to resolve: I do not have access to this channel or DM. Add Beckett to the channel or use a conversation Beckett is authorized to read.";
     case "channel_not_found":
-      return "I couldn’t open that Slack link because Slack says I do not have access to that DM/channel. Try a link from a conversation I’m connected to, or paste/paraphrase the message.";
+      return "Context pulled: active/linked conversation: unavailable (channel_not_found). How to resolve: I could not find that Slack channel or conversation. Check that the link is from the connected workspace.";
     case "no_messages":
-      return "I could open the Slack link, but I couldn’t find readable messages there. Try a different message or thread link, or paste/paraphrase the message.";
+      return "Context pulled: active/linked conversation: unavailable (no_messages). How to resolve: I could open the conversation, but Slack did not return readable messages. Try linking a specific message or thread.";
     default:
-      return "I couldn’t open that Slack link. I may not have access to that channel or thread. Try a link from a channel I’m connected to, or paste/paraphrase the message.";
+      return "Context pulled: active/linked conversation: unavailable (slack_api_error). How to resolve: Slack returned an error while I was trying to read context. Try again, or reconnect Slack if this keeps happening.";
   }
 }
 
