@@ -17,6 +17,7 @@ import {
   shouldUseBroaderSlackContext,
   slackApiPost,
   slackConnectText,
+  slackContextDebugLine,
   slackContextUserNote,
   SlackBlock,
   SlackCoachingIntent,
@@ -485,11 +486,12 @@ async function sendPendingSlashResponse({
     });
 
     const contextNote = slackContextUserNote(coachingContext);
+    const debugLine = slackContextDebugLine(coachingContext);
     const responsePayload = buildAskedResponsePayload({
       prompt: pending.prompt,
       response,
       intent,
-      footer: contextNote || (coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : undefined),
+      footer: [debugLine, contextNote].filter(Boolean).join("\n"),
     });
     await replaceSlackInteraction(responseUrl, responsePayload.text, responsePayload.blocks);
     console.info("Slack slash final response posted", {
@@ -667,6 +669,7 @@ async function sendMessageShortcutResponse({
     });
 
     const contextNote = slackContextUserNote(coachingContext);
+    const debugLine = slackContextDebugLine(coachingContext);
     const agentDelivery = await postSlackAgentMessage({
       botAccessToken: user.botAccessToken,
       slackUserId,
@@ -674,7 +677,8 @@ async function sendMessageShortcutResponse({
       text: [
         "Let’s draft a response privately. Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
         "",
-        contextNote || (coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : ""),
+        debugLine,
+        contextNote,
         relationshipNote,
         response,
       ].filter(Boolean).join("\n\n"),

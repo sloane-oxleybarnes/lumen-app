@@ -20,6 +20,7 @@ import {
   SlackCoachingIntent,
   SlackConnectedUser,
   SlackConversationContext,
+  slackContextDebugLine,
   slackContextUserNote,
 } from "@/lib/slack-app";
 
@@ -709,7 +710,7 @@ function parseSelection(text: string, max: number) {
   return { type: "extra_context" as const, selected: [] };
 }
 
-function evidenceFromContext(context: SlackConversationContext, fallbackTopic: string) {
+function evidenceFromContext(context: SlackConversationContext) {
   if (!context.text) return [];
   const lines = context.text
     .split("\n")
@@ -732,14 +733,7 @@ function evidenceFromContext(context: SlackConversationContext, fallbackTopic: s
     if (suggestions.length >= 5) break;
   }
 
-  if (suggestions.length) return suggestions;
-  return [
-    {
-      id: 1,
-      text: `I could not find a clear Slack evidence point for ${fallbackTopic}. We can still prep from what you know directly.`,
-      source: "Fallback",
-    },
-  ];
+  return suggestions;
 }
 
 function formatEvidencePrompt(suggestions: EvidenceSuggestion[], note: string) {
@@ -785,7 +779,8 @@ async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSess
     contextChannelId: input.activeChannelId,
     actionToken: input.actionToken,
   });
-  const note = slackContextUserNote(coachingContext);
+  const debugLine = slackContextDebugLine(coachingContext);
+  const note = [debugLine, slackContextUserNote(coachingContext)].filter(Boolean).join("\n");
   const evidenceContext =
     coachingContext.broaderContext?.text
       ? coachingContext.broaderContext
@@ -794,7 +789,7 @@ async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSess
         : coachingContext;
   const suggestions =
     coachingContext.status === "available"
-      ? evidenceFromContext(evidenceContext, answers.conversation_type || "this conversation")
+      ? evidenceFromContext(evidenceContext)
       : [];
 
   const nextSession = await updateSession(session.id, {
@@ -803,7 +798,11 @@ async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSess
   });
 
   if (!suggestions.length) {
-    return "I tried to find a relevant Slack conversation or context for this, but I couldn’t find anything useful. Is there anything else you want me to know, or are we good to move on?";
+    return [
+      debugLine,
+      "",
+      "I tried to find a relevant Slack conversation or context for this, but I couldn’t find anything useful. Is there anything else you want me to know, or are we good to move on?",
+    ].join("\n");
   }
 
   return formatEvidencePrompt(nextSession.evidence_suggestions, note);
@@ -877,6 +876,8 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Return only these sections: Goal, Say this first, If they push back, Watch for, Practice next.",
         "Keep each section to 1-3 short bullets or sentences. Do not include long talking-points lists, likely-pushback lists, or a follow-up draft unless the user explicitly asked for that detail.",
         "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
+        "If no Slack evidence was confirmed, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
+        "Do not claim you cannot access DMs, private channels, or Slack history unless the prompt gives a specific Slack failure reason.",
         "End with: Want to practice the opening or the pushback?",
         "Keep it Slack-ready, concise, direct but kind, and avoid claiming unconfirmed Slack evidence as fact.",
       ].join("\n");
@@ -934,12 +935,13 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     responseDetail: isCompactSlackIntent(session.flow_type) ? "quick" : "longer",
     intent: session.flow_type,
   });
+  const responseWithDebug = [slackContextDebugLine(coachingContext), "", response].join("\n");
 
   await updateSession(session.id, { status: session.flow_type === "decode" ? "active" : "completed" });
   if (session.flow_type === "prep") {
-    return response;
+    return responseWithDebug;
   }
-  return response;
+  return responseWithDebug;
 }
 
 function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAnswers {

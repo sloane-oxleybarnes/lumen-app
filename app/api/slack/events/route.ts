@@ -15,6 +15,7 @@ import {
   scheduleSlackBackgroundTask,
   shouldUseBroaderSlackContext,
   slackApiPost,
+  slackContextDebugLine,
   type SlackCoachingIntent,
   verifySlackRequest,
 } from "@/lib/slack-app";
@@ -770,9 +771,7 @@ async function respondToAgentMessage({
           "",
           response,
         ].join("\n"),
-        footer: linkedCoachingContext.broaderSearchUsed
-          ? "Used the linked conversation plus relevant Slack history."
-          : "I could not find relevant prior Slack history, so I answered from the linked conversation.",
+        footer: slackContextDebugLine(linkedCoachingContext),
         hideTitle: true,
         actions: [
           ...(isCompactSlackIntent(linkIntent) ? buildSlackExplainMoreAction(coachingThread?.id) : []),
@@ -822,6 +821,7 @@ async function respondToAgentMessage({
         title: "Beckett",
         subtitle: "",
         body: "I lost the saved context for this Beckett thread. Send me a link to the Slack message or thread you want to continue from, and I’ll pick it back up.",
+        footer: slackContextDebugLine(coachingContext),
         hideTitle: true,
       });
 
@@ -847,6 +847,7 @@ async function respondToAgentMessage({
         title: "Beckett",
         subtitle: "",
         body: "I lost the saved context for this Beckett thread. Send me a link to the Slack message or thread you want to continue from, and I’ll pick it back up.",
+        footer: slackContextDebugLine(coachingContext),
         hideTitle: true,
       });
 
@@ -938,7 +939,7 @@ async function respondToAgentMessage({
         response,
       ].join("\n"),
       footer: [
-        coachingContext.broaderSearchUsed ? "Used relevant Slack history for context." : "",
+        slackContextDebugLine(coachingContext),
         relationshipNote,
       ].filter(Boolean).join("\n") || undefined,
       actions: [

@@ -1315,6 +1315,37 @@ export function slackContextUserNote(context: SlackConversationContext) {
   }
 }
 
+export function slackContextDebugLine(context: {
+  status: SlackContextStatus;
+  failureReason?: SlackContextFailureReason | null;
+  messageCount?: number;
+  broaderSearchUsed?: boolean;
+  retrievalMethod?: string;
+  activeContext?: SlackConversationContext | null;
+  broaderContext?: SlackConversationContext | null;
+}) {
+  const describe = (label: string, item?: SlackConversationContext | null) => {
+    if (!item) return `${label}: not requested`;
+    if (item.status !== "available") return `${label}: unavailable (${item.failureReason || "unknown"})`;
+    const method = item.retrievalMethod ? `, ${item.retrievalMethod}` : "";
+    return `${label}: ${item.messageCount} message${item.messageCount === 1 ? "" : "s"}${method}`;
+  };
+
+  const parts =
+    context.activeContext || context.broaderContext
+      ? [
+          describe("active/linked conversation", context.activeContext),
+          describe("broader Slack history", context.broaderContext),
+        ]
+      : [
+          context.status === "available"
+            ? `Slack context: ${context.messageCount || 0} message${context.messageCount === 1 ? "" : "s"}${context.retrievalMethod ? `, ${context.retrievalMethod}` : ""}`
+            : `Slack context: unavailable (${context.failureReason || "unknown"})`,
+        ];
+
+  return `Context pulled: ${parts.join("; ")}.`;
+}
+
 export async function runSlackCoaching({
   user,
   action,
@@ -1388,6 +1419,8 @@ Always separate "what is visible" from "possible interpretation" when decoding a
 When broader Slack history is included, clearly distinguish active-thread facts from relevant prior history. Prior history can shape preparation, but it does not prove current intent.
 When active Slack context is available, answer from that visible conversation first. Do not ask broad relationship-history or background questions unless the user explicitly asks for a broad relationship assessment.
 If active Slack context is available but broader Slack history or saved relationship context is missing, do not treat that as a blocker. Mention it only briefly when relevant.
+Do not say you cannot access DMs, direct messages, private channels, or Slack history as a general capability claim. You may only describe the specific Slack context status provided in the prompt, such as missing permissions, not in channel, no messages found, or linked context available.
+If Slack context is unavailable for a prep request, continue coaching from the user's stated scenario instead of saying you need the actual pattern first.
 If the user is over-reading an ambiguous message, fold what is uncertain or not knowable into the Possible read section in one concise sentence.
 Avoid generic encouragement. Give concrete language the user could use.
 Format with short plain-language section labels and bullets. Do not use markdown tables, markdown bold markers, or literal asterisks; Beckett formats headings separately.
