@@ -15,8 +15,8 @@ import { supabaseAdmin } from "@/lib/server-admin";
 import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
 
 const MAX_SLACK_TEXT_LENGTH = 2800;
-const MAX_SLACK_CONTEXT_MESSAGES = 8;
-const MAX_SLACK_CONTEXT_LENGTH = 2600;
+const MAX_SLACK_CONTEXT_MESSAGES = 25;
+const MAX_SLACK_CONTEXT_LENGTH = 7000;
 const MAX_SLACK_BROAD_CONTEXT_LENGTH = 2600;
 const MAX_SLACK_BROAD_CONTEXT_RESULTS = 12;
 const SLACK_MCP_ENDPOINT = "https://mcp.slack.com/mcp";
@@ -1144,6 +1144,9 @@ function isRelationshipHistoryPrompt(prompt: string) {
   return /\b(relationship|history|pattern|vibe|dynamic|overall|usually|typically|how are things with|where.*stand|what.*between us|context with)\b/i.test(prompt);
 }
 
+const SLACK_RELATIONSHIP_LIMITATION_NOTE =
+  "I’m working from the visible conversation I could access here. Full Slack history search is coming soon, so relationship insights may be limited for now.";
+
 function buildTargetedBroaderSearchQuery({
   prompt,
   activeContext,
@@ -1721,6 +1724,9 @@ export async function runSlackCoaching({
     action,
     hasSlackContext: Boolean(messageText || relationshipContext || contextStatus === "available"),
   });
+  const isRelationshipRequest = isRelationshipHistoryPrompt(prompt);
+  const shouldShowRelationshipLimitation =
+    isRelationshipRequest && contextStatus === "available" && !broaderSearchUsed;
 
   const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
 You are responding inside Slack, so be concise, practical, and easy to scan.
@@ -1732,6 +1738,7 @@ Always separate "what is visible" from "possible interpretation" when decoding a
 When broader Slack history is included, clearly distinguish active-thread facts from relevant prior history. Prior history can shape preparation, but it does not prove current intent.
 When active Slack context is available, answer from that visible conversation first. Do not ask broad relationship-history or background questions unless the user explicitly asks for a broad relationship assessment.
 If the user asks for relationship insight and active Slack context is available, give a limited read based on that visible context instead of saying there is nothing to assess. State the limitation briefly if broader history is unavailable.
+For broad relationship, history, pattern, vibe, or dynamic questions where broader Slack history is unavailable but visible context is available, start the answer from the visible thread with phrasing like "Based on the visible conversation..." and do not ask for more background unless there is no visible Slack context.
 If active Slack context is available but broader Slack history or saved relationship context is missing, do not treat that as a blocker. Mention it only briefly when relevant.
 Do not say you cannot access DMs, direct messages, private channels, or Slack history as a general capability claim. You may only describe the specific Slack context status provided in the prompt, such as missing permissions, not in channel, no messages found, or linked context available.
 Do not explain Slack retrieval failures in your own words. The app renders the context diagnostic and resolution instructions separately; answer only from the Slack context and user text actually provided.
@@ -1772,6 +1779,9 @@ ${beckettBoundaryPrompt()}`;
   const contextLine = contextStatus
     ? `Slack context status: ${contextStatus}${contextFailureReason ? ` (${contextFailureReason})` : ""}. Broader Slack search used: ${broaderSearchUsed ? "yes" : "no"}.`
     : "";
+  const relationshipLimitationLine = shouldShowRelationshipLimitation
+    ? `Relationship insight limitation: ${SLACK_RELATIONSHIP_LIMITATION_NOTE}`
+    : "";
   const messageLine = messageText
     ? `\n\nSlack context packet:\n${messageText}`
     : contextStatus === "unavailable"
@@ -1785,6 +1795,7 @@ ${beckettBoundaryPrompt()}`;
   const userPrompt = `${coachingProfileContext || "The user has not set specific Beckett coaching preferences yet."}
 ${responseDetailLine}
 ${contextLine}
+${relationshipLimitationLine}
 ${slackIntentInstruction(intent)}
 
 User request:
@@ -1813,7 +1824,11 @@ ${prompt}${relationshipLine}${messageLine}`;
     },
   });
 
-  const cleaned = text.trim() || "I could not generate a response for that Slack request.";
+  const withRelationshipLimitation =
+    shouldShowRelationshipLimitation && !text.includes(SLACK_RELATIONSHIP_LIMITATION_NOTE)
+      ? `${text.trim()}\n\n${SLACK_RELATIONSHIP_LIMITATION_NOTE}`
+      : text;
+  const cleaned = withRelationshipLimitation.trim() || "I could not generate a response for that Slack request.";
   if (responseDetail === "quick") return fitSlackAnswer(cleaned, MAX_QUICK_SLACK_ANSWER_LENGTH);
   if (responseDetail === "longer") return fitSlackAnswer(cleaned, MAX_LONGER_SLACK_ANSWER_LENGTH);
   return truncateSlackText(cleaned);
