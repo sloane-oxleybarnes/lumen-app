@@ -81,7 +81,7 @@ function extractActiveSlackContext(event: NonNullable<SlackEventEnvelope["event"
 
 function inferAssistantIntent(text: string): SlackCoachingIntent {
   const normalized = text.toLowerCase();
-  if (/\b(relationship|history|pattern|vibe|dynamic|overall|usually|typically|how are things with|where.*stand|what.*between us|context with|relationship like)\b/i.test(text)) {
+  if (/\b(relationship|history|pattern|vibe|dynamic|overall|usually|typically|how are things with|where.*stand|what.*between us|context with|relationship like|overly harsh|too harsh|mixed review|mostly critical|overly critical|was this fair|how did that land)\b/i.test(text)) {
     return "relationship";
   }
   if (normalized.includes("decode") || normalized.includes("understand this message") || normalized.includes("over-reading")) {

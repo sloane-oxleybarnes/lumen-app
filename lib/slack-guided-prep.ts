@@ -130,6 +130,10 @@ const GUIDED_TRIGGER_RE =
   /\b(help me prepare|prep\b|prepare\b|practice\b|respond\b|reply\b|rewrite\b|decode\b|understand\b|1:1|one-on-one|manager|raise|promotion|salary|workload|feedback|boundary|pushback|difficult conversation|clarity)\b/i;
 const RESPOND_AFTER_OPENER_FALLBACK =
   "I started this thread, but had trouble generating the response. Paste the message or add one detail here and I’ll pick it back up.";
+const FEEDBACK_ANALYSIS_RE =
+  /\b(overly harsh|too harsh|harsh|mixed review|mostly critical|overly critical|always critical|was this fair|how did that land|what did they mean|feedback was|feedback is|read on this feedback)\b/i;
+const CLEAR_DRAFT_REQUEST_RE =
+  /\b(what should i say|help me (?:draft|respond|reply)|draft (?:a )?(?:response|reply)|respond to (?:this|that)|reply to (?:this|that)|how should i respond|how should i reply|yes[, ]+(?:draft|respond|reply))\b/i;
 
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
@@ -789,6 +793,18 @@ function isLikelyTopicChange(text: string) {
   return isGuidedPrepRequest(text) && /\b(instead|different|new|another)\b/i.test(text);
 }
 
+function isUserCorrectingWrongFlow(text: string) {
+  return /\b(no,?|not what i mean|that's not what i mean|that is not what i mean|you'?re not responding|you are not responding|i want to know if|i'?m asking if|i asked if)\b/i.test(text);
+}
+
+function isFeedbackAnalysisRequest(text: string) {
+  return FEEDBACK_ANALYSIS_RE.test(text);
+}
+
+function shouldSwitchToFeedbackAnalysis(text: string) {
+  return isFeedbackAnalysisRequest(text) || (isUserCorrectingWrongFlow(text) && /\b(feedback|harsh|critical|mixed|fair|claire)\b/i.test(text));
+}
+
 function askForStep(session: SlackAgentSession) {
   const answers = session.answers;
   const scenario = scenarioFromAnswers(answers);
@@ -936,6 +952,17 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Keep the rewritten message Slack-ready and easy to copy.",
       ].join("\n");
     case "decode":
+      if (isFeedbackAnalysisRequest([answers.initial_request, followupText, ...(answers.extra_context || [])].filter(Boolean).join(" "))) {
+        return [
+          "Assess the feedback or conversation the user provided. Answer whether it reads as harsh, mixed, fair, critical, supportive, or collaborative.",
+          base,
+          "",
+          "Return only these sections with tildes exactly as shown: ~ Read ~, ~ What points to that ~, ~ What to take from it ~.",
+          "Do not ask for an exact message if pasted feedback or visible context is already present.",
+          "Do not include Draft options or Next move unless the user explicitly asks what to say.",
+          "For the Claire video feedback scenario, distinguish specific criticism from clear positives and avoid treating lots of notes as cruelty.",
+        ].join("\n");
+      }
       return [
         "Decode the message or situation without over-inference. The conversation may be workplace, workplace-adjacent, friendly, or personal; help with the provided conversation rather than rejecting it as non-work.",
         base,
@@ -1421,6 +1448,29 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     session = null;
   }
 
+  if (session && shouldSwitchToFeedbackAnalysis(text)) {
+    const updated = await updateSession(session.id, {
+      flow_type: "decode",
+      step: "decode_followup",
+      status: "active",
+      answers: {
+        ...session.answers,
+        initial_request: text,
+        conversation_type: "feedback analysis",
+        extra_context: [...(session.answers.extra_context || []), `User correction or feedback context: ${text}`],
+      },
+    });
+    const response = await safeCompleteSession(input, updated, text);
+    await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
+    return {
+      handled: true,
+      title: "Decode",
+      response,
+      actions: guidedActions(updated),
+      coachingThreadId: updated.coaching_thread_id,
+    };
+  }
+
   if (session && isLikelyTopicChange(text)) {
     const response = [
       "This sounds like a new topic.",
@@ -1510,6 +1560,25 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       const response = "Got it. I’ll stop there.";
       await persistGuidedTurn({ input, session, userText: text, beckettText: response });
       return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
+    }
+    if (!CLEAR_DRAFT_REQUEST_RE.test(text)) {
+      const updated = await updateSession(session.id, {
+        status: "active",
+        flow_type: "decode",
+        answers: {
+          ...session.answers,
+          extra_context: [...(session.answers.extra_context || []), `Follow-up analysis question or context: ${text}`],
+        },
+      });
+      const response = await safeCompleteSession(input, updated, text);
+      await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
+      return {
+        handled: true,
+        title: flowTitle(updated.flow_type),
+        response,
+        actions: guidedActions(updated),
+        coachingThreadId: updated.coaching_thread_id,
+      };
     }
     const updated = await updateSession(session.id, {
       status: "active",
