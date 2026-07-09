@@ -1,19 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  buildBeckettPayload,
-  fetchLatestSlackMessageContext,
-  handleSlackAiError,
-  isAllowedSlackPlan,
-  lookupSlackConnectedUser,
-  lookupSlackWorkspaceBotToken,
-  postSlackAgentMessage,
-  postSlackResponse,
-  runSlackGuestCoaching,
-  scheduleSlackBackgroundTask,
-  slackApiPost,
-  verifySlackRequest,
-} from "@/lib/slack-app";
-import { startGuidedSlackFlow } from "@/lib/slack-guided-prep";
+import { createHmac, timingSafeEqual } from "crypto";
 
 export const runtime = "nodejs";
 
@@ -74,21 +60,89 @@ function parseSlashCommand(rawBody: string): SlashCommandPayload {
 }
 
 function helpPayload(command = "/beckett") {
-  return buildBeckettPayload({
-    title: "Beckett",
-    subtitle: "Communication coach",
-    body: [
-      "Use Beckett when a Slack message feels unclear, a reply needs careful wording, or you want to prepare for a workplace conversation.",
-      "",
-      "Try these:",
-      `${command} respond`,
-      `${command} rewrite "Any update on this?"`,
-      `${command} decode`,
-      `${command} prep I need to tell a teammate their handoffs are too vague`,
-      `${command} practice my 1:1 with my manager about workload`,
-      "",
-      "For a specific Slack message, use the message shortcuts: Beckett - Decode or Beckett - Respond.",
-    ].join("\n"),
+  const text = [
+    "Use Beckett when a Slack message feels unclear, a reply needs careful wording, or you want to prepare for a workplace conversation.",
+    "",
+    "Try these:",
+    `${command} respond`,
+    `${command} rewrite "Any update on this?"`,
+    `${command} decode`,
+    `${command} prep I need to tell a teammate their handoffs are too vague`,
+    `${command} practice my 1:1 with my manager about workload`,
+    "",
+    "For a specific Slack message, use the message shortcuts: Beckett - Decode or Beckett - Respond.",
+  ].join("\n");
+  return {
+    text,
+    blocks: [
+      {
+        type: "section",
+        text: {
+          type: "mrkdwn",
+          text,
+        },
+      },
+    ],
+  };
+}
+
+function safeCompare(value: string, expected: string) {
+  const valueBuffer = Buffer.from(value, "utf8");
+  const expectedBuffer = Buffer.from(expected, "utf8");
+  return valueBuffer.length === expectedBuffer.length && timingSafeEqual(valueBuffer, expectedBuffer);
+}
+
+function verifySlackCommandRequest(req: NextRequest, rawBody: string) {
+  const signingSecret = process.env.SLACK_SIGNING_SECRET?.trim();
+  if (!signingSecret) return { ok: false as const, status: 500, message: "Slack signing secret is not configured." };
+
+  const timestamp = req.headers.get("x-slack-request-timestamp");
+  const signature = req.headers.get("x-slack-signature");
+  const timestampNumber = Number(timestamp);
+  if (!timestamp || !signature || !Number.isFinite(timestampNumber)) {
+    return { ok: false as const, status: 401, message: "Missing Slack signature." };
+  }
+
+  if (Math.abs(Date.now() / 1000 - timestampNumber) > 60 * 5) {
+    return { ok: false as const, status: 401, message: "Slack request is too old." };
+  }
+
+  const expectedSignature = `v0=${createHmac("sha256", signingSecret)
+    .update(`v0:${timestamp}:${rawBody}`)
+    .digest("hex")}`;
+  if (!safeCompare(signature, expectedSignature)) {
+    return { ok: false as const, status: 401, message: "Invalid Slack signature." };
+  }
+
+  return { ok: true as const };
+}
+
+function scheduleCommandBackgroundTask(label: string, task: Promise<void>) {
+  const handledTask = task.catch((error) => {
+    console.error(label, error);
+  });
+  const requestContext = (globalThis as { [key: symbol]: { get?: () => { waitUntil?: (task: Promise<unknown>) => void } | undefined } | undefined })[
+    Symbol.for("@vercel/request-context")
+  ];
+  const context = requestContext?.get?.();
+  if (context?.waitUntil) context.waitUntil(handledTask);
+  else void handledTask;
+}
+
+async function scheduleGuestInactivityStartCard({
+  botAccessToken,
+  channelId,
+}: {
+  botAccessToken: string;
+  channelId: string;
+}) {
+  const { SLACK_INACTIVITY_START_CARD_DELAY_MS, buildSlackStartCardPayload } = await import("@/lib/slack-history");
+  const { slackApiPost } = await import("@/lib/slack-app");
+  await new Promise((resolve) => setTimeout(resolve, SLACK_INACTIVITY_START_CARD_DELAY_MS));
+  const payload = buildSlackStartCardPayload("inactivity");
+  await slackApiPost(botAccessToken, "chat.postMessage", {
+    channel: channelId,
+    ...payload,
   });
 }
 
@@ -145,6 +199,19 @@ async function startSidebarFlow({
   const responseUrl = payload.response_url || "";
 
   try {
+    const {
+      buildBeckettPayload,
+      fetchLatestSlackMessageContext,
+      isAllowedSlackPlan,
+      lookupSlackConnectedUser,
+      lookupSlackWorkspaceBotToken,
+      postSlackAgentMessage,
+      postSlackResponse,
+      runSlackGuestCoaching,
+      slackApiPost,
+    } = await import("@/lib/slack-app");
+    const { startGuidedSlackFlow } = await import("@/lib/slack-guided-prep");
+
     if (!payload.team_id || !payload.user_id) {
       await postSlackResponse(responseUrl, "Beckett could not read the Slack workspace and user context.", {
         replaceOriginal: true,
@@ -211,7 +278,9 @@ async function startSidebarFlow({
         });
 
         let agentReplyPosted = false;
-        if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery) {
+        let agentChannelId: string | null = null;
+        if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery && agentDelivery.channelId && agentDelivery.ts) {
+          agentChannelId = agentDelivery.channelId;
           const responsePayload = buildBeckettPayload({
             title: "Beckett",
             subtitle: "",
@@ -234,6 +303,15 @@ async function startSidebarFlow({
         }
 
         if (agentReplyPosted) {
+          if (agentChannelId) {
+            scheduleCommandBackgroundTask(
+              "Slack guest slash inactivity start card failed",
+              scheduleGuestInactivityStartCard({
+                botAccessToken,
+                channelId: agentChannelId,
+              })
+            );
+          }
           await postSlackResponse(responseUrl, "I moved this into our private Beckett conversation.", {
             replaceOriginal: true,
           });
@@ -334,6 +412,7 @@ async function startSidebarFlow({
       intent: parsed.intent,
       message: error instanceof Error ? error.message : String(error),
     });
+    const { handleSlackAiError, postSlackResponse } = await import("@/lib/slack-app");
     await postSlackResponse(responseUrl, `Beckett could not finish that request: ${handleSlackAiError(error)}`, {
       replaceOriginal: true,
     });
@@ -342,7 +421,7 @@ async function startSidebarFlow({
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text();
-  const verification = verifySlackRequest(req, rawBody);
+  const verification = verifySlackCommandRequest(req, rawBody);
   if (!verification.ok) {
     return NextResponse.json({ error: verification.message }, { status: verification.status });
   }
@@ -375,7 +454,7 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  scheduleSlackBackgroundTask(
+  scheduleCommandBackgroundTask(
     "Slack sidebar flow start failed",
     startSidebarFlow({
       origin: req.nextUrl.origin,

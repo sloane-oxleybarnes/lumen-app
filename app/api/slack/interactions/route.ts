@@ -48,6 +48,7 @@ import {
   recordSlackCoachingBotMessage,
   scheduleSlackInactivityStartCard,
   slackHistoryTitle,
+  SLACK_INACTIVITY_START_CARD_DELAY_MS,
   SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
   SLACK_HISTORY_CONTINUE_ACTION_ID,
@@ -624,7 +625,9 @@ async function sendMessageShortcutResponse({
       });
 
       let agentReplyPosted = false;
-      if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery) {
+      let agentChannelId: string | null = null;
+      if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery && agentDelivery.channelId && agentDelivery.ts) {
+        agentChannelId = agentDelivery.channelId;
         const responsePayload = buildBeckettPayload({
           title: "Beckett",
           subtitle: "",
@@ -647,6 +650,15 @@ async function sendMessageShortcutResponse({
       }
 
       if (agentReplyPosted) {
+        if (agentChannelId) {
+          scheduleSlackBackgroundTask(
+            "Slack guest shortcut inactivity start card failed",
+            scheduleGuestInactivityStartCard({
+              botAccessToken,
+              channelId: agentChannelId,
+            })
+          );
+        }
         const ack = buildBeckettPayload({
           title: "Beckett",
           subtitle: "Message coaching",
@@ -1000,6 +1012,21 @@ function selectedMessageInstructions(flowType: "decode" | "respond") {
     `- Type \`/beckett ${flowType}\` in the Slack conversation you want me to use or`,
     "- Send me a Slack message link.",
   ].join("\n");
+}
+
+async function scheduleGuestInactivityStartCard({
+  botAccessToken,
+  channelId,
+}: {
+  botAccessToken: string;
+  channelId: string;
+}) {
+  await new Promise((resolve) => setTimeout(resolve, SLACK_INACTIVITY_START_CARD_DELAY_MS));
+  const payload = buildSlackStartCardPayload("inactivity");
+  await slackApiPost(botAccessToken, "chat.postMessage", {
+    channel: channelId,
+    ...payload,
+  });
 }
 
 async function handleHistoryButtonResponse({
