@@ -620,12 +620,33 @@ async function sendMessageShortcutResponse({
           intent === "decode"
             ? "Reply in this thread so I can keep this message, read, and follow-ups saved together."
             : "Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
-          "",
-          response,
         ].join("\n\n"),
       });
 
-      if (agentDelivery.ok) {
+      let agentReplyPosted = false;
+      if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery) {
+        const responsePayload = buildBeckettPayload({
+          title: "Beckett",
+          subtitle: "",
+          body: response,
+          hideTitle: true,
+        });
+        const reply = await slackApiPost(botAccessToken, "chat.postMessage", {
+          channel: agentDelivery.channelId,
+          thread_ts: agentDelivery.ts,
+          ...responsePayload,
+        });
+        agentReplyPosted = Boolean(reply.ok);
+        if (!agentReplyPosted) {
+          console.error("Slack guest shortcut assistant reply failed", {
+            teamPresent: Boolean(teamId),
+            slackUserPresent: Boolean(slackUserId),
+            error: reply.error || "agent_reply_failed",
+          });
+        }
+      }
+
+      if (agentReplyPosted) {
         const ack = buildBeckettPayload({
           title: "Beckett",
           subtitle: "Message coaching",
