@@ -798,7 +798,7 @@ function askForStep(session: SlackAgentSession) {
     case "decode_followup":
       return "Want help drafting a response? Reply `yes` and I’ll give you options, or `done` to stop here.";
     case "confirm_evidence":
-      return formatEvidencePrompt(session.evidence_suggestions, "");
+      return formatPrepExamplesPrompt();
   }
 }
 
@@ -812,110 +812,26 @@ function guidedActions(session: SlackAgentSession, draftOptions: SlackDraftOptio
   ];
 }
 
-function parseSelection(text: string, max: number) {
-  const lower = text.toLowerCase().trim();
-  if (/\bnone\b|\bskip\b|\bno evidence\b/.test(lower)) return { type: "none" as const, selected: [] };
-  if (/\bsearch again\b|\btry again\b|\blook again\b/.test(lower)) return { type: "search_again" as const, selected: [] };
-
-  const numbers = Array.from(text.matchAll(/\d+/g))
-    .map((match) => Number(match[0]))
-    .filter((num) => Number.isInteger(num) && num >= 1 && num <= max);
-  const selected = Array.from(new Set(numbers));
-  if (selected.length) return { type: "numbers" as const, selected };
-  return { type: "extra_context" as const, selected: [] };
+function isNoExtraExamples(text: string) {
+  return /\b(none|skip|no examples?|nothing else|good to move on|move on|nope|no)\b/i.test(text.trim());
 }
 
-function evidenceFromContext(context: SlackConversationContext) {
-  if (!context.text) return [];
-  const lines = context.text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line && !/^(Active Slack context|Relevant prior Slack history|Slack thread context|Recent Slack context)/i.test(line))
-    .filter((line) => !/^\[.*trimmed\]$/i.test(line));
-
-  const seen = new Set<string>();
-  const suggestions: EvidenceSuggestion[] = [];
-  for (const line of lines) {
-    const cleaned = line.replace(/\s+/g, " ").slice(0, 210);
-    const key = cleaned.toLowerCase();
-    if (seen.has(key) || cleaned.length < 24) continue;
-    seen.add(key);
-    suggestions.push({
-      id: suggestions.length + 1,
-      text: `Possible evidence: ${cleaned}`,
-      source: "Slack context",
-    });
-    if (suggestions.length >= 5) break;
-  }
-
-  return suggestions;
-}
-
-function formatEvidencePrompt(suggestions: EvidenceSuggestion[], note: string) {
-  const intro = [
-    "Before I ask you to remember everything manually, I looked for possible evidence in Slack.",
-    "Confirm before including anything. These are possible support points, not guaranteed accomplishments.",
-  ];
-  if (note) intro.push(note);
-
-  const evidenceLines = suggestions.map((item) => `${item.id}. ${item.text}`);
+function formatPrepExamplesPrompt() {
   return [
-    ...intro,
+    "Do you have any specific examples you want me to use?",
     "",
-    "Which should we use?",
-    ...evidenceLines,
-    "",
-    "Reply with numbers like `1, 3`, `none`, or `search again`. You can also add one extra detail in your reply.",
+    "Paste anything helpful here, like a recent message, pattern, project detail, or example of what has happened before.",
+    "If not, reply `none` and I’ll prep from what you already told me.",
   ].join("\n");
 }
 
-async function buildEvidenceStep(input: GuidedFlowInput, session: SlackAgentSession, refinedText?: string) {
-  const answers = session.answers;
-  const evidenceQuery = [
-    answers.initial_request,
-    answers.person,
-    answers.conversation_type,
-    answers.outcome,
-    answers.concern,
-    refinedText,
-    "recent work feedback outcomes project wins blockers priorities",
-  ].filter(Boolean).join(" ");
-
-  const activeContext = input.activeChannelId
-    ? await fetchSlackConversationContext({
-        accessToken: input.user.accessToken,
-        channelId: input.activeChannelId,
-      })
-    : null;
-  const coachingContext = await buildSlackCoachingContext({
-    user: input.user,
-    prompt: evidenceQuery,
-    activeContext,
-    contextChannelId: input.activeChannelId,
-    actionToken: input.actionToken,
-    currentSlackUserId: input.slackUserId,
-  });
-  const evidenceContext =
-    coachingContext.broaderContext?.text
-      ? coachingContext.broaderContext
-      : coachingContext.activeContext?.text
-        ? coachingContext.activeContext
-        : coachingContext;
-  const suggestions =
-    coachingContext.status === "available"
-      ? evidenceFromContext(evidenceContext)
-      : [];
-
+async function buildEvidenceStep(_input: GuidedFlowInput, session: SlackAgentSession) {
   const nextSession = await updateSession(session.id, {
     step: "confirm_evidence",
-    evidence_suggestions: suggestions,
+    evidence_suggestions: [],
+    confirmed_evidence: [],
   });
-
-  if (!suggestions.length) {
-    return "I tried to find a relevant Slack conversation or context for this, but I couldn’t find anything useful. Is there anything else you want me to know, like a specific example related to this situation?";
-  }
-
-  return formatEvidencePrompt(nextSession.evidence_suggestions, "");
+  return askForStep(nextSession);
 }
 
 function promptForFlow(session: SlackAgentSession, followupText?: string) {
@@ -925,7 +841,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
   const openingDraft = answers.extra_context?.find((item) => item.startsWith("Opening draft to coach:")) || "";
   const confirmed = session.confirmed_evidence.length
     ? session.confirmed_evidence.map((item) => `- ${item.text}`).join("\n")
-    : "No Slack evidence was confirmed by the user.";
+    : "No extra examples were provided by the user.";
 
   const base = [
     `Initial request: ${answers.initial_request || "not specified"}`,
@@ -939,7 +855,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
     session.flow_type === "respond" ? `Exact coworker wording provided: ${respondContext.hasPastedMessage ? "yes" : "no"}` : "",
     `Follow-up user reply: ${followupText || "none"}`,
     "",
-    "Confirmed possible evidence from Slack:",
+    "Confirmed examples or context:",
     confirmed,
     "",
     "Additional user context:",
@@ -1008,7 +924,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Return only these sections with tildes exactly as shown: ~ Goal ~, ~ Say this first ~, ~ If they push back ~, ~ Watch for ~, ~ Practice next ~.",
         "Keep each section to 1-3 short bullets or sentences. Do not include long talking-points lists, likely-pushback lists, or a follow-up draft unless the user explicitly asked for that detail.",
         "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
-        "If no Slack evidence was confirmed, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
+        "If no extra examples were provided, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
         "Do not claim you cannot access DMs, private channels, or Slack history unless the prompt gives a specific Slack failure reason.",
         "End with: Want to practice the opening or the pushback?",
         "Keep it Slack-ready, concise, direct but kind, and avoid claiming unconfirmed Slack evidence as fact.",
@@ -1039,15 +955,19 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     session.answers.person ? `Relevant person: ${session.answers.person}` : "",
     session.answers.audience ? `Relevant audience: ${session.answers.audience}` : "",
     session.answers.source_channel_name ? `Relevant channel: #${session.answers.source_channel_name}` : "",
-    "Include relevant prior Slack messages with this person or about this topic across authorized channels, DMs, and group DMs.",
+    session.flow_type === "prep"
+      ? ""
+      : "Include relevant prior Slack messages with this person or about this topic across authorized channels, DMs, and group DMs.",
   ].filter(Boolean).join("\n");
+  const includeBroaderContext =
+    session.flow_type === "prep" ? false : shouldUseBroaderSlackContext(session.flow_type, contextPrompt);
   const coachingContext = await buildSlackCoachingContext({
     user: input.user,
     prompt: contextPrompt,
     activeContext,
     contextChannelId,
     actionToken: input.actionToken,
-    includeBroaderContext: shouldUseBroaderSlackContext(session.flow_type, contextPrompt),
+    includeBroaderContext,
     currentSlackUserId: input.slackUserId,
   });
   const messageText = [
@@ -1527,22 +1447,13 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   }
 
   if (session.step === "confirm_evidence") {
-    const parsed = parseSelection(text, session.evidence_suggestions.length);
-    if (parsed.type === "search_again") {
-      const response = await buildEvidenceStep(input, session, text);
-      await persistGuidedTurn({ input, session, userText: text, beckettText: response });
-      return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
+    const extra_context = Array.isArray(session.answers.extra_context) ? session.answers.extra_context : [];
+    if (!isNoExtraExamples(text)) {
+      extra_context.push(`User-provided example/context: ${normalizeText(text)}`);
     }
 
-    const extra_context = Array.isArray(session.answers.extra_context) ? session.answers.extra_context : [];
-    const confirmed =
-      parsed.type === "numbers"
-        ? session.evidence_suggestions.filter((item) => parsed.selected.includes(item.id))
-        : [];
-    if (parsed.type === "extra_context") extra_context.push(text);
-
     const updated = await updateSession(session.id, {
-      confirmed_evidence: confirmed,
+      confirmed_evidence: [],
       answers: { ...session.answers, extra_context },
     });
     const response = await safeCompleteSession(input, updated);
