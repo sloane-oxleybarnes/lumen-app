@@ -93,8 +93,17 @@ function safeCompare(value: string, expected: string) {
 }
 
 function verifySlackCommandRequest(req: NextRequest, rawBody: string) {
-  const signingSecret = process.env.SLACK_SIGNING_SECRET?.trim();
-  if (!signingSecret) return { ok: false as const, status: 500, message: "Slack signing secret is not configured." };
+  const signingSecrets = [
+    process.env.SLACK_SIGNING_SECRET,
+    process.env.SLACK_STAGING_SIGNING_SECRET,
+    process.env.SLACK_PRODUCTION_SIGNING_SECRET,
+  ]
+    .flatMap((value) => String(value || "").split(","))
+    .map((value) => value.trim())
+    .filter(Boolean);
+  if (!signingSecrets.length) {
+    return { ok: false as const, status: 500, message: "Slack signing secret is not configured." };
+  }
 
   const timestamp = req.headers.get("x-slack-request-timestamp");
   const signature = req.headers.get("x-slack-signature");
@@ -107,11 +116,17 @@ function verifySlackCommandRequest(req: NextRequest, rawBody: string) {
     return { ok: false as const, status: 401, message: "Slack request is too old." };
   }
 
-  const expectedSignature = `v0=${createHmac("sha256", signingSecret)
-    .update(`v0:${timestamp}:${rawBody}`)
-    .digest("hex")}`;
-  if (!safeCompare(signature, expectedSignature)) {
-    return { ok: false as const, status: 401, message: "Invalid Slack signature." };
+  const signedPayload = `v0:${timestamp}:${rawBody}`;
+  const verified = signingSecrets.some((signingSecret) => {
+    const expectedSignature = `v0=${createHmac("sha256", signingSecret).update(signedPayload).digest("hex")}`;
+    return safeCompare(signature, expectedSignature);
+  });
+  if (!verified) {
+    return {
+      ok: false as const,
+      status: 401,
+      message: `Invalid Slack signature. Checked ${signingSecrets.length} configured signing secret${signingSecrets.length === 1 ? "" : "s"}.`,
+    };
   }
 
   return { ok: true as const };
@@ -423,6 +438,12 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const verification = verifySlackCommandRequest(req, rawBody);
   if (!verification.ok) {
+    console.error("Slack slash command verification failed", {
+      status: verification.status,
+      message: verification.message,
+      hasTimestamp: Boolean(req.headers.get("x-slack-request-timestamp")),
+      hasSignature: Boolean(req.headers.get("x-slack-signature")),
+    });
     return NextResponse.json({ error: verification.message }, { status: verification.status });
   }
 
