@@ -793,7 +793,10 @@ async function sendMessageShortcutResponse({
           flowType: intent,
           title: slackHistoryTitle(intent, authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
           promptSnippet: prompt,
-          summary: summarizeSlackCoachingResponse(response, prompt),
+          summary: summarizeSlackCoachingResponse(
+            response,
+            `${intent === "decode" ? "Decoded" : "Drafted from"} the selected Slack message; source context is saved for follow-up.`
+          ),
           slackChannelId: agentChannelId,
           threadTs: agentThreadTs,
           sourceChannelId: payload.channel?.id,

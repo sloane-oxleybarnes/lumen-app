@@ -398,13 +398,19 @@ async function continueExistingSlackCoachingThread({
   const previousMessages = await loadSlackCoachingMessages({
     threadId: thread.id,
     userId: user.id,
-    limit: 10,
+    limit: 30,
   }).catch(() => []);
-  const transcript = formatSlackCoachingMessages(previousMessages, 1800);
+  const transcript = formatSlackCoachingMessages(previousMessages, 6000);
+  const hasSavedShortcutContext = previousMessages.some((message) =>
+    /Shortcut source context saved for follow-up:/i.test(message.content)
+  );
   const prompt = [
     `The user is continuing this Beckett coaching thread: ${thread.title}.`,
     thread.summary ? `Current summary: ${thread.summary}` : "",
     transcript ? `Previous conversation:\n${transcript}` : "",
+    hasSavedShortcutContext
+      ? "Important: This thread includes saved source context from the original Slack message shortcut. Use that selected message and surrounding context for follow-up requests. Do not ask the user to paste the original message again unless the saved source context is actually absent."
+      : "",
     "",
     `User follow-up: ${text}`,
   ].filter(Boolean).join("\n");
