@@ -170,6 +170,15 @@ function responseDetailForSlackIntent(intent: SlackCoachingIntent) {
 
 function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: SlackCoachingIntent): SlackCoachingIntent {
   if (
+    fallback === "respond" ||
+    fallback === "rewrite" ||
+    fallback === "relationship" ||
+    fallback === "prep" ||
+    fallback === "practice"
+  ) {
+    return fallback;
+  }
+  if (
     flowType === "respond" ||
     flowType === "rewrite" ||
     flowType === "decode" ||
@@ -180,6 +189,20 @@ function flowTypeAsSlackIntent(flowType: string | null | undefined, fallback: Sl
     return flowType;
   }
   return fallback;
+}
+
+function continuationIntentForText(text: string, currentIntent: SlackCoachingIntent): SlackCoachingIntent {
+  const normalized = text.toLowerCase();
+  if (/\b(what should i say|how should i respond|how should i reply|help me respond|help me reply|draft|reply option|response option|direct option|warm option|concise option|make .*option|say back|respond to this|reply to this)\b/.test(normalized)) {
+    return "respond";
+  }
+  if (/\b(rewrite|edit|tighten|clean up|make it clearer|clearer and kinder)\b/.test(normalized)) {
+    return "rewrite";
+  }
+  if (/\b(overly harsh|too harsh|mixed review|mostly critical|overly critical|was this fair|how did that land|relationship|vibe|dynamic|pattern)\b/.test(normalized)) {
+    return "relationship";
+  }
+  return currentIntent;
 }
 
 function slackHistoryFailureMessage(reason: string | null | undefined) {
@@ -395,7 +418,7 @@ async function continueExistingSlackCoachingThread({
     content: text,
   }).catch(() => null);
 
-  const threadIntent = flowTypeAsSlackIntent(thread.flow_type, intent);
+  const threadIntent = continuationIntentForText(text, flowTypeAsSlackIntent(thread.flow_type, intent));
 
   const response = await runSlackCoaching({
     user,

@@ -745,6 +745,13 @@ async function sendMessageShortcutResponse({
       messageText,
       coachingContext.text ? `\n${coachingContext.text}` : "",
     ].filter(Boolean).join("\n");
+    const savedSourceContext = [
+      "Shortcut source context saved for follow-up:",
+      "",
+      "Selected Slack message:",
+      messageText,
+      channelContext.text ? `\nSurrounding Slack context:\n${channelContext.text}` : "",
+    ].filter(Boolean).join("\n");
     const response = await runSlackCoaching({
       user,
       action: "message_shortcut",
@@ -772,9 +779,6 @@ async function sendMessageShortcutResponse({
         intent === "decode"
           ? "Reply in this thread so I can keep this message, read, and follow-ups saved together."
           : "Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
-        "",
-        relationshipNote,
-        response,
       ].filter(Boolean).join("\n\n"),
     });
 
@@ -819,6 +823,35 @@ async function sendMessageShortcutResponse({
           }).catch(() => null);
           await appendSlackCoachingMessage({
             threadId: coachingThread.id,
+            user,
+            teamId,
+            slackUserId,
+            role: "user",
+            content: savedSourceContext,
+          }).catch(() => null);
+        }
+
+        const responsePayload = buildBeckettPayload({
+          title: "Beckett",
+          subtitle: "",
+          body: [relationshipNote, response].filter(Boolean).join("\n\n"),
+          hideTitle: true,
+        });
+        const postedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
+          channel: agentChannelId,
+          thread_ts: agentThreadTs,
+          ...responsePayload,
+        });
+        if (postedResponse.ok && postedResponse.ts) {
+          await recordSlackCoachingBotMessage({
+            threadId: coachingThread?.id,
+            userId: user.id,
+            channelId: agentChannelId,
+            messageTs: postedResponse.ts,
+            kind: "reply",
+          }).catch(() => null);
+          await appendSlackCoachingMessage({
+            threadId: coachingThread?.id,
             user,
             teamId,
             slackUserId,
