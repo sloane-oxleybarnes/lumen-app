@@ -830,6 +830,10 @@ function shouldSwitchToFeedbackAnalysis(text: string) {
   return isFeedbackAnalysisRequest(text) || (isUserCorrectingWrongFlow(text) && /\b(feedback|harsh|critical|mixed|fair|claire)\b/i.test(text));
 }
 
+function shouldSwitchToMessageDecode(text: string) {
+  return /\b(explain what .*means?|what does .*mean|what this means?|decode|understand|read this|what'?s going on|what is going on|what might .*mean|tone|intent|subtext)\b/i.test(text);
+}
+
 function askForStep(session: SlackAgentSession) {
   const answers = session.answers;
   const scenario = scenarioFromAnswers(answers);
@@ -1486,11 +1490,15 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     };
     const overrideFlow: GuidedFlowType = shouldSwitchToFeedbackAnalysis(text)
       ? "decode"
+      : shouldSwitchToMessageDecode(text)
+        ? "decode"
       : /\b(rewrite|edit|clean up|tighten)\b/i.test(text)
         ? "rewrite"
         : /\b(what should i say|how should i respond|help me reply|draft|respond|reply)\b/i.test(text)
           ? "respond"
-          : session.flow_type;
+          : (session.flow_type === "prep" || session.flow_type === "practice")
+            ? "decode"
+            : session.flow_type;
     const updated = await updateSession(session.id, {
       flow_type: overrideFlow,
       step: overrideFlow === "decode" ? "decode_followup" : session.step,
@@ -1503,6 +1511,8 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
         ].filter(Boolean).join("\n"),
         conversation_type: shouldSwitchToFeedbackAnalysis(text)
           ? "feedback analysis"
+          : shouldSwitchToMessageDecode(text)
+            ? "message decode"
           : session.answers.conversation_type,
       },
     });
