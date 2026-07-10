@@ -173,6 +173,12 @@ type SlackSearchContextResponse = {
   items?: unknown[];
 };
 
+type SlackSearchInfoResponse = {
+  ok?: boolean;
+  error?: string;
+  is_ai_search_enabled?: boolean;
+};
+
 type SlackMcpResponse = {
   jsonrpc?: string;
   id?: string | number;
@@ -684,29 +690,29 @@ export function buildAskedResponsePayload({
 function slackIntentInstruction(intent: SlackCoachingIntent) {
   switch (intent) {
     case "rewrite":
-      return "Slack task: Rewrite or improve the user's draft. Preserve the meaning, make it natural for workplace Slack/email, and briefly explain the main tone choice.";
+      return "Slack intent hint: The user likely wants editing or rewriting. Bias toward a rewritten version, but if their latest message asks a different question, answer that instead.";
     case "decode":
-      return "Slack task: Decode the pasted message or recent context. Use Possible read and Next move. Answer from visible Slack context first when available. Keep uncertainty inside Possible read instead of making a separate not-knowable section.";
+      return "Slack intent hint: The user likely wants tone/subtext analysis. Bias toward a concise read, but if they ask for drafting, feedback assessment, prep, or something else, switch to that.";
     case "relationship":
-      return "Slack task: Answer a broad relationship, history, vibe, pattern, or dynamic question. Do not decode a single message. Do not say you are missing the original message. Do not ask for the exact message. Use Relationship read and What I’m basing this on. Do not include Next move unless the user explicitly asks what to say or do next.";
+      return "Slack intent hint: The user likely wants a broad relationship, history, vibe, pattern, or dynamic read. Do not force single-message decode language unless the user asks about one specific message.";
     case "draft":
-      return "Slack task: Draft a message from the user's goal. Provide ready-to-use wording and briefly name any assumptions.";
+      return "Slack intent hint: The user likely wants ready-to-use wording. Provide draft language when useful, but ask one focused question if the target or goal is genuinely unclear.";
     case "prep":
-      return "Slack task: Help the user prepare for a workplace conversation. Cover how to start, how it might go, likely pushback, and what to watch for.";
+      return "Slack intent hint: The user likely wants difficult-conversation prep. Continue prep if that fits their latest message; switch if they correct the goal or ask for analysis/drafting instead.";
     case "tone":
-      return "Slack task: Check how the wording may land. Identify tone risks, then offer a cleaner version if useful.";
+      return "Slack intent hint: The user likely wants to know how wording may land. Identify tone risks and offer cleaner wording if useful.";
     case "followup":
-      return "Slack task: Help write or improve a follow-up. Keep it specific, low-pressure, and clear about the next step.";
+      return "Slack intent hint: The user likely wants follow-up wording. Keep it specific, low-pressure, and clear about the next step.";
     case "respond":
-      return "Slack task: Help the user respond to the Slack context. Answer from visible Slack context first when available. Use Possible read, Next move, and Draft options. Draft options should be bullets labeled Direct but kind, Warm and collaborative, and Concise.";
+      return "Slack intent hint: The user likely wants help responding. Bias toward a short read and Slack-ready draft options, but if their latest message asks for analysis, feedback assessment, or prep, answer that instead.";
     case "clarity":
-      return "Slack task: Help the user ask for clarity. Identify the missing information, draft a specific answerable question, and remove unnecessary apologies.";
+      return "Slack intent hint: The user likely wants a clarity question. Identify missing information and draft a specific answerable question when useful.";
     case "boundary":
-      return "Slack task: Help the user set a workplace boundary. Keep it firm, kind, specific, and realistic for Slack.";
+      return "Slack intent hint: The user likely wants boundary wording. Keep it firm, kind, specific, and realistic for Slack.";
     case "practice":
-      return "Slack task: Prepare the user to practice a difficult workplace conversation. Give an opening line, likely pushback, and a short rehearsal plan.";
+      return "Slack intent hint: The user likely wants practice. Start or continue role-play only if that matches their latest message.";
     default:
-      return "Slack task: General Beckett coaching. Answer the user's specific request directly.";
+      return "Slack intent hint: General Beckett coaching. Answer the user's specific request directly.";
   }
 }
 
@@ -1508,6 +1514,13 @@ async function runSlackBroaderSearch({
   }
 
   const results = getSearchResults(data);
+  console.info("Slack RTS search.context result", {
+    ok: true,
+    strategy,
+    resultCount: results.length,
+    contextChannelPresent: Boolean(contextChannelId),
+    actionTokenPresent: Boolean(actionToken),
+  });
   if (!results.length) return slackUnavailable("no_messages", `${method} no_results`);
 
   const formatted = results
@@ -1535,6 +1548,34 @@ async function runSlackBroaderSearch({
   } satisfies SlackConversationContext;
 }
 
+async function fetchSlackRealTimeSearchInfo(accessToken: string | null) {
+  if (!accessToken) {
+    return {
+      ok: false,
+      available: false,
+      error: "missing_token",
+      isAiSearchEnabled: false,
+    };
+  }
+
+  const data = await slackApiPost<SlackSearchInfoResponse>(accessToken, "assistant.search.info", {}).catch(
+    (error) => {
+      console.error("Slack RTS search.info request failed", {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }
+  );
+  const info = {
+    ok: Boolean(data?.ok),
+    available: Boolean(data?.ok),
+    error: data?.error || null,
+    isAiSearchEnabled: Boolean(data?.is_ai_search_enabled),
+  };
+  console.info("Slack RTS search.info", info);
+  return info;
+}
+
 export async function fetchSlackBroaderContext({
   accessToken,
   prompt,
@@ -1553,6 +1594,14 @@ export async function fetchSlackBroaderContext({
   currentSlackUserId?: string | null;
 }) {
   if (!accessToken) return slackUnavailable("missing_token");
+
+  const rtsInfo = await fetchSlackRealTimeSearchInfo(accessToken);
+  if (!rtsInfo.available) {
+    return slackUnavailable(
+      slackContextFailureReasonForError(rtsInfo.error),
+      `assistant.search.info error:${rtsInfo.error || "unavailable"}`
+    );
+  }
 
   const normalizedUserIds = uniqueSlackUserIds(relevantSlackUserIds);
   const currentUserId = normalizeSlackUserId(currentSlackUserId);
@@ -1845,6 +1894,10 @@ export async function runSlackCoaching({
   const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
 You are responding inside Slack, so be concise, practical, and easy to scan.
 Help the user understand tone, subtext, context, next steps, and possible replies across workplace, workplace-adjacent, friendly, and personal Slack conversations.
+Slack flow labels are hints, not rules. Always respond to the user's latest actual request, even if it means switching from decode to drafting, from respond to feedback analysis, from prep to a direct answer, or from a guided flow to one focused clarifying question.
+Every response should be generated from the user's current message plus available context. Do not sound like a fixed template. Use the suggested section shapes only when they genuinely fit.
+Choose the most useful next move yourself: answer directly, decode, draft, rewrite, prep, practice, assess feedback, or ask one focused clarifying question. Do not ask multiple setup questions at once.
+If the user gives a usable scenario but not exact wording, help from the scenario and briefly note any uncertainty instead of blocking.
 Do not refuse just because the Slack context is personal, casual, friendly, or not strictly work-related. If the user asks for help responding, decoding, or rewriting, help with the conversation they provided.
 Do not claim certainty about another person's intent. Use phrases like "may" or "likely" when interpreting tone.
 Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushback that is not visible in the provided Slack text.
@@ -1860,7 +1913,7 @@ If Slack context is unavailable for a prep request, continue coaching from the u
 If the user is over-reading an ambiguous message, fold what is uncertain or not knowable into the Possible read section in one concise sentence.
 Avoid generic encouragement. Give concrete language the user could use.
 Format with short plain-language section labels and bullets. Do not use markdown tables, markdown bold markers, or literal asterisks; Beckett formats headings separately.
-For decode/respond work, prefer these section labels when they fit: Possible read, Next move, Draft options.
+For decode/respond work, prefer these section labels when they fit: Possible read, Next move, Draft options. If they do not fit the user's actual question, choose clearer labels.
 Never include a standalone "What's not knowable", "What is not knowable", "What isn't knowable", or "What not to over-read" section.
 For preparation work, prefer short coach-card sections when they fit: Goal, Say this first, If they push back, Watch for, Practice next.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
@@ -1991,6 +2044,10 @@ export async function runSlackGuestCoaching({
 const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
 You are responding inside Slack, so be concise, practical, and easy to scan.
 The Slack user is using guest mode. You do not have their Beckett coaching profile, contact memory, saved history, or broader Slack search.
+Slack flow labels are hints, not rules. Always respond to the user's latest actual request, even if it means switching from decode to drafting, from respond to feedback analysis, from prep to a direct answer, or from a guided flow to one focused clarifying question.
+Every response should be generated from the user's current message plus available Slack text. Do not sound like a fixed template. Use section shapes only when they genuinely fit.
+Choose the most useful next move yourself: answer directly, decode, draft, rewrite, prep, practice, assess feedback, or ask one focused clarifying question. Do not ask multiple setup questions at once.
+If the user gives a usable scenario but not exact wording, help from the scenario and briefly note any uncertainty instead of blocking.
 Help with workplace, workplace-adjacent, friendly, logistics, and personal Slack conversations when the user asks for decode, respond, rewrite, prep, or practice help.
 Do not refuse because a message is personal or casual.
 Do not claim certainty about another person's intent. Use phrases like "may" or "likely" when interpreting tone.

@@ -203,7 +203,7 @@ Expected:
 5. The user runs `/beckett prep I need to talk to my manager about workload in my 1:1`.
 6. Beckett starts a private sidebar walkthrough.
 7. Beckett asks one focused question at a time.
-8. Beckett searches relevant Slack history for possible evidence, asks the user to confirm what to include, then builds talking points, an opening line, likely pushback, and a follow-up draft.
+8. Beckett uses selected/current Slack context first and uses Real-Time Search (`assistant.search.context`) as an enhancer when Slack enables it for the sandbox/app. If RTS is unavailable, request Slack to enable Real-Time Search API / `assistant.search.context` for the hackathon sandbox and keep the demo on selected/current conversation context.
 
 Closing line: Beckett helps neurodivergent workers communicate clearly inside the tools where work already happens.
 
@@ -213,3 +213,4 @@ Closing line: Beckett helps neurodivergent workers communicate clearly inside th
 - Keep the hackathon submission Slack-only. Do not include Chrome extension, Gmail, courses, beta signup, or web dashboard flows in the demo.
 - Slack requires command and shortcut requests to be acknowledged quickly. These endpoints keep responses concise, but a future queue/background job would make longer AI responses more resilient.
 - Slack Agent/Split View features require the **Agents** feature to be enabled in Slack app settings and may require reinstalling the app after the manifest adds agent scopes/events.
+- Broader Slack history depends on Real-Time Search availability. If `assistant.search.info` or `assistant.search.context` returns `feature_not_enabled`, the app should still answer from selected/current context and should not claim RTS as working in the submission.

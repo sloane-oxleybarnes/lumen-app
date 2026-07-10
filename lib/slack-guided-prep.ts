@@ -287,8 +287,9 @@ function nextStepForAnswers(flowType: GuidedFlowType, answers: GuidedAnswers): G
   }
   if (flowType === "respond") {
     if (answers.source_channel_id) return null;
+    if (respondContextIsEnough(answers)) return null;
     if (!answers.audience) return "ask_audience";
-    if (!hasPastedMessage(answers.initial_request) && !respondContextIsEnough(answers)) return "ask_respond_message";
+    if (!hasPastedMessage(answers.initial_request)) return "ask_respond_message";
     return null;
   }
   if (flowType === "decode") return "decode_followup";
@@ -411,14 +412,34 @@ function respondContextIsEnough(answers: GuidedAnswers) {
   const hasClearReplyGoal = /\b(reply|respond|answer|say|ask|tell)\b/.test(combined);
   const hasNamedTarget = /\b(to|for|from)\s+@?[a-z][a-z'-]+|\bmanager\b|\bboss\b|\bcoworker\b|\bteammate\b|\bclient\b|\bcustomer\b/i.test(combined);
   const hasQuotedOrTargetPhrase = /["“”][^"“”]{3,}["“”]/.test(answers.initial_request || "") || /\bmeans by\b|\bwhat (?:he|she|they) means\b|\bwithout sounding\b|\bnot sound\b/i.test(combined);
+  const hasUsableScenario = combined.length > 80 && hasClearReplyGoal && /\b(message|coworker|teammate|manager|boss|client|customer|jordan|claire|priya|scope|workload|feedback|deadline|review|clarify|defensive|respond|reply)\b/.test(combined);
 
   if (/\b(can't|cannot|don'?t want to|not able to|unable to|can’t)\s+(paste|share)\b/.test(combined)) {
     return hasPatternDetail || hasPriorityDetail;
   }
   if (hasClearReplyGoal && hasNamedTarget && hasQuotedOrTargetPhrase) return true;
   if (hasClearReplyGoal && hasPriorityDetail && /\boutside (?:of )?my scope|scope|workload|capacity\b/.test(combined)) return true;
+  if (hasUsableScenario) return true;
   if (hasPatternDetail && hasPriorityDetail) return true;
   return false;
+}
+
+function userMessageShouldOverrideGuidedStep(session: SlackAgentSession, text: string) {
+  const cleaned = normalizeText(text);
+  if (!cleaned) return false;
+  if (isUserCorrectingWrongFlow(cleaned) || shouldSwitchToFeedbackAnalysis(cleaned)) return true;
+  if (session.step === "decode_followup") return false;
+  if (session.step === "ask_rewrite_draft" || session.step === "ask_opening_draft") return false;
+  if (session.step === "ask_respond_message" || session.step === "ask_respond_context") {
+    return respondContextIsEnough(mergeAnswersForStep(session, cleaned));
+  }
+  if (session.flow_type === "prep" || session.flow_type === "practice") {
+    const asksDifferentThing =
+      /\b(can you|could you|what should|how should|does this|is this|was this|tell me|look at|instead|actually)\b/i.test(cleaned);
+    const isLikelySetupAnswer = cleaned.length < 90 && !/[?]/.test(cleaned);
+    return asksDifferentThing && !isLikelySetupAnswer;
+  }
+  return /\?/.test(cleaned) && cleaned.length > 40;
 }
 
 function nextRespondContextQuestion(answers: GuidedAnswers) {
@@ -499,7 +520,11 @@ function fallbackResponseForSession(session: SlackAgentSession) {
 function missingCurrentConversationMessage(flowType: GuidedFlowType, session: SlackAgentSession, activeContext: SlackConversationContext | null) {
   if (flowType !== "respond" && flowType !== "decode") return "";
   if (!session.answers.source_channel_id) return "";
-  if (activeContext?.status === "available" || hasPastedMessage(session.answers.initial_request)) return "";
+  if (
+    activeContext?.status === "available" ||
+    hasPastedMessage(session.answers.initial_request) ||
+    (flowType === "respond" && respondContextIsEnough(session.answers))
+  ) return "";
   return "I could not read this Slack conversation. Paste or paraphrase the message and I’ll help.";
 }
 
@@ -908,6 +933,9 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
     : "No extra examples were provided by the user.";
 
   const base = [
+    "Important: Use the flow type as a hint, not a rule. Answer the latest user request in the most useful way. If the user corrected the task, changed direction, or asked a different question, follow the latest user request.",
+    "If one detail is genuinely missing, ask one focused question. Otherwise, provide the best answer from the scenario and context available.",
+    "",
     `Initial request: ${answers.initial_request || "not specified"}`,
     `Audience/person: ${answers.audience || answers.person || "not specified"}`,
     `Conversation type: ${answers.conversation_type || "not specified"}`,
@@ -938,7 +966,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "If the exact coworker message is missing but the scenario details are present, draft from the scenario instead of asking for the message again.",
         "If drafting without exact wording, do not claim tone or urgency from the coworker. Include this short note: Since I don’t have their exact wording, I’ll keep this neutral.",
         "Never start with 'No Slack message provided.' Never include a 'Quick frame' section.",
-        "Return sections: Possible read, Next move, Draft options.",
+        "Prefer sections when they fit: Possible read, Next move, Draft options.",
         "Fold what is uncertain or not knowable into Possible read in one concise sentence.",
         "Draft options must be bullet points labeled Direct but kind, Warm and collaborative, and Concise.",
         escalationInstruction,
@@ -948,7 +976,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Rewrite the user's message for the stated audience.",
         base,
         "",
-        "Return sections: Rewritten message, Why this works.",
+        "Prefer sections when they fit: Rewritten message, Why this works.",
         "Keep the rewritten message Slack-ready and easy to copy.",
       ].join("\n");
     case "decode":
@@ -957,7 +985,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
           "Assess the feedback or conversation the user provided. Answer whether it reads as harsh, mixed, fair, critical, supportive, or collaborative.",
           base,
           "",
-          "Return only these sections with tildes exactly as shown: ~ Read ~, ~ What points to that ~, ~ What to take from it ~.",
+          "Prefer these sections with tildes when they fit: ~ Read ~, ~ What points to that ~, ~ What to take from it ~.",
           "Do not ask for an exact message if pasted feedback or visible context is already present.",
           "Do not include Draft options or Next move unless the user explicitly asks what to say.",
           "For the Claire video feedback scenario, distinguish specific criticism from clear positives and avoid treating lots of notes as cruelty.",
@@ -967,7 +995,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Decode the message or situation without over-inference. The conversation may be workplace, workplace-adjacent, friendly, or personal; help with the provided conversation rather than rejecting it as non-work.",
         base,
         "",
-        "Return sections: Possible read and Next move.",
+        "Prefer sections when they fit: Possible read and Next move.",
         "Fold what is visible and what is uncertain into Possible read without adding a standalone uncertainty section.",
         "End by asking whether the user wants help drafting a response.",
       ].join("\n");
@@ -987,7 +1015,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
           "",
           openingDraft,
           "",
-          "Return only these sections with tildes exactly as shown: ~ What works ~, ~ Try this version ~, ~ Why it works ~, ~ Practice next ~.",
+          "Prefer these sections with tildes when they fit: ~ What works ~, ~ Try this version ~, ~ Why it works ~, ~ Practice next ~.",
           "Do not restate the full prep. Focus on the user's pasted opening.",
           "Keep it concise, concrete, and coach-like.",
         ].join("\n");
@@ -996,7 +1024,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "Create final guided prep for this workplace conversation.",
         base,
         "",
-        "Return only these sections with tildes exactly as shown: ~ Goal ~, ~ Say this first ~, ~ If they push back ~, ~ Watch for ~, ~ Practice next ~.",
+        "Prefer these sections with tildes when they fit: ~ Goal ~, ~ Say this first ~, ~ If they push back ~, ~ Watch for ~, ~ Practice next ~.",
         "Keep each section to 1-3 short bullets or sentences. Do not include long talking-points lists, likely-pushback lists, or a follow-up draft unless the user explicitly asked for that detail.",
         "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
         "If no extra examples were provided, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
@@ -1446,6 +1474,48 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   if (session && isStartOver(text)) {
     await updateSession(session.id, { status: "completed" });
     session = null;
+  }
+
+  if (session && userMessageShouldOverrideGuidedStep(session, text)) {
+    const mergedAnswers = {
+      ...mergeAnswersForStep(session, text),
+      extra_context: [
+        ...(session.answers.extra_context || []),
+        `Latest user message to prioritize over the previous guided step: ${text}`,
+      ],
+    };
+    const overrideFlow: GuidedFlowType = shouldSwitchToFeedbackAnalysis(text)
+      ? "decode"
+      : /\b(rewrite|edit|clean up|tighten)\b/i.test(text)
+        ? "rewrite"
+        : /\b(what should i say|how should i respond|help me reply|draft|respond|reply)\b/i.test(text)
+          ? "respond"
+          : session.flow_type;
+    const updated = await updateSession(session.id, {
+      flow_type: overrideFlow,
+      step: overrideFlow === "decode" ? "decode_followup" : session.step,
+      status: "active",
+      answers: {
+        ...mergedAnswers,
+        initial_request: [
+          session.answers.initial_request,
+          `Latest user request: ${text}`,
+        ].filter(Boolean).join("\n"),
+        conversation_type: shouldSwitchToFeedbackAnalysis(text)
+          ? "feedback analysis"
+          : session.answers.conversation_type,
+      },
+    });
+    const response = await safeCompleteSession(input, updated, text);
+    const draftOptions = overrideFlow === "respond" ? await saveSlackDraftOptions(updated.id, response) : [];
+    await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
+    return {
+      handled: true,
+      title: flowTitle(updated.flow_type),
+      response,
+      actions: guidedActions(updated, draftOptions),
+      coachingThreadId: updated.coaching_thread_id,
+    };
   }
 
   if (session && shouldSwitchToFeedbackAnalysis(text)) {
