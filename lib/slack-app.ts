@@ -1185,6 +1185,53 @@ function isRelationshipHistoryPrompt(prompt: string) {
 const SLACK_RELATIONSHIP_LIMITATION_NOTE =
   "I’m working from the visible conversation I could access here. Full Slack history search is coming soon, so relationship insights may be limited for now.";
 
+function slackNoContextPromptInstruction({
+  intent,
+  contextFailureReason,
+}: {
+  intent: SlackCoachingIntent;
+  contextFailureReason?: SlackContextFailureReason | null;
+}) {
+  if (intent === "relationship") {
+    switch (contextFailureReason) {
+      case "feature_not_enabled":
+        return [
+          "No Slack relationship context was available.",
+          "Say that you tried full Slack history search, but Real-Time Search is not enabled for this workspace/app yet.",
+          "Ask the user to send a Slack message link or use Beckett - Decode / Beckett - Respond on a relevant message so you can answer from visible context.",
+          "Do not ask for an exact single message as if this were a decode request.",
+        ].join(" ");
+      case "no_messages":
+        return [
+          "No Slack relationship context was available.",
+          "Say that you tried Slack history search, but it did not return usable messages for this question.",
+          "Ask the user to send a Slack message link or use Beckett - Decode / Beckett - Respond on a relevant message so you can answer from visible context.",
+          "Do not ask for an exact single message as if this were a decode request.",
+        ].join(" ");
+      case "missing_scope":
+        return [
+          "No Slack relationship context was available.",
+          "Say that you are missing the Slack permissions needed to search the relevant history.",
+          "Tell the user to reconnect Slack from Beckett Settings, then reinstall or reauthorize the Slack app if prompted.",
+        ].join(" ");
+      case "missing_token":
+        return "No Slack relationship context was available. Say Slack is not connected for this account and ask the user to connect Slack from Beckett Settings.";
+      default:
+        return [
+          "No Slack relationship context was available.",
+          "Say that you could not find readable Slack context for this relationship question.",
+          "Ask the user to send a Slack message link or use Beckett - Decode / Beckett - Respond on a relevant message so you can answer from visible context.",
+        ].join(" ");
+    }
+  }
+
+  if (isCompactSlackIntent(intent)) {
+    return "No recent Slack context was available. If the user did not provide message text, say exactly: I could not read this Slack conversation. Paste or paraphrase the message and I’ll help.";
+  }
+
+  return "No recent Slack context was available. Answer from the user's request without implying you saw surrounding messages.";
+}
+
 function buildTargetedBroaderSearchQuery({
   prompt,
   activeContext,
@@ -1952,9 +1999,7 @@ ${beckettBoundaryPrompt()}`;
   const messageLine = messageText
     ? `\n\nSlack context packet:\n${messageText}`
     : contextStatus === "unavailable"
-      ? isCompactSlackIntent(intent)
-        ? "\n\nNo recent Slack context was available. If the user did not provide message text, say exactly: I could not read this Slack conversation. Paste or paraphrase the message and I’ll help."
-        : "\n\nNo recent Slack context was available. Answer from the user's request without implying you saw surrounding messages."
+      ? `\n\n${slackNoContextPromptInstruction({ intent, contextFailureReason })}`
       : "";
   const relationshipLine = relationshipContext
     ? `\n\nConfirmed relationship context:\n${relationshipContext}`
