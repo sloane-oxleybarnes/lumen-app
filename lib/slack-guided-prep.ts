@@ -134,6 +134,7 @@ const FEEDBACK_ANALYSIS_RE =
   /\b(overly harsh|too harsh|harsh|mixed review|mostly critical|overly critical|always critical|was this fair|how did that land|what did they mean|feedback was|feedback is|read on this feedback)\b/i;
 const CLEAR_DRAFT_REQUEST_RE =
   /\b(what should i say|help me (?:draft|respond|reply)|draft (?:a )?(?:response|reply)|respond to (?:this|that)|reply to (?:this|that)|how should i respond|how should i reply|yes[, ]+(?:draft|respond|reply))\b/i;
+const PRACTICE_STARTED_MARKER = "Practice role-play has started";
 
 function normalizeText(text: string) {
   return text.replace(/\s+/g, " ").trim();
@@ -164,6 +165,30 @@ function normalizePersonForUserDisplay(person?: string | null) {
     .replace(/\bme\b/gi, "you")
     .replace(/\bi\b/gi, "you");
   return cleaned;
+}
+
+function roleplayPersonaLabel(person?: string | null) {
+  const cleaned = normalizePersonForUserDisplay(person || "");
+  const lower = cleaned.toLowerCase();
+  if (!cleaned) return "Other person";
+  if (/\bmanager\b|\bboss\b|\bsupervisor\b/.test(lower)) return "Manager";
+  if (/\bteammate\b/.test(lower)) return "Teammate";
+  if (/\bcoworker\b|\bcolleague\b/.test(lower)) return "Coworker";
+  if (/\bclient\b|\bcustomer\b/.test(lower)) return "Client";
+  if (/\bdirect report\b|\breport\b/.test(lower)) return "Direct report";
+  const slackMention = cleaned.match(/<@([A-Z0-9]+)(?:\|([^>]+))?>/);
+  if (slackMention?.[2]) return slackMention[2];
+  if (cleaned.startsWith("@")) return cleaned;
+  const named = cleaned.match(/\b([A-Z][a-z]+)\b/);
+  return named?.[1] || cleaned;
+}
+
+function practiceHasStarted(answers: GuidedAnswers) {
+  return (answers.extra_context || []).some((item) => item === PRACTICE_STARTED_MARKER);
+}
+
+function isPracticeCoachingRequest(text?: string) {
+  return /\b(how did that sound|was that okay|did that work|coach me|feedback|make that clearer|make it clearer|try again|what should i change|was i too|was that too)\b/i.test(text || "");
 }
 
 function prepTopicFromInitialRequest(text: string) {
@@ -997,6 +1022,9 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
   const extra = answers.extra_context?.length ? answers.extra_context.map((item) => `- ${item}`).join("\n") : "None.";
   const respondContext = responseContextValues(answers);
   const openingDraft = answers.extra_context?.find((item) => item.startsWith("Opening draft to coach:")) || "";
+  const personaLabel = roleplayPersonaLabel(answers.person);
+  const roleplayStarted = practiceHasStarted(answers);
+  const practicePushback = answers.practice_pushback || answers.concern || "realistic questions or pushback";
   const confirmed = session.confirmed_evidence.length
     ? session.confirmed_evidence.map((item) => `- ${item.text}`).join("\n")
     : "No extra examples were provided by the user.";
@@ -1069,13 +1097,29 @@ function promptForFlow(session: SlackAgentSession, followupText?: string) {
         "End by asking whether the user wants help drafting a response.",
       ].join("\n");
     case "practice":
+      if (roleplayStarted) {
+        return [
+          "Continue the workplace conversation role-play already in progress.",
+          base,
+          "",
+          `Role-play persona: ${personaLabel}.`,
+          `Role-play tension/pushback to weave in naturally: ${practicePushback}.`,
+          isPracticeCoachingRequest(followupText)
+            ? "The user is asking for coaching. Pause role-play, give brief feedback on their last line, then invite them to continue."
+            : `Stay in character as ${personaLabel}. Respond directly to the user's latest line as that person would in the conversation.`,
+          "Return only one concise turn. Do not restart the scenario, do not repeat setup, and do not ask 'go ahead, what do you say?' again.",
+          "Do not return prep sections like Goal, Say this first, If they push back, Watch for, or Practice next.",
+        ].join("\n");
+      }
       return [
         "Start a workplace conversation role-play.",
         base,
         "",
+        `Role-play persona: ${personaLabel}.`,
+        `Role-play tension/pushback to weave in naturally: ${practicePushback}.`,
         "The user wants to rehearse, not receive another prep card. Do not return sections like Goal, Say this first, If they push back, Watch for, or Practice next.",
-        "Start with one short setup line, then speak as the other person in the practice.",
-        "Example shape: Okay. I’ll be your manager. Manager: \"Sure, what’s going on with your workload?\"",
+        `Start with one short setup line, then speak as ${personaLabel}.`,
+        `Example shape: Okay. I’ll be ${normalizePersonForUserDisplay(answers.person) || "the other person"}. ${personaLabel}: "Sure, what do you want to talk through?"`,
         "Use realistic but not hostile pushback. Keep it concise so the user can reply.",
         "If the user asks for coaching mid-practice, pause role-play, give brief coaching, then invite them to continue.",
       ].join("\n");
@@ -1249,7 +1293,19 @@ async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentS
       const updated = await updateSession(session.id, { step: nextStep });
       return askForStep(updated);
     }
-    return safeCompleteSession(input, session);
+    const response = await safeCompleteSession(input, session);
+    if (!practiceHasStarted(session.answers)) {
+      await updateSession(session.id, {
+        answers: {
+          ...session.answers,
+          extra_context: [
+            ...(session.answers.extra_context || []),
+            PRACTICE_STARTED_MARKER,
+          ],
+        },
+      });
+    }
+    return response;
   }
   return askForStep(session);
 }
@@ -1568,6 +1624,15 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       },
     });
     const response = await safeCompleteSession(input, updated, text);
+    await updateSession(updated.id, {
+      answers: {
+        ...updated.answers,
+        extra_context: [
+          ...(updated.answers.extra_context || []),
+          PRACTICE_STARTED_MARKER,
+        ],
+      },
+    });
     await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
     return {
       handled: true,
@@ -1575,6 +1640,18 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
       response,
       actions: guidedActions(updated),
       coachingThreadId: updated.coaching_thread_id,
+    };
+  }
+
+  if (session && session.flow_type === "practice" && practiceHasStarted(session.answers)) {
+    const response = await safeCompleteSession(input, session, text);
+    await persistGuidedTurn({ input, session, userText: text, beckettText: response });
+    return {
+      handled: true,
+      title: "Practice",
+      response,
+      actions: guidedActions(session),
+      coachingThreadId: session.coaching_thread_id,
     };
   }
 
