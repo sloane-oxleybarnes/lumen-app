@@ -1026,21 +1026,20 @@ async function handleDraftButtonResponse({
   }
 }
 
-function quickPrompt(flowType: SlackHistoryFlowType, thread?: { title?: string | null; summary?: string | null; prompt_snippet?: string | null }) {
-  const context = thread ? `\n\nPrevious Beckett context: ${[thread.title, thread.summary, thread.prompt_snippet].filter(Boolean).join(" — ")}` : "";
+function quickPrompt(flowType: SlackHistoryFlowType) {
   switch (flowType) {
     case "respond":
-      return `Help me respond to a Slack conversation.${context}`;
+      return "Help me respond to a Slack conversation.";
     case "decode":
-      return `Help me decode a Slack conversation and separate visible facts from possible interpretation.${context}`;
+      return "Help me decode a Slack conversation and separate visible facts from possible interpretation.";
     case "rewrite":
-      return `Help me rewrite a Slack message so it is clearer.${context}`;
+      return "Help me rewrite a Slack message so it is clearer.";
     case "prep":
-      return `Help me prepare for a conversation.${context}`;
+      return "Help me prepare for a conversation.";
     case "practice":
-      return `Help me practice a conversation.${context}`;
+      return "Help me practice a conversation.";
     default:
-      return `Help me with this Slack conversation.${context}`;
+      return "Help me with this Slack conversation.";
   }
 }
 
@@ -1124,18 +1123,14 @@ async function handleHistoryButtonResponse({
         }
 
         const prompt = quickPrompt(flowType);
-        const guestContext = await buildGuestSlackContextPacket({
-          botAccessToken,
-          channelId,
-          userRequest: prompt,
-          currentSlackUserId: slackUserId,
-        });
         const response = await runSlackGuestCoaching({
           teamId,
           slackUserId,
           action: "agent_message",
           prompt,
-          messageText: guestContext.text || prompt,
+          // Quick actions are explicit new-conversation entry points. Do not
+          // seed them from recent Beckett DM/channel history.
+          messageText: prompt,
           intent: flowType,
         });
         const payloadToPost = buildBeckettPayload({
@@ -1145,10 +1140,31 @@ async function handleHistoryButtonResponse({
           footer: "Guest mode is on for hackathon judging. Connect Slack in Beckett Settings for profile, contact context, broader Slack history, and saved conversations.",
           hideTitle: true,
         });
-        await slackApiPost(botAccessToken, "chat.postMessage", {
-          channel: channelId,
-          ...payloadToPost,
+        const openerText = flowType === "practice"
+          ? "Let’s practice this conversation privately. Reply in this thread so the role-play stays together."
+          : flowType === "rewrite"
+            ? "Let’s rewrite this message privately. Reply in this thread so the draft and revisions stay together."
+            : "Let’s prep this conversation privately. Reply in this thread so the setup, practice, and next steps stay together.";
+        const opened = await postSlackAgentMessage({
+          botAccessToken,
+          slackUserId,
+          title: slackHistoryTitle(flowType),
+          text: openerText,
         });
+        const openedTs = "ts" in opened ? opened.ts : null;
+        if (opened.ok && opened.channelId && openedTs) {
+          await slackApiPost(botAccessToken, "chat.postMessage", {
+            channel: opened.channelId,
+            thread_ts: openedTs,
+            ...payloadToPost,
+          });
+        } else {
+          // Preserve a usable fallback if Slack's assistant-thread opener fails.
+          await slackApiPost(botAccessToken, "chat.postMessage", {
+            channel: channelId,
+            ...payloadToPost,
+          });
+        }
       }
       return;
     }
@@ -1346,7 +1362,9 @@ async function handleHistoryButtonResponse({
         teamId,
         slackUserId,
         intent: flowType,
-        prompt: quickPrompt(flowType, thread || undefined),
+        // Continue is the only action that may reopen an existing case.
+        // Quick actions always begin with a clean guided session.
+        prompt: quickPrompt(flowType),
       });
       await publishSlackHome({
         botAccessToken: user.botAccessToken,

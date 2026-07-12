@@ -545,7 +545,9 @@ async function respondToAgentMessage({
           botAccessToken,
           channelId: linkedSlackContext?.channelId || activeChannelId || channelId,
           selectedMessageTs: linkedSlackContext?.messageTs,
-          threadTs: linkedSlackContext?.threadTs,
+          // A normal assistant reply may only inherit context from its exact
+          // Slack thread. Linked conversations retain their linked thread.
+          threadTs: linkedSlackContext?.threadTs || threadTs,
           selectedMessageText: isAssistantStarterPrompt(text) ? "" : text,
           userRequest: text,
           currentSlackUserId: slackUserId,
