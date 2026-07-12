@@ -577,10 +577,6 @@ async function respondToAgentMessage({
       slackAuthorUserId: activeUserId,
       interactionType: "slack_agent_message",
     });
-    const relationshipNote =
-      activeRelationship && !activeRelationship.linked && activeRelationship.slackIdentifier
-        ? `Add confirmed Slack ID ${activeRelationship.slackIdentifier} to this person's Beckett contact to use relationship context next time.`
-        : "";
 
     if (
       isAssistantStarterPrompt(text) &&
@@ -1041,7 +1037,6 @@ async function respondToAgentMessage({
         "",
         response,
       ].join("\n"),
-      footer: relationshipNote || undefined,
       actions: [
         ...(isCompactSlackIntent(assistantIntent) ? buildSlackExplainMoreAction(coachingThread?.id) : []),
         ...buildSlackThreadArchiveAction(coachingThread?.id),

@@ -16,6 +16,7 @@ import {
   buildSlackCoachingContext,
   fetchSlackConversationContext,
   isCompactSlackIntent,
+  lookupSlackUserProfile,
   postSlackAgentMessage,
   runSlackCoaching,
   scheduleSlackBackgroundTask,
@@ -53,6 +54,8 @@ type GuidedStep =
 type GuidedAnswers = {
   initial_request?: string;
   person?: string;
+  person_slack_user_id?: string;
+  person_self_mention?: boolean;
   conversation_type?: string;
   scenario?: PrepScenario;
   source_channel_id?: string;
@@ -167,6 +170,83 @@ function normalizePersonForUserDisplay(person?: string | null) {
     .replace(/\bme\b/gi, "you")
     .replace(/\bi\b/gi, "you");
   return cleaned;
+}
+
+function slackUserIdFromPersonAnswer(text: string) {
+  return (
+    text.match(/<@([A-Z0-9]+)(?:\|[^>]+)?>/)?.[1] ||
+    text.match(/slack\.com\/team\/(U[A-Z0-9]+)/i)?.[1] ||
+    null
+  );
+}
+
+function slackDisplayNameFromPersonAnswer(text: string) {
+  return (
+    text.match(/\*\*@([^*]+)\*\*/)?.[1]?.trim() ||
+    text.match(/\[@([^\]]+)\]\(https?:\/\/[^)]+\/team\/U[A-Z0-9]+\)/i)?.[1]?.trim() ||
+    text.match(/<@U[A-Z0-9]+\|([^>]+)>/)?.[1]?.trim() ||
+    null
+  );
+}
+
+function explicitRelationshipFromPersonAnswer(text: string) {
+  const lower = text.toLowerCase();
+  if (/\b(?:my\s+)?manager\b|\bboss\b|\bsupervisor\b/.test(lower)) return "your manager";
+  if (/\bteammate\b|\bcoworker\b|\bcolleague\b/.test(lower)) return "your teammate";
+  if (/\bclient\b|\bcustomer\b/.test(lower)) return "your client";
+  if (/\bdirect report\b/.test(lower)) return "your direct report";
+  return "";
+}
+
+function cleanPersonAnswer(text: string) {
+  const withoutRenderedMention = text
+    .replace(/\[\*\*@[^*]+\*\*\]\(https?:\/\/[^)]+\/team\/U[A-Z0-9]+\)/gi, "")
+    .replace(/\[@[^\]]+\]\(https?:\/\/[^)]+\/team\/U[A-Z0-9]+\)/gi, "")
+    .replace(/<@U[A-Z0-9]+(?:\|[^>]+)?>/gi, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  return withoutRenderedMention
+    .replace(/^(?:i(?:'?m| am)?\s+)?(?:talking|speaking|meeting|chatting)\s+(?:with|to)\s+/i, "")
+    .replace(/^(?:it(?:'s| is)|this is)\s+/i, "")
+    .replace(/^[,.:;\-\s]+|[,.:;\-\s]+$/g, "")
+    .trim();
+}
+
+export async function parseGuidedPersonAnswer({
+  text,
+  requesterSlackUserId,
+  accessToken,
+}: {
+  text: string;
+  requesterSlackUserId: string;
+  accessToken?: string | null;
+}) {
+  const mentionedSlackUserId = slackUserIdFromPersonAnswer(text);
+  const isSelfMention = Boolean(mentionedSlackUserId && mentionedSlackUserId === requesterSlackUserId);
+  if (isSelfMention) {
+    return { label: "", slackUserId: null, isSelfMention: true };
+  }
+
+  let displayName = slackDisplayNameFromPersonAnswer(text);
+  if (mentionedSlackUserId && accessToken) {
+    const profile = await lookupSlackUserProfile(accessToken, mentionedSlackUserId).catch(() => null);
+    if (profile?.name && profile.name !== mentionedSlackUserId) displayName = profile.name;
+  }
+
+  const relationship = explicitRelationshipFromPersonAnswer(text);
+  const cleaned = cleanPersonAnswer(text);
+  const normalizedCleaned = normalizePersonForUserDisplay(cleaned);
+  const label = displayName
+    ? relationship
+      ? `${relationship}, ${displayName}`
+      : displayName
+    : relationship || normalizedCleaned || (mentionedSlackUserId ? "the person you tagged" : "");
+
+  return {
+    label,
+    slackUserId: mentionedSlackUserId,
+    isSelfMention: false,
+  };
 }
 
 function roleplayPersonaLabel(person?: string | null) {
@@ -514,14 +594,14 @@ function respondContextIsEnough(answers: GuidedAnswers) {
   return false;
 }
 
-function userMessageShouldOverrideGuidedStep(session: SlackAgentSession, text: string) {
+async function userMessageShouldOverrideGuidedStep(input: GuidedFlowInput, session: SlackAgentSession, text: string) {
   const cleaned = normalizeText(text);
   if (!cleaned) return false;
   if (isUserCorrectingWrongFlow(cleaned) || shouldSwitchToFeedbackAnalysis(cleaned)) return true;
   if (session.step === "decode_followup") return false;
   if (session.step === "ask_rewrite_draft" || session.step === "ask_opening_draft") return false;
   if (session.step === "ask_respond_message" || session.step === "ask_respond_context") {
-    return respondContextIsEnough(mergeAnswersForStep(session, cleaned));
+    return respondContextIsEnough(await mergeAnswersForStep(input, session, cleaned));
   }
   if (session.flow_type === "prep" || session.flow_type === "practice") {
     const asksDifferentThing =
@@ -951,6 +1031,12 @@ function askForStep(session: SlackAgentSession) {
     case "ask_opening_draft":
       return "Paste the opening you want to try, and I’ll help you make it clear, calm, and ready to say.";
     case "ask_person":
+      if (answers.person_self_mention) {
+        return [
+          "That tag points to you, so I still need the other person in the conversation.",
+          "Who are you preparing to talk to? You can describe their role or tag them with @.",
+        ].join("\n");
+      }
       return [
         session.flow_type === "practice" ? "Let’s set up the practice." : "Let’s prep for this conversation together.",
         "",
@@ -1208,6 +1294,9 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     contextChannelId,
     actionToken: input.actionToken,
     includeBroaderContext,
+    relevantSlackUserIds: session.answers.person_slack_user_id
+      ? [session.answers.person_slack_user_id]
+      : [],
     currentSlackUserId: input.slackUserId,
   });
   const messageText = [
@@ -1250,7 +1339,7 @@ async function safeCompleteSession(input: GuidedFlowInput, session: SlackAgentSe
   }
 }
 
-function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAnswers {
+async function mergeAnswersForStep(input: GuidedFlowInput, session: SlackAgentSession, text: string): Promise<GuidedAnswers> {
   const answers: GuidedAnswers = {
     ...session.answers,
     extra_context: Array.isArray(session.answers.extra_context) ? session.answers.extra_context : [],
@@ -1272,7 +1361,16 @@ function mergeAnswersForStep(session: SlackAgentSession, text: string): GuidedAn
       `Opening draft to coach: ${cleaned}`,
     ];
   }
-  if (session.step === "ask_person") answers.person = normalizePersonForUserDisplay(cleaned);
+  if (session.step === "ask_person") {
+    const parsedPerson = await parseGuidedPersonAnswer({
+      text: cleaned,
+      requesterSlackUserId: input.slackUserId,
+      accessToken: input.user.accessToken,
+    });
+    answers.person = parsedPerson.label;
+    answers.person_slack_user_id = parsedPerson.slackUserId || undefined;
+    answers.person_self_mention = parsedPerson.isSelfMention;
+  }
   if (session.step === "ask_outcome") answers.outcome = cleaned;
   if (session.step === "ask_concern") answers.concern = cleaned;
   if (session.step === "ask_practice_goal") answers.practice_goal = cleaned;
@@ -1691,9 +1789,9 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     };
   }
 
-  if (session && userMessageShouldOverrideGuidedStep(session, text)) {
+  if (session && await userMessageShouldOverrideGuidedStep(input, session, text)) {
     const mergedAnswers = {
-      ...mergeAnswersForStep(session, text),
+      ...await mergeAnswersForStep(input, session, text),
       extra_context: [
         ...(session.answers.extra_context || []),
         `Latest user message to prioritize over the previous guided step: ${text}`,
@@ -1919,7 +2017,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   }
 
   if (session.step === "ask_respond_message" || session.step === "ask_respond_context") {
-    const answers = mergeAnswersForStep(session, text);
+    const answers = await mergeAnswersForStep(input, session, text);
     const enough = respondContextIsEnough(answers);
     const nextQuestion = enough ? "" : nextRespondContextQuestion(answers);
     if (nextQuestion) {
@@ -1954,7 +2052,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   }
 
   if (session.step === "ask_opening_draft") {
-    const answers = mergeAnswersForStep(session, text);
+    const answers = await mergeAnswersForStep(input, session, text);
     const updated = await updateSession(session.id, {
       answers,
       step: "ask_opening_draft",
@@ -1964,7 +2062,7 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
-  const answers = mergeAnswersForStep(session, text);
+  const answers = await mergeAnswersForStep(input, session, text);
   const nextStep = nextStepForAnswers(session.flow_type, answers);
   const updated = await updateSession(session.id, {
     answers,

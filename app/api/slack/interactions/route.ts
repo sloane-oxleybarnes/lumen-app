@@ -736,10 +736,6 @@ async function sendMessageShortcutResponse({
       relevantSlackUserIds: [payload.message?.user].filter(Boolean) as string[],
       currentSlackUserId: slackUserId,
     });
-    const relationshipNote =
-      authorRelationship && !authorRelationship.linked && authorRelationship.slackIdentifier
-        ? `Slack note: I saw ${authorRelationship.slackProfile?.name || "this person"} as a real Slack user. To use relationship context next time, add confirmed Slack ID ${authorRelationship.slackIdentifier} to their Beckett contact.`
-        : "";
     const combinedContext = [
       "Selected Slack message:",
       messageText,
@@ -837,7 +833,7 @@ async function sendMessageShortcutResponse({
         const responsePayload = buildBeckettPayload({
           title: "Beckett",
           subtitle: "",
-          body: [relationshipNote, response].filter(Boolean).join("\n\n"),
+          body: response,
           hideTitle: true,
         });
         const postedResponse = await slackApiPost<{ ts?: string }>(user.botAccessToken, "chat.postMessage", {
@@ -933,7 +929,6 @@ async function sendMessageShortcutResponse({
       prompt,
       body: [
         "I prepared this privately here because the Beckett coach panel was not available.",
-        relationshipNote,
         response,
       ].filter(Boolean).join("\n\n"),
     });
