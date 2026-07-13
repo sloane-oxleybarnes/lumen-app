@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHash, createHmac, timingSafeEqual } from "crypto";
 import {
   buildGuestSlashCoachingPrompt,
   extractGuestPrepOutcomeAndConcern,
@@ -152,6 +152,32 @@ function scheduleCommandBackgroundTask(label: string, task: Promise<void>) {
   const context = requestContext?.get?.();
   if (context?.waitUntil) context.waitUntil(handledTask);
   else void handledTask;
+}
+
+async function startQueuedSidebarFlow({
+  requestKey,
+  origin,
+  payload,
+  parsed,
+}: {
+  requestKey: string;
+  origin: string;
+  payload: SlashCommandPayload;
+  parsed: Extract<ParsedSlackCommand, { ok: true }>;
+}) {
+  if (!payload.team_id || !payload.user_id) {
+    await startSidebarFlow({ origin, payload, parsed });
+    return;
+  }
+
+  const { runQueuedSlackCommand } = await import("@/lib/slack-command-queue");
+  await runQueuedSlackCommand({
+    requestKey,
+    teamId: payload.team_id,
+    slackUserId: payload.user_id,
+    intent: parsed.intent,
+    task: () => startSidebarFlow({ origin, payload, parsed }),
+  });
 }
 
 async function cancelGuestInactivityStartCard({
@@ -632,7 +658,8 @@ export async function POST(req: NextRequest) {
 
   scheduleCommandBackgroundTask(
     "Slack sidebar flow start failed",
-    startSidebarFlow({
+    startQueuedSidebarFlow({
+      requestKey: createHash("sha256").update(rawBody).digest("hex"),
       origin: req.nextUrl.origin,
       payload,
       parsed,
