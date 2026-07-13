@@ -141,6 +141,7 @@ type SlackHistoryMessage = {
   subtype?: string;
   ts?: string;
   thread_ts?: string;
+  reactions?: Array<{ name?: string; users?: string[]; count?: number }>;
 };
 
 export type SlackLatestMessageContext = {
@@ -566,6 +567,7 @@ export async function recordSlackGuestUsage({
     .select("id", { count: "exact", head: true })
     .eq("slack_team_id", teamId)
     .eq("slack_user_id", slackUserId)
+    .gt("token_estimate", 0)
     .gte("created_at", startOfUtcDay());
 
   if (countError) throw countError;
@@ -833,18 +835,18 @@ export async function setSlackAgentSuggestedPrompts({
     prompts: [
       {
         title: "Decode a Selected Message",
-        message: "Show me how to decode a specific Slack message with Beckett.",
+        message: "Help me decode a Slack message.",
       },
       {
         title: "Respond to a Selected Message",
-        message: "Show me how to draft a response from a specific Slack message with Beckett.",
+        message: "Help me draft a response to a Slack message.",
       },
       {
         title: "Edit a Draft",
-        message: "Help me rewrite this draft so it is clearer and kinder.",
+        message: "Help me rewrite a draft.",
       },
       {
-        title: "Prep / Practice",
+        title: "Prep",
         message: "Help me prepare for a difficult conversation.",
       },
     ],
@@ -1136,7 +1138,13 @@ async function formatSlackHistoryMessage(accessToken: string, message: SlackHist
     ? await lookupSlackUserName(accessToken, message.user)
     : message.username || (message.bot_id ? "App or workflow" : "Someone");
 
-  return `${author}: ${text}`;
+  const reactions = await Promise.all((message.reactions || []).map(async (reaction) => {
+    const names = await Promise.all((reaction.users || []).slice(0, 8).map((userId) => lookupSlackUserName(accessToken, userId)));
+    const label = reaction.name ? `:${reaction.name}:` : "reaction";
+    if (names.length) return `${label} from ${names.join(", ")}`;
+    return `${label} ×${reaction.count || 1}`;
+  }));
+  return `${author}: ${text}${reactions.length ? ` [Reactions: ${reactions.join("; ")}]` : ""}`;
 }
 
 export async function fetchSlackConversationContext({
@@ -1786,6 +1794,11 @@ Never include a standalone "What's not knowable", "What is not knowable", "What 
 For preparation work, prefer short coach-card sections when they fit: Goal, Say this first, If they push back, Watch for, Practice next.
 Do not repeat the user's request at the top of the answer; Beckett will add that outside the AI response.
 For reply drafting, include 2-3 Slack-ready bullet options when useful: - Direct but kind, - Warm and collaborative, and - Concise.
+For low-stakes social messages with clear visible context, draft useful options immediately. Do not ask about relationship, channel vibe, and desired tone when reasonable defaults are already visible.
+During an active Respond task, additional context refines the existing drafts. Do not ask what kind of help the user wants, offer a menu of other Beckett modes, or ask for the selected message again when it is present in context.
+When the user asks to shorten or revise a named draft option, revise only that option and preserve the original selected-message context.
+For Rewrite, do not restate the user's draft or request before the answer. Start directly with “Here are three options:” when offering variants. Preserve the original meaning and boundary, apply the requested tone change, and make the options meaningfully different rather than near-duplicates.
+For Decode, lead with a short likely read, then concise visible evidence, one or two possible interpretations, and a practical next step. Use visible reactions and surrounding channel context when provided. Avoid walls of text.
 For difficult conversation prep, keep the answer focused on the goal, first sentence, likely pushback, what to watch for, and one next practice step.
 Beckett suggests and coaches; it does not tell the user to act automatically.
 Do not add generic privacy or shared-channel warnings just because Slack context includes both personal and work topics.
@@ -1923,6 +1936,11 @@ Always separate visible facts from possible interpretation when decoding.
 Fold what is uncertain or not knowable into the Possible read section in one concise sentence; never include a standalone "What's not knowable", "What is not knowable", "What isn't knowable", or "What not to over-read" section.
 If there is not enough text to analyze, ask the user to paste or paraphrase the message.
 For reply drafting, include 2-3 Slack-ready bullet options when useful: - Direct but kind, - Warm and collaborative, and - Concise.
+For low-stakes social messages with clear visible context, draft useful options immediately. Do not ask about relationship, channel vibe, and desired tone when reasonable defaults are already visible.
+During an active Respond task, additional context refines the existing drafts. Do not ask what kind of help the user wants, offer a menu of other Beckett modes, or ask for the selected message again when it is present in context.
+When the user asks to shorten or revise a named draft option, revise only that option and preserve the original selected-message context.
+For Rewrite, do not restate the user's draft or request before the answer. Start directly with “Here are three options:” when offering variants. Preserve the original meaning and boundary, apply the requested tone change, and make the options meaningfully different rather than near-duplicates.
+For Decode, lead with a short likely read, then concise visible evidence, one or two possible interpretations, and a practical next step. Use visible reactions and surrounding channel context when provided. Avoid walls of text.
 For prep or practice, give a useful lightweight coaching response from the user request without asking them to connect a Beckett profile.
 For prep, enforce this guided order inside the exact Slack thread: person and situation, conversation location or medium, desired outcome, concern or likely pushback, then concise final prep. Infer and skip the location question when the user already clearly says Slack/written message, video/phone call, or in person. Ask only the earliest unanswered question. If the user directly requests intros, drafts, or another concrete deliverable, answer that request immediately using the thread context.
 For final prep, tailor the advice to the conversation medium and use only concise sections that help: Goal, Say this first, If they push back. Do not recap the whole conversation, give a long menu, repeat information the user already supplied, or ask which portion they want to practice.

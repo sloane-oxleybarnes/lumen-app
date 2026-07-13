@@ -8,6 +8,7 @@ import {
   handleSlackAiError,
   isAllowedSlackPlan,
   lookupSlackConnectedUser,
+  lookupSlackUserProfile,
   lookupSlackWorkspaceBotToken,
   postSlackAgentMessage,
   postSlackResponse,
@@ -50,6 +51,7 @@ import {
   recordSlackCoachingBotMessage,
   saveSlackGuestPrepState,
   saveSlackGuestPracticeState,
+  saveSlackGuestSelectedMessageState,
   scheduleSlackInactivityStartCard,
   slackHistoryTitle,
   SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
@@ -167,6 +169,21 @@ function extractMessageText(payload: SlackInteractionPayload) {
     .trim();
 
   return attachmentText || "";
+}
+
+function selectedMessageExcerpt(text: string, maxLength = 180) {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  return cleaned.length <= maxLength ? cleaned : `${cleaned.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function selectedMessageOpener(intent: MessageShortcutIntent, author: string, messageText: string) {
+  return [
+    intent === "decode" ? "Let’s read this message privately." : "Let’s draft a response privately.",
+    `Selected message from ${author}: “${selectedMessageExcerpt(messageText)}”`,
+    intent === "decode"
+      ? "Reply in this thread so the message, read, and follow-ups stay together."
+      : "Reply in this thread so the message, drafts, and follow-ups stay together.",
+  ].join("\n\n");
 }
 
 function parseSlashActionValue(value: string): { requestId: string; intent: SlackCoachingIntent } | null {
@@ -704,7 +721,11 @@ async function sendMessageShortcutResponse({
         return;
       }
 
-      const guestPrompt = buildShortcutPrompt(payload, null, intent);
+      const guestAuthorProfile = payload.message?.user
+        ? await lookupSlackUserProfile(botAccessToken, payload.message.user).catch(() => null)
+        : null;
+      const guestAuthorLabel = guestAuthorProfile?.name || payload.message?.username || "the message author";
+      const guestPrompt = buildShortcutPrompt(payload, guestAuthorLabel, intent);
       const guestContext = await buildGuestSlackContextPacket({
         botAccessToken,
         channelId: payload.channel?.id,
@@ -727,21 +748,32 @@ async function sendMessageShortcutResponse({
         botAccessToken,
         slackUserId,
         title: slackHistoryTitle(intent, "selected message"),
-        text: [
-          intent === "decode"
-            ? "Let’s read this message privately."
-            : "Let’s draft a response privately.",
-          "",
-          intent === "decode"
-            ? "Reply in this thread so I can keep this message, read, and follow-ups saved together."
-            : "Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
-        ].join("\n\n"),
+        text: selectedMessageOpener(intent, guestAuthorLabel, messageText),
       });
 
       let agentReplyPosted = false;
       let agentChannelId: string | null = null;
       if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery && agentDelivery.channelId && agentDelivery.ts) {
         agentChannelId = agentDelivery.channelId;
+        await saveSlackGuestSelectedMessageState({
+          teamId,
+          slackUserId,
+          state: {
+            threadTs: agentDelivery.ts,
+            intent,
+            author: guestAuthorLabel,
+            message: messageText,
+            sourceChannelId: payload.channel?.id,
+            sourceChannelName: payload.channel?.name,
+            sourceMessageTs: payload.message?.ts,
+            sourceThreadTs: payload.message?.thread_ts,
+            context: guestContext.context?.text || undefined,
+          },
+        }).catch((error) => {
+          console.error("Slack guest selected-message state save failed", {
+            message: error instanceof Error ? error.message : String(error),
+          });
+        });
         const responsePayload = buildBeckettPayload({
           title: "Beckett",
           subtitle: "",
@@ -870,15 +902,7 @@ async function sendMessageShortcutResponse({
       botAccessToken: user.botAccessToken,
       slackUserId,
       title: slackHistoryTitle(intent, authorLabel || (payload.channel?.name ? `#${payload.channel.name}` : "this Slack conversation")),
-      text: [
-        intent === "decode"
-          ? "Let’s read this message privately."
-          : "Let’s draft a response privately.",
-        "",
-        intent === "decode"
-          ? "Reply in this thread so I can keep this message, read, and follow-ups saved together."
-          : "Reply in this thread so I can keep this message, drafts, and follow-ups saved together.",
-      ].filter(Boolean).join("\n\n"),
+      text: selectedMessageOpener(intent, authorLabel || "the message author", messageText),
     });
 
     if (agentDelivery.ok) {
@@ -1136,7 +1160,7 @@ function quickPrompt(flowType: SlackHistoryFlowType) {
     case "decode":
       return "Help me decode a Slack conversation and separate visible facts from possible interpretation.";
     case "rewrite":
-      return "Help me rewrite a Slack message so it is clearer.";
+      return "Help me rewrite a Slack message.";
     case "prep":
       return "Help me prepare for a conversation.";
     case "practice":
@@ -1147,14 +1171,16 @@ function quickPrompt(flowType: SlackHistoryFlowType) {
 }
 
 function selectedMessageInstructions(flowType: "decode" | "respond") {
-  const action = flowType === "respond" ? "responding to" : "decoding";
   const shortcut = flowType === "respond" ? "Beckett - Respond" : "Beckett - Decode";
+  const request = flowType === "respond"
+    ? "Share the message you want to respond to:"
+    : "Share the message you want to decode:";
 
   return [
-    `How to get my help ${action} a message:`,
-    `- Click the message’s ⋯ menu and choose ‘${shortcut}’ or`,
-    `- Type \`/beckett ${flowType}\` in the Slack conversation you want me to use or`,
-    "- Send me a Slack message link.",
+    request,
+    `- Use the message’s ⋯ menu and choose ‘${shortcut}’`,
+    `- Type \`/beckett ${flowType}\` in that Slack conversation`,
+    "- Paste the message or send its Slack link here",
   ].join("\n");
 }
 

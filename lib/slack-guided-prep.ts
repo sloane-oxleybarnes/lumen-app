@@ -1171,6 +1171,8 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "If the exact coworker message is missing but the scenario details are present, draft from the scenario instead of asking for the message again.",
         "If drafting without exact wording, do not claim tone or urgency from the coworker. Include this short note: Since I don’t have their exact wording, I’ll keep this neutral.",
         "Never start with 'No Slack message provided.' Never include a 'Quick frame' section.",
+        "For an obvious low-stakes social message, use the visible message and channel context to give drafts immediately; do not ask multiple questions about relationship, channel vibe, or tone.",
+        "If the user supplies more context in this Respond thread, use it to refine the requested drafts. Do not ask what kind of Beckett help they want or offer Decode/Respond/Rewrite choices.",
         "Prefer sections when they fit: Possible read, Next move, Draft options.",
         "Fold what is uncertain or not knowable into Possible read in one concise sentence.",
         "Draft options must be bullet points labeled Direct but kind, Warm and collaborative, and Concise.",
@@ -1181,8 +1183,9 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "Rewrite the user's message for the stated audience.",
         base,
         "",
-        "Prefer sections when they fit: Rewritten message, Why this works.",
-        "Keep the rewritten message Slack-ready and easy to copy.",
+        "When offering variants, begin directly with 'Here are three options:' and do not recap the user's request.",
+        "Preserve the original meaning and boundary, apply the requested tone change, and make each option meaningfully different.",
+        "Keep the rewritten message Slack-ready, calm when requested, and easy to copy without making it needlessly apologetic.",
       ].join("\n");
     case "decode":
       if (isFeedbackAnalysisRequest([answers.initial_request, followupText, ...(answers.extra_context || [])].filter(Boolean).join(" "))) {
@@ -1200,7 +1203,8 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "Decode the message or situation without over-inference. The conversation may be workplace, workplace-adjacent, friendly, or personal; help with the provided conversation rather than rejecting it as non-work.",
         base,
         "",
-        "Prefer sections when they fit: Possible read and Next move.",
+        "Lead with a short likely read, followed by concise visible evidence, one or two possible interpretations, and a practical next step.",
+        "Use visible reactions and surrounding channel context when they are provided.",
         "Fold what is visible and what is uncertain into Possible read without adding a standalone uncertainty section.",
         "End by asking whether the user wants help drafting a response.",
       ].join("\n");

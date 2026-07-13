@@ -30,6 +30,7 @@ import {
   loadSlackCoachingMessages,
   loadSlackGuestPrepState,
   loadSlackGuestPracticeState,
+  loadSlackGuestSelectedMessageState,
   publishSlackConnectHome,
   publishSlackHomeResult,
   recordSlackCoachingBotMessage,
@@ -107,10 +108,13 @@ function isAssistantStarterPrompt(text: string) {
   return [
     "help me decode the current message without over-reading it.",
     "show me how to decode a specific slack message with beckett.",
+    "help me decode a slack message.",
     "help me draft a clear response to the current conversation.",
     "show me how to draft a response from a specific slack message with beckett.",
+    "help me draft a response to a slack message.",
     "help me rewrite my response so it is clearer and kinder.",
     "help me rewrite this draft so it is clearer and kinder.",
+    "help me rewrite a draft.",
     "help me prepare for a difficult conversation.",
   ].includes(normalized);
 }
@@ -590,20 +594,37 @@ async function respondToAgentMessage({
 
     if (botAccessToken) {
       try {
+        const selectedMessageState = await loadSlackGuestSelectedMessageState({
+          teamId,
+          slackUserId,
+          threadTs,
+        }).catch(() => null);
         const linkedSlackContext = extractSlackPermalinkContext(text);
         const guestContext = await buildGuestSlackContextPacket({
           botAccessToken,
-          channelId: linkedSlackContext?.channelId || activeChannelId || channelId,
-          selectedMessageTs: linkedSlackContext?.messageTs,
+          channelId: linkedSlackContext?.channelId || selectedMessageState?.sourceChannelId || activeChannelId || channelId,
+          channelName: selectedMessageState?.sourceChannelName,
+          selectedMessageTs: linkedSlackContext?.messageTs || selectedMessageState?.sourceMessageTs,
           // A normal assistant reply may only inherit context from its exact
           // Slack thread. Linked conversations retain their linked thread.
-          threadTs: linkedSlackContext?.threadTs || threadTs,
-          selectedMessageText: isAssistantStarterPrompt(text) ? "" : text,
+          threadTs: linkedSlackContext?.threadTs || selectedMessageState?.sourceThreadTs || threadTs,
+          selectedMessageText: selectedMessageState?.message || (isAssistantStarterPrompt(text) ? "" : text),
           userRequest: text,
           currentSlackUserId: slackUserId,
         });
-        const messageText = isAssistantStarterPrompt(text) ? guestContext.text : guestContext.text || text;
-        const intent = guestIntentFromExactThread(messageText, assistantIntent);
+        const durableSelectedContext = selectedMessageState
+          ? [
+              `Active ${selectedMessageState.intent} task. Continue this task unless the user explicitly changes it.`,
+              `The requester selected a message written by ${selectedMessageState.author}. Do not attribute it to the requester.`,
+              `Selected message: ${selectedMessageState.message}`,
+              selectedMessageState.context ? `Saved source context:\n${selectedMessageState.context}` : "",
+            ].filter(Boolean).join("\n")
+          : "";
+        const messageText = [
+          durableSelectedContext,
+          isAssistantStarterPrompt(text) ? guestContext.text : guestContext.text || text,
+        ].filter(Boolean).join("\n\n");
+        const intent = selectedMessageState?.intent || guestIntentFromExactThread(messageText, assistantIntent);
         const guestPrompt = intent === "practice"
           ? guestPracticePrompt(text, messageText)
           : intent === "prep"

@@ -29,6 +29,18 @@ export type SlackGuestPracticeState = {
   concern: string;
 };
 
+export type SlackGuestSelectedMessageState = {
+  threadTs: string;
+  intent: "decode" | "respond";
+  author: string;
+  message: string;
+  sourceChannelId?: string;
+  sourceChannelName?: string;
+  sourceMessageTs?: string;
+  sourceThreadTs?: string;
+  context?: string;
+};
+
 export const SLACK_GUEST_PREP_PRACTICE_ACTION_ID = "beckett_guest_prep_practice";
 
 export async function loadSlackGuestPrepState({
@@ -111,6 +123,49 @@ export async function saveSlackGuestPracticeState({
     slack_user_id: slackUserId,
     source: "slack_guest",
     action: "guided_practice_state",
+    token_estimate: 0,
+    metadata: state,
+  });
+  if (error) throw error;
+}
+
+export async function loadSlackGuestSelectedMessageState({
+  teamId,
+  slackUserId,
+  threadTs,
+}: {
+  teamId: string;
+  slackUserId: string;
+  threadTs: string;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("slack_guest_usage_events")
+    .select("metadata")
+    .eq("slack_team_id", teamId)
+    .eq("slack_user_id", slackUserId)
+    .eq("action", "selected_message_state")
+    .contains("metadata", { threadTs })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.metadata || null) as SlackGuestSelectedMessageState | null;
+}
+
+export async function saveSlackGuestSelectedMessageState({
+  teamId,
+  slackUserId,
+  state,
+}: {
+  teamId: string;
+  slackUserId: string;
+  state: SlackGuestSelectedMessageState;
+}) {
+  const { error } = await supabaseAdmin.from("slack_guest_usage_events").insert({
+    slack_team_id: teamId,
+    slack_user_id: slackUserId,
+    source: "slack_guest",
+    action: "selected_message_state",
     token_estimate: 0,
     metadata: state,
   });
@@ -598,7 +653,7 @@ export function buildSlackHomeBlocks(threads: SlackCoachingThread[], notice?: st
       type: "section",
       text: {
         type: "mrkdwn",
-        text: "No conversations yet. Open Messages to start with Decode, Respond, Rewrite, or Prep / Practice.",
+        text: "No conversations yet. Open Messages to start with Decode, Respond, Rewrite, or Prep.",
       },
     });
     return blocks;
@@ -711,10 +766,16 @@ export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = 
         "What can I help with next?",
       ].join("\n");
 
+  const descriptions = [
+    "Decode a Selected Message — understand tone and possible subtext.",
+    "Respond to a Selected Message — get short reply options.",
+    "Edit a Draft — rewrite while preserving your meaning.",
+  ].join("\n");
+
   return buildBeckettPayload({
     title: "Beckett",
     subtitle: "",
-    body,
+    body: `${body}\n\n${descriptions}`,
     hideTitle: true,
     actions: [
       {
@@ -737,7 +798,7 @@ export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = 
       },
       {
         type: "button",
-        text: { type: "plain_text", text: "Prep / Practice" },
+        text: { type: "plain_text", text: "Prep" },
         action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_prep`,
         value: JSON.stringify({ flowType: "prep" }),
       },
