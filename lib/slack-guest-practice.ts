@@ -2,12 +2,11 @@ import {
   buildBeckettPayload,
   lookupSlackWorkspaceBotToken,
   postSlackAgentMessage,
-  runSlackGuestCoaching,
   slackApiPost,
 } from "@/lib/slack-app";
 import {
+  cancelSlackInactivityStartCard,
   loadSlackGuestPrepState,
-  scheduleSlackInactivityStartCard,
   saveSlackGuestPracticeState,
 } from "@/lib/slack-history";
 import {
@@ -17,6 +16,7 @@ import {
   startSlackGuestSession,
   updateSlackGuestSession,
 } from "@/lib/slack-guest-session";
+import { guestPracticeOpening } from "@/lib/slack-guest-routing";
 
 function guestPracticePersona(personAndSituation: string) {
   const text = personAndSituation.toLowerCase();
@@ -133,6 +133,7 @@ export async function startGuestPracticeFromPrep(input: {
     : prep.location === "call"
       ? "We’ll practice it like a live call."
       : "We’ll practice it like an in-person conversation.";
+  const opening = guestPracticeOpening(persona, prep.location);
   const opened = await postSlackAgentMessage({
     botAccessToken,
     slackUserId: input.slackUserId,
@@ -170,30 +171,16 @@ export async function startGuestPracticeFromPrep(input: {
     threadTs: opened.ts,
     flowType: "practice",
     state: { prepThreadTs: input.prepThreadTs, person: persona, location: prep.location, outcome: prep.outcome, concern: prep.concern },
+    transcript: [{ role: "beckett", content: opening }],
   }).catch(() => null);
-  const opening = await runSlackGuestCoaching({
-    teamId: input.teamId,
-    slackUserId: input.slackUserId,
-    action: "agent_message",
-    intent: "practice",
-    messageText: `Practice role-play with ${persona}.\nDesired outcome: ${prep.outcome}\nConcern or likely pushback: ${prep.concern}`,
-    prompt: [
-      `Begin a role-play as ${persona}.`,
-      `Conversation location: ${mediumInstruction}`,
-      `The user's desired outcome: ${prep.outcome}`,
-      `Likely concern or pushback: ${prep.concern}`,
-      "Give only one short, neutral opening line that hands the conversation to the user.",
-      "Do not assume small talk or invent what the user said. Do not coach, explain, summarize, or ask if the user is ready.",
-    ].join("\n"),
-  });
   const posted = await slackApiPost(botAccessToken, "chat.postMessage", {
     channel: opened.channelId,
     thread_ts: opened.ts,
     ...buildBeckettPayload({ title: "Beckett", body: opening, footer: "Guest mode • Connect Beckett for personalized context.", hideTitle: true }),
   });
   if (posted.ok) {
-    await scheduleSlackInactivityStartCard({ botAccessToken, channelId: opened.channelId }).catch((error) => {
-      console.error("Slack Practice inactivity start card failed", error);
+    await cancelSlackInactivityStartCard({ botAccessToken, channelId: opened.channelId }).catch((error) => {
+      console.error("Slack Practice inactivity menu cancellation failed", error);
     });
   }
   const permalink = await practicePermalink({

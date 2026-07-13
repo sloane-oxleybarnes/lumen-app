@@ -42,6 +42,7 @@ import {
   buildSlackHistoryContinuePayload,
   buildSlackStartCardPayload,
   buildSlackThreadArchiveAction,
+  cancelSlackInactivityStartCard,
   createSlackCoachingThread,
   loadSlackCoachingMessages,
   loadSlackCoachingThread,
@@ -769,8 +770,8 @@ async function sendMessageShortcutResponse({
       if (agentReplyPosted) {
         if (agentChannelId) {
           scheduleSlackBackgroundTask(
-            "Slack guest shortcut inactivity start card failed",
-            scheduleGuestInactivityStartCard({
+            "Slack guest shortcut inactivity menu cancellation failed",
+            cancelGuestInactivityStartCard({
               botAccessToken,
               channelId: agentChannelId,
             })
@@ -1155,14 +1156,14 @@ function selectedMessageInstructions(flowType: "decode" | "respond") {
   ].join("\n");
 }
 
-async function scheduleGuestInactivityStartCard({
+async function cancelGuestInactivityStartCard({
   botAccessToken,
   channelId,
 }: {
   botAccessToken: string;
   channelId: string;
 }) {
-  await scheduleSlackInactivityStartCard({
+  await cancelSlackInactivityStartCard({
     botAccessToken,
     channelId,
   });
@@ -1287,6 +1288,10 @@ async function handleHistoryButtonResponse({
             thread_ts: openedTs,
             ...payloadToPost,
           });
+          scheduleSlackBackgroundTask(
+            "Slack guest quick-action inactivity menu cancellation failed",
+            cancelSlackInactivityStartCard({ botAccessToken, channelId: opened.channelId })
+          );
         } else {
           // Preserve a usable fallback if Slack's assistant-thread opener fails.
           await slackApiPost(botAccessToken, "chat.postMessage", {

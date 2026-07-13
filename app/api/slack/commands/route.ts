@@ -149,15 +149,15 @@ function scheduleCommandBackgroundTask(label: string, task: Promise<void>) {
   else void handledTask;
 }
 
-async function scheduleGuestInactivityStartCard({
+async function cancelGuestInactivityStartCard({
   botAccessToken,
   channelId,
 }: {
   botAccessToken: string;
   channelId: string;
 }) {
-  const { scheduleSlackInactivityStartCard } = await import("@/lib/slack-history");
-  await scheduleSlackInactivityStartCard({
+  const { cancelSlackInactivityStartCard } = await import("@/lib/slack-history");
+  await cancelSlackInactivityStartCard({
     botAccessToken,
     channelId,
   });
@@ -398,8 +398,8 @@ async function startSidebarFlow({
         if (agentReplyPosted) {
           if (agentChannelId) {
             scheduleCommandBackgroundTask(
-              "Slack guest slash inactivity start card failed",
-              scheduleGuestInactivityStartCard({
+              "Slack guest slash inactivity menu cancellation failed",
+              cancelGuestInactivityStartCard({
                 botAccessToken,
                 channelId: agentChannelId,
               })

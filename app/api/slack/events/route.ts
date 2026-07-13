@@ -26,6 +26,7 @@ import {
   appendSlackCoachingMessage,
   buildSlackExplainMoreAction,
   buildSlackThreadArchiveAction,
+  cancelSlackInactivityStartCard,
   createSlackCoachingThread,
   findSlackCoachingThreadBySlackThread,
   formatSlackCoachingMessages,
@@ -42,6 +43,7 @@ import {
   slackHistoryTitle,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
+  type SlackGuestPrepState,
 } from "@/lib/slack-history";
 import {
   appendGuestTurn,
@@ -52,7 +54,11 @@ import {
   type SlackGuestFlowType,
 } from "@/lib/slack-guest-session";
 import { startGuestPracticeFromPrep } from "@/lib/slack-guest-practice";
-import { guestStarterIntent, isGuestStarterPrompt } from "@/lib/slack-guest-routing";
+import {
+  extractGuestPrepOutcomeAndConcern,
+  guestStarterIntent,
+  isGuestStarterPrompt,
+} from "@/lib/slack-guest-routing";
 import { buildSlackPracticeUrl } from "@/lib/slack-practice-link";
 
 export const runtime = "nodejs";
@@ -291,6 +297,56 @@ function guestLocationRecommendation(location: "written" | "call" | "in_person",
   if (/\bzoom\b/i.test(situation)) return "Use your Zoom conversation.";
   if (/\b(?:1:1|one-on-one)\b/i.test(situation)) return "Use your planned one-on-one call.";
   return "Use a video or phone call.";
+}
+
+async function completeGuestPrep({
+  teamId,
+  slackUserId,
+  channelId,
+  threadTs,
+  completedState,
+  messageText,
+}: {
+  teamId: string;
+  slackUserId: string;
+  channelId: string;
+  threadTs: string;
+  completedState: SlackGuestPrepState & { step: "complete"; outcome: string; concern: string };
+  messageText: string;
+}) {
+  await saveSlackGuestPrepState({ teamId, slackUserId, state: completedState });
+  let response = await runSlackGuestCoaching({
+    teamId,
+    slackUserId,
+    action: "agent_message",
+    prompt: [
+      "Create the final concise guided Prep now. All required questions have been answered.",
+      `Person and situation: ${completedState.person || "not specified"}`,
+      `Conversation location: ${guestLocationLabel(completedState.location || "call")}`,
+      `Start the Goal section with this explicit recommendation: ${guestLocationRecommendation(completedState.location || "call", completedState.person || "")}`,
+      `Desired outcome: ${completedState.outcome}`,
+      `Concern or pushback: ${completedState.concern}`,
+      "Tailor the wording and delivery guidance to the conversation location.",
+      "Use only: Goal, Say this first, If they push back.",
+      "Do not ask another setup or clarification question.",
+      "Do not include a Practice next section or a practice question; the interface adds it.",
+    ].join("\n"),
+    messageText,
+    intent: "prep",
+  });
+  response = `${response.trim()}\n\nWould you like to practice the conversation?`;
+  const practiceUrl = buildSlackPracticeUrl({ teamId, slackUserId, channelId, prepThreadTs: threadTs });
+  return {
+    response,
+    actions: [{
+      type: "button",
+      text: { type: "plain_text", text: "Practice conversation" },
+      style: "primary",
+      action_id: SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
+      value: JSON.stringify({ prepThreadTs: threadTs, direct: Boolean(practiceUrl) }),
+      ...(practiceUrl ? { url: practiceUrl } : {}),
+    }] as Record<string, unknown>[],
+  };
 }
 
 function isPracticeStopRequest(text: string) {
@@ -843,44 +899,47 @@ async function respondToAgentMessage({
               response = "What outcome do you want from the conversation? What would a good result look like?";
             }
           } else if (prepState.step === "outcome") {
-            await saveSlackGuestPrepState({
-              teamId,
-              slackUserId,
-              state: { ...prepState, outcome: text, step: "concern" },
-            });
-            response = "What are you most concerned they may misunderstand, push back on, or react poorly to?";
+            const extracted = extractGuestPrepOutcomeAndConcern(text);
+            if (extracted.outcome && extracted.concern) {
+              const completed = await completeGuestPrep({
+                teamId,
+                slackUserId,
+                channelId,
+                threadTs,
+                completedState: {
+                  ...prepState,
+                  outcome: extracted.outcome,
+                  concern: extracted.concern,
+                  step: "complete",
+                },
+                messageText,
+              });
+              response = completed.response;
+              actions = completed.actions;
+            } else {
+              await saveSlackGuestPrepState({
+                teamId,
+                slackUserId,
+                state: { ...prepState, outcome: extracted.outcome || text, step: "concern" },
+              });
+              response = "What are you most concerned they may misunderstand, push back on, or react poorly to?";
+            }
           } else {
             const completedState = { ...prepState, concern: text, step: "complete" as const };
-            await saveSlackGuestPrepState({ teamId, slackUserId, state: completedState });
-            response = await runSlackGuestCoaching({
-              teamId,
-              slackUserId,
-              action: "agent_message",
-              prompt: [
-                "Create the final concise guided Prep now. All required questions have been answered.",
-                `Person and situation: ${completedState.person || "not specified"}`,
-                `Conversation location: ${guestLocationLabel(completedState.location || "call")}`,
-                `Start the Goal section with this explicit recommendation: ${guestLocationRecommendation(completedState.location || "call", completedState.person || "")}`,
-                `Desired outcome: ${completedState.outcome || "not specified"}`,
-                `Concern or pushback: ${completedState.concern}`,
-                "Tailor the wording and delivery guidance to the conversation location.",
-                "Use only: Goal, Say this first, If they push back.",
-                "Do not ask another setup or clarification question.",
-                "Do not include a Practice next section or a practice question; the interface adds it.",
-              ].join("\n"),
-              messageText,
-              intent: "prep",
-            });
-            response = `${response.trim()}\n\nWould you like to practice the conversation?`;
-            const practiceUrl = buildSlackPracticeUrl({ teamId, slackUserId, channelId, prepThreadTs: threadTs });
-            actions = [{
-              type: "button",
-              text: { type: "plain_text", text: "Practice conversation" },
-              style: "primary",
-              action_id: SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
-              value: JSON.stringify({ prepThreadTs: threadTs, direct: Boolean(practiceUrl) }),
-              ...(practiceUrl ? { url: practiceUrl } : {}),
-            }];
+            if (!completedState.outcome) {
+              response = "What outcome do you want from the conversation? What would a good result look like?";
+            } else {
+              const completed = await completeGuestPrep({
+                teamId,
+                slackUserId,
+                channelId,
+                threadTs,
+                completedState: completedState as SlackGuestPrepState & { step: "complete"; outcome: string; concern: string },
+                messageText,
+              });
+              response = completed.response;
+              actions = completed.actions;
+            }
           }
         } else {
           response = await runSlackGuestCoaching({
@@ -923,8 +982,8 @@ async function respondToAgentMessage({
         }
         if (posted.ok) {
           scheduleSlackBackgroundTask(
-            "Slack guest inactivity start card failed",
-            scheduleSlackInactivityStartCard({ botAccessToken, channelId })
+            "Slack guest inactivity menu cancellation failed",
+            cancelSlackInactivityStartCard({ botAccessToken, channelId })
           );
         }
         return;

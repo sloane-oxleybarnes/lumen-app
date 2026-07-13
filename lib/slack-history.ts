@@ -817,6 +817,48 @@ export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = 
   });
 }
 
+export async function cancelSlackInactivityStartCard({
+  botAccessToken,
+  channelId,
+}: {
+  botAccessToken?: string | null;
+  channelId?: string | null;
+}) {
+  if (!botAccessToken || !channelId) return;
+
+  const { data: reservation } = await supabaseAdmin
+    .from("slack_inactivity_schedules")
+    .select("scheduled_message_id")
+    .eq("channel_id", channelId)
+    .maybeSingle();
+  if (reservation?.scheduled_message_id) {
+    await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+      channel: channelId,
+      scheduled_message_id: reservation.scheduled_message_id,
+    }).catch(() => null);
+  }
+
+  const pending = await slackApiPost<{
+    scheduled_messages?: Array<{ id?: string }>;
+  }>(botAccessToken, "chat.scheduledMessages.list", {
+    channel: channelId,
+    limit: 100,
+  }).catch(() => null);
+  for (const scheduled of pending?.scheduled_messages || []) {
+    if (!scheduled.id || scheduled.id === reservation?.scheduled_message_id) continue;
+    await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+      channel: channelId,
+      scheduled_message_id: scheduled.id,
+    }).catch(() => null);
+  }
+
+  await supabaseAdmin
+    .from("slack_inactivity_schedules")
+    .delete()
+    .eq("channel_id", channelId);
+  beckettSlackScheduledMessages.delete(channelId);
+}
+
 export async function scheduleSlackInactivityStartCard({
   botAccessToken,
   channelId,

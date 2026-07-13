@@ -73,3 +73,42 @@ export function buildGuestSlashCoachingPrompt(
 
   return prompt;
 }
+
+export function extractGuestPrepOutcomeAndConcern(text: string) {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  const concernMatch = cleaned.match(
+    /\b(?:i(?:['’]m| am) (?:worried|concerned|afraid|nervous)|my (?:main )?concern is|i fear|i (?:do not|don['’]t) want)\b/i
+  );
+  if (!concernMatch || concernMatch.index === undefined) {
+    return { outcome: cleaned || null, concern: null };
+  }
+
+  const beforeConcern = cleaned
+    .slice(0, concernMatch.index)
+    .replace(/[\s,;:-]*(?:but|and)?\s*$/i, "")
+    .trim();
+  const concernTail = cleaned.slice(concernMatch.index).trim();
+  const firstConcernSentence = concernTail.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
+  const concern = (firstConcernSentence || concernTail)
+    .replace(/\s+(?:where|what(?:'s| is) the best place|should (?:i|we) have)\b[\s\S]*$/i, "")
+    .trim();
+
+  return {
+    outcome: beforeConcern || null,
+    concern: concern || null,
+  };
+}
+
+export function guestPracticeOpening(
+  persona: string,
+  location: "written" | "call" | "in_person"
+) {
+  if (location === "written") {
+    if (persona === "your manager") return "Hi—what did you want to talk through?";
+    return "Hi—what would you like to discuss?";
+  }
+  if (persona === "your manager") return "Hey, I have a few minutes—what's on your mind?";
+  if (persona === "your client") return "Hi—what would you like to discuss?";
+  if (persona === "your direct report") return "Hey—what did you want to talk about?";
+  return "Hey—what's on your mind?";
+}
