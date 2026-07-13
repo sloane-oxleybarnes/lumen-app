@@ -1970,7 +1970,11 @@ ${prompt}${relationshipLine}${messageLine}`;
       : text;
   const cleaned = withRelationshipLimitation.trim() || "I could not generate a response for that Slack request.";
   if (broaderSearchUsed && intent === "general") {
-    return fitSlackAnswer(compactSlackResponseLayout(cleaned), 320);
+    const directResult = cleaned
+      .split("\n")
+      .map((line) => line.trim())
+      .find((line) => line && !/^~?\s*(?:result|answer|source)\s*~?:?$/i.test(line));
+    return fitSlackAnswer(directResult || cleaned, 220);
   }
   if (responseDetail === "quick") return fitSlackAnswer(compactSlackResponseLayout(cleaned), compactSlackLimit(intent));
   if (responseDetail === "longer") return fitSlackAnswer(cleaned, MAX_LONGER_SLACK_ANSWER_LENGTH);
