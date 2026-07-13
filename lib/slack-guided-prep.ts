@@ -1529,6 +1529,14 @@ async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentS
     }
     return response;
   }
+  if (session.flow_type === "prep") {
+    const nextStep = nextStepForAnswers("prep", session.answers);
+    if (nextStep) {
+      const updated = await updateSession(session.id, { step: nextStep });
+      return askForStep(updated);
+    }
+    return safeCompleteSession(input, session);
+  }
   return askForStep(session);
 }
 
