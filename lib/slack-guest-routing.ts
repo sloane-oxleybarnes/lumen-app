@@ -87,6 +87,13 @@ export function extractGuestPrepOutcomeAndConcern(text: string) {
     .slice(0, concernMatch.index)
     .replace(/[\s,;:-]*(?:but|and)?\s*$/i, "")
     .trim();
+  const outcomeMarkers = Array.from(beforeConcern.matchAll(
+    /\b(?:i|we)\s+(?:want|would like|hope)(?:\s+(?:us|them|him|her|my manager|our manager|the team|you))?\s+to\b|\bmy\s+(?:goal|desired outcome)\s+is\b|\bi\s+need\s+(?:us|them|him|her|my manager|the team|you)\s+to\b/gi
+  ));
+  const lastOutcomeMarker = outcomeMarkers.at(-1);
+  const explicitOutcome = lastOutcomeMarker?.index === undefined
+    ? beforeConcern
+    : beforeConcern.slice(lastOutcomeMarker.index).trim();
   const concernTail = cleaned.slice(concernMatch.index).trim();
   const firstConcernSentence = concernTail.match(/^.*?[.!?](?:\s|$)/)?.[0]?.trim();
   const concern = (firstConcernSentence || concernTail)
@@ -94,9 +101,16 @@ export function extractGuestPrepOutcomeAndConcern(text: string) {
     .trim();
 
   return {
-    outcome: beforeConcern || null,
+    outcome: explicitOutcome || null,
     concern: concern || null,
   };
+}
+
+export function inferGuestPrepLocation(text: string): "written" | "call" | "in_person" | null {
+  if (/\b(zoom|google meet|microsoft teams|video|phone|call|virtual|facetime)\b/i.test(text)) return "call";
+  if (/\b(in[ -]?person|face[ -]?to[ -]?face|at the office|over coffee|when i see|meet in person)\b/i.test(text)) return "in_person";
+  if (/\b(slack|message|dm|direct message|channel|email|chat|written|text)\b/i.test(text)) return "written";
+  return null;
 }
 
 export function guestPracticeOpening(

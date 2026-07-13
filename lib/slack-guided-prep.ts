@@ -447,6 +447,9 @@ function initialAnswers(
   source?: { channelId?: string | null; channelName?: string | null; threadTs?: string | null }
 ): GuidedAnswers {
   const initialRequest = normalizeText(text);
+  const initialPrepDetails = flowType === "prep"
+    ? extractGuestPrepOutcomeAndConcern(initialRequest)
+    : { outcome: null, concern: null };
   const prepTopic = flowType === "prep" || flowType === "practice" ? prepTopicFromInitialRequest(initialRequest) : "";
   const sourceAudience =
     flowType === "respond" || flowType === "rewrite" || flowType === "decode"
@@ -466,7 +469,10 @@ function initialAnswers(
     source_channel_name: source?.channelName || undefined,
     source_thread_ts: source?.threadTs || undefined,
     audience: sourceAudience || undefined,
-    outcome: flowType === "prep" ? inferPrepOutcomeFromInitialRequest(initialRequest) || undefined : undefined,
+    outcome: flowType === "prep"
+      ? (initialPrepDetails.concern ? initialPrepDetails.outcome : null) || inferPrepOutcomeFromInitialRequest(initialRequest) || undefined
+      : undefined,
+    concern: flowType === "prep" ? initialPrepDetails.concern || undefined : undefined,
     extra_context: prepTopic ? [`Initial prep topic: ${prepTopic}.`] : [],
   };
 }

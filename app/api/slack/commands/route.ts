@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
-import { buildGuestSlashCoachingPrompt } from "@/lib/slack-guest-routing";
+import {
+  buildGuestSlashCoachingPrompt,
+  extractGuestPrepOutcomeAndConcern,
+  inferGuestPrepLocation,
+} from "@/lib/slack-guest-routing";
+import { buildSlackPracticeUrl } from "@/lib/slack-practice-link";
 
 export const runtime = "nodejs";
 
@@ -316,26 +321,73 @@ async function startSidebarFlow({
           let state: Record<string, unknown> = { step: "active" };
           if (parsed.intent === "rewrite") state = { step: "active", draft: parsed.prompt };
           let prepResponse: string | null = null;
+          let prepActions: Record<string, unknown>[] = [];
           if (parsed.intent === "prep") {
-            const location: "written" | "call" | "in_person" | undefined = /\b(slack|message|dm|email|written|text)\b/i.test(parsed.prompt)
-              ? "written"
-              : /\b(zoom|meet|video|phone|call|virtual)\b/i.test(parsed.prompt)
-                ? "call"
-                : /\b(in[ -]?person|face[ -]?to[ -]?face|office|coffee)\b/i.test(parsed.prompt)
-                  ? "in_person"
-                  : undefined;
+            const location = inferGuestPrepLocation(parsed.prompt) || undefined;
+            const extracted = extractGuestPrepOutcomeAndConcern(parsed.prompt);
+            const isComplete = Boolean(location && extracted.outcome && extracted.concern);
             const prepState = {
               threadTs: agentDelivery.ts,
-              step: location ? "outcome" as const : "location" as const,
+              step: isComplete ? "complete" as const : location ? "outcome" as const : "location" as const,
               person: parsed.prompt,
               location,
+              ...(extracted.outcome ? { outcome: extracted.outcome } : {}),
+              ...(extracted.concern ? { concern: extracted.concern } : {}),
             };
-            const { saveSlackGuestPrepState } = await import("@/lib/slack-history");
+            const { saveSlackGuestPrepState, SLACK_GUEST_PREP_PRACTICE_ACTION_ID } = await import("@/lib/slack-history");
             await saveSlackGuestPrepState({ teamId: payload.team_id, slackUserId: payload.user_id, state: prepState });
             state = prepState;
-            prepResponse = location
-              ? "What outcome do you want from the conversation? What would a good result look like?"
-              : "Where will this conversation happen—Slack or another written message, a video or phone call, or in person?";
+            if (isComplete && location && extracted.outcome && extracted.concern) {
+              const locationLabel = location === "written"
+                ? "Slack or another written message"
+                : location === "in_person"
+                  ? "in person"
+                  : "a video or phone call";
+              const locationRecommendation = location === "written"
+                ? "Use Slack or another written message."
+                : location === "in_person"
+                  ? "Have this conversation in person."
+                  : /\bzoom\b/i.test(parsed.prompt) && /\b(?:1:1|one-on-one)\b/i.test(parsed.prompt)
+                    ? "Use your Zoom 1:1."
+                    : "Use a video or phone call.";
+              prepResponse = await runSlackGuestCoaching({
+                teamId: payload.team_id,
+                slackUserId: payload.user_id,
+                action: "slash_command",
+                prompt: [
+                  "Create the final concise guided Prep now. All required details were supplied in the slash command.",
+                  `Person and situation: ${parsed.prompt}`,
+                  `Conversation location: ${locationLabel}`,
+                  `Start the Goal section with this explicit recommendation: ${locationRecommendation}`,
+                  `Desired outcome: ${extracted.outcome}`,
+                  `Concern or pushback: ${extracted.concern}`,
+                  "Use only: Goal, Say this first, If they push back.",
+                  "Do not ask another setup or clarification question.",
+                  "Do not include a Practice next section or a practice question; the interface adds it.",
+                ].join("\n"),
+                messageText: parsed.prompt,
+                intent: "prep",
+              });
+              prepResponse = `${prepResponse.trim()}\n\nWould you like to practice the conversation?`;
+              const practiceUrl = buildSlackPracticeUrl({
+                teamId: payload.team_id,
+                slackUserId: payload.user_id,
+                channelId: agentDelivery.channelId,
+                prepThreadTs: agentDelivery.ts,
+              });
+              prepActions = [{
+                type: "button",
+                text: { type: "plain_text", text: "Practice conversation" },
+                style: "primary",
+                action_id: SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
+                value: JSON.stringify({ prepThreadTs: agentDelivery.ts, direct: Boolean(practiceUrl) }),
+                ...(practiceUrl ? { url: practiceUrl } : {}),
+              }];
+            } else {
+              prepResponse = location
+                ? "What outcome do you want from the conversation? What would a good result look like?"
+                : "Where will this conversation happen—Slack or another written message, a video or phone call, or in person?";
+            }
           }
           let guestSession = await startSlackGuestSession({
             teamId: payload.team_id,
@@ -379,6 +431,7 @@ async function startSidebarFlow({
             subtitle: "",
             body: response,
             hideTitle: true,
+            actions: prepActions,
           });
           const reply = await slackApiPost(botAccessToken, "chat.postMessage", {
             channel: agentDelivery.channelId,

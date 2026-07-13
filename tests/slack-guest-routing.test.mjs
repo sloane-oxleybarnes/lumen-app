@@ -6,6 +6,7 @@ import {
   extractGuestPrepOutcomeAndConcern,
   guestPracticeOpening,
   guestStarterIntent,
+  inferGuestPrepLocation,
   shouldLoadGuestConversationContext,
 } from "../lib/slack-guest-routing.ts";
 import { shouldScheduleSlackInactivityStartCard } from "../lib/slack-inactivity-policy.ts";
@@ -51,6 +52,15 @@ test("Prep extracts an explicit concern instead of asking for it again", () => {
   );
   assert.equal(liveFailure.outcome, "I want us to agree on priorities so the workload is realistic.");
   assert.equal(liveFailure.concern, "I am worried they will think I cannot prioritize or handle my role.");
+});
+
+test("complete one-message Prep extracts only the requested outcome", () => {
+  const result = extractGuestPrepOutcomeAndConcern(
+    "I need to talk to my manager about workload during our Zoom 1:1. I want us to agree on priorities so the workload is realistic. I am worried they will think I cannot prioritize or handle my role."
+  );
+  assert.equal(result.outcome, "I want us to agree on priorities so the workload is realistic.");
+  assert.equal(result.concern, "I am worried they will think I cannot prioritize or handle my role.");
+  assert.equal(inferGuestPrepLocation("during our Zoom 1:1"), "call");
 });
 
 test("active Slack coaching never schedules unsolicited start menus", () => {

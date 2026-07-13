@@ -14,6 +14,7 @@ import { getPublicSiteUrl } from "@/lib/deployment-env";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
 import { shouldLoadGuestConversationContext } from "@/lib/slack-guest-routing";
+import { slackApiRetryDelayMs } from "@/lib/slack-api-retry";
 
 const MAX_SLACK_TEXT_LENGTH = 2800;
 const MAX_SLACK_CONTEXT_MESSAGES = 25;
@@ -808,15 +809,27 @@ export async function lookupSlackWorkspaceBotToken(teamId: string) {
 }
 
 export async function slackApiPost<T>(accessToken: string, method: string, body: Record<string, unknown>) {
-  const res = await fetch(`https://slack.com/api/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json; charset=utf-8",
-    },
-    body: JSON.stringify(body),
-  });
-  return res.json().catch(() => ({})) as Promise<T & { ok?: boolean; error?: string }>;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const res = await fetch(`https://slack.com/api/${method}`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json; charset=utf-8",
+      },
+      body: JSON.stringify(body),
+    });
+    const result = await res.json().catch(() => ({})) as T & { ok?: boolean; error?: string };
+    const retryDelay = slackApiRetryDelayMs({
+      attempt,
+      status: res.status,
+      retryAfter: res.headers.get("retry-after"),
+      error: result.error,
+    });
+    if (retryDelay === null || attempt === 3) return result;
+    await new Promise((resolve) => setTimeout(resolve, retryDelay));
+  }
+
+  return {} as T & { ok?: boolean; error?: string };
 }
 
 async function openSlackAgentChannel(botAccessToken: string, slackUserId: string) {
