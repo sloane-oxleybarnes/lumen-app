@@ -28,6 +28,40 @@ function guestPracticePersona(personAndSituation: string) {
   return mention?.[2] || "the other person";
 }
 
+function slackThreadRedirect(teamId: string, channelId: string, messageTs: string) {
+  return `https://app.slack.com/client/${encodeURIComponent(teamId)}/${encodeURIComponent(channelId)}/thread/${encodeURIComponent(channelId)}-${encodeURIComponent(messageTs)}`;
+}
+
+async function practicePermalink({
+  botAccessToken,
+  teamId,
+  channelId,
+  messageTs,
+}: {
+  botAccessToken: string;
+  teamId: string;
+  channelId: string;
+  messageTs: string;
+}) {
+  let lastError = "missing_permalink";
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const result = await slackApiPost<{ permalink?: string }>(botAccessToken, "chat.getPermalink", {
+      channel: channelId,
+      message_ts: messageTs,
+    });
+    if (result.ok && result.permalink) return result.permalink;
+    lastError = result.error || lastError;
+    if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, 200 * (attempt + 1)));
+  }
+  console.warn("Slack Practice permalink unavailable; falling back to its direct Slack thread URL", {
+    teamPresent: Boolean(teamId),
+    channelPresent: Boolean(channelId),
+    messagePresent: Boolean(messageTs),
+    error: lastError,
+  });
+  return slackThreadRedirect(teamId, channelId, messageTs);
+}
+
 export async function startGuestPracticeFromPrep(input: {
   teamId: string;
   slackUserId: string;
@@ -49,13 +83,13 @@ export async function startGuestPracticeFromPrep(input: {
   if (!botAccessToken) return { ok: false as const, error: "missing_bot_token" };
 
   if (prepSession?.practice_thread_ts) {
-    const permalink = await slackApiPost<{ permalink?: string }>(botAccessToken, "chat.getPermalink", {
-      channel: input.channelId,
-      message_ts: prepSession.practice_thread_ts,
+    const permalink = await practicePermalink({
+      botAccessToken,
+      teamId: input.teamId,
+      channelId: input.channelId,
+      messageTs: prepSession.practice_thread_ts,
     });
-    if (permalink.ok && permalink.permalink) {
-      return { ok: true as const, channelId: input.channelId, threadTs: prepSession.practice_thread_ts, permalink: permalink.permalink };
-    }
+    return { ok: true as const, channelId: input.channelId, threadTs: prepSession.practice_thread_ts, permalink };
   }
 
   if (prepSession) {
@@ -70,13 +104,13 @@ export async function startGuestPracticeFromPrep(input: {
           threadTs: input.prepThreadTs,
         });
         if (!current?.practice_thread_ts) continue;
-        const permalink = await slackApiPost<{ permalink?: string }>(botAccessToken, "chat.getPermalink", {
-          channel: input.channelId,
-          message_ts: current.practice_thread_ts,
+        const permalink = await practicePermalink({
+          botAccessToken,
+          teamId: input.teamId,
+          channelId: input.channelId,
+          messageTs: current.practice_thread_ts,
         });
-        if (permalink.ok && permalink.permalink) {
-          return { ok: true as const, channelId: input.channelId, threadTs: current.practice_thread_ts, permalink: permalink.permalink };
-        }
+        return { ok: true as const, channelId: input.channelId, threadTs: current.practice_thread_ts, permalink };
       }
       return { ok: false as const, error: "practice_creation_in_progress" };
     }
@@ -162,9 +196,11 @@ export async function startGuestPracticeFromPrep(input: {
       console.error("Slack Practice inactivity start card failed", error);
     });
   }
-  const permalink = await slackApiPost<{ permalink?: string }>(botAccessToken, "chat.getPermalink", {
-    channel: opened.channelId,
-    message_ts: opened.ts,
+  const permalink = await practicePermalink({
+    botAccessToken,
+    teamId: input.teamId,
+    channelId: opened.channelId,
+    messageTs: opened.ts,
   });
-  return { ok: true as const, channelId: opened.channelId, threadTs: opened.ts, permalink: permalink.permalink || null };
+  return { ok: true as const, channelId: opened.channelId, threadTs: opened.ts, permalink };
 }

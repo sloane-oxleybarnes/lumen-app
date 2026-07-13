@@ -13,6 +13,7 @@ import {
 import { getPublicSiteUrl } from "@/lib/deployment-env";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
+import { shouldLoadGuestConversationContext } from "@/lib/slack-guest-routing";
 
 const MAX_SLACK_TEXT_LENGTH = 2800;
 const MAX_SLACK_CONTEXT_MESSAGES = 25;
@@ -1211,7 +1212,9 @@ export async function fetchSlackConversationContext({
         })
       ).catch(() => null);
 
-  const historyData = await fetchRecentHistory();
+  // A Beckett root thread is a hard conversation boundary. Pulling recent DM
+  // history here allowed unrelated roots to enter an otherwise exact thread.
+  const historyData = threadTs ? null : await fetchRecentHistory();
   const replyTs = threadTs || null;
   const replyData = replyTs ? await fetchThreadReplies(replyTs) : null;
   const fallbackReplyData =
@@ -1365,7 +1368,11 @@ export async function buildGuestSlackContextPacket({
   if (request) sections.push(["User request:", request].join("\n"));
 
   let context: SlackConversationContext | null = null;
-  if (botAccessToken && channelId) {
+  if (
+    botAccessToken &&
+    channelId &&
+    shouldLoadGuestConversationContext({ selectedMessageText, selectedMessageTs, threadTs, latestMessageText })
+  ) {
     context = selectedMessageTs || threadTs
       ? await fetchSlackConversationContext({
           accessToken: botAccessToken,

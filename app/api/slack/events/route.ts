@@ -52,6 +52,7 @@ import {
   type SlackGuestFlowType,
 } from "@/lib/slack-guest-session";
 import { startGuestPracticeFromPrep } from "@/lib/slack-guest-practice";
+import { guestStarterIntent, isGuestStarterPrompt } from "@/lib/slack-guest-routing";
 import { buildSlackPracticeUrl } from "@/lib/slack-practice-link";
 
 export const runtime = "nodejs";
@@ -128,24 +129,12 @@ function guestSessionIntent(flowType: SlackGuestFlowType): SlackCoachingIntent {
 }
 
 function isAssistantStarterPrompt(text: string) {
-  const normalized = text.trim().toLowerCase();
-  return [
-    "help me decode the current message without over-reading it.",
-    "show me how to decode a specific slack message with beckett.",
-    "help me decode a slack message.",
-    "help me draft a clear response to the current conversation.",
-    "show me how to draft a response from a specific slack message with beckett.",
-    "help me draft a response to a slack message.",
-    "help me rewrite my response so it is clearer and kinder.",
-    "help me rewrite this draft so it is clearer and kinder.",
-    "help me rewrite a draft.",
-    "help me prepare for a difficult conversation.",
-  ].includes(normalized);
+  return isGuestStarterPrompt(text);
 }
 
 function starterPromptMissingContextMessage(intent: SlackCoachingIntent) {
   if (intent === "rewrite") {
-    return "Let’s work on rewriting your message. First, who is this going to and where will you send it?";
+    return "Paste the draft you want to rewrite. I’ll preserve its meaning and boundaries, then give you three concise Slack-ready options.";
   }
 
   const action = intent === "respond" ? "responding to" : "decoding";
@@ -293,6 +282,15 @@ function guestLocationLabel(location: "written" | "call" | "in_person") {
   if (location === "written") return "Slack or another written message";
   if (location === "call") return "a video or phone call";
   return "in person";
+}
+
+function guestLocationRecommendation(location: "written" | "call" | "in_person", situation: string) {
+  if (location === "written") return "Use Slack or another written message.";
+  if (location === "in_person") return "Have this conversation in person.";
+  if (/\bzoom\b/i.test(situation) && /\b(?:1:1|one-on-one)\b/i.test(situation)) return "Use your Zoom 1:1.";
+  if (/\bzoom\b/i.test(situation)) return "Use your Zoom conversation.";
+  if (/\b(?:1:1|one-on-one)\b/i.test(situation)) return "Use your planned one-on-one call.";
+  return "Use a video or phone call.";
 }
 
 function isPracticeStopRequest(text: string) {
@@ -689,9 +687,10 @@ async function respondToAgentMessage({
           durableSelectedContext,
           isAssistantStarterPrompt(text) ? guestContext.text : guestContext.text || text,
         ].filter(Boolean).join("\n\n");
+        const exactStarterIntent = guestStarterIntent(text);
         const inferredFlow: SlackGuestFlowType = isSlackRetrievalRequest(text)
           ? "retrieval"
-          : (selectedMessageState?.intent || guestIntentFromExactThread(messageText, assistantIntent)) as SlackGuestFlowType;
+          : (selectedMessageState?.intent || exactStarterIntent || guestIntentFromExactThread(messageText, assistantIntent)) as SlackGuestFlowType;
         const flowType = guestSession?.flow_type || inferredFlow;
         const intent = guestSession ? guestSessionIntent(guestSession.flow_type) : guestSessionIntent(flowType);
         if (!guestSession && ["decode", "respond", "rewrite", "prep", "practice", "retrieval"].includes(flowType)) {
@@ -765,6 +764,8 @@ async function respondToAgentMessage({
             messageText,
             intent: "practice",
           });
+        } else if (exactStarterIntent && isCompactSlackIntent(intent)) {
+          response = starterPromptMissingContextMessage(intent);
         } else if (flowType === "rewrite" && !guestSession?.source?.message && !guestSession?.state?.draft && !isAssistantStarterPrompt(text)) {
           if (guestSession) {
             guestSession = await updateSlackGuestSession(guestSession, {
@@ -859,6 +860,7 @@ async function respondToAgentMessage({
                 "Create the final concise guided Prep now. All required questions have been answered.",
                 `Person and situation: ${completedState.person || "not specified"}`,
                 `Conversation location: ${guestLocationLabel(completedState.location || "call")}`,
+                `Start the Goal section with this explicit recommendation: ${guestLocationRecommendation(completedState.location || "call", completedState.person || "")}`,
                 `Desired outcome: ${completedState.outcome || "not specified"}`,
                 `Concern or pushback: ${completedState.concern}`,
                 "Tailor the wording and delivery guidance to the conversation location.",

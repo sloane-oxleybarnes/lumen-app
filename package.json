@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:slack": "node --test tests/slack-guest-routing.test.mjs",
     "demo:plan": "node scripts/demo-seed.js --plan",
     "demo:seed:gmail": "node scripts/demo-seed.js --gmail",
     "demo:seed:slack": "node scripts/demo-seed.js --slack",
