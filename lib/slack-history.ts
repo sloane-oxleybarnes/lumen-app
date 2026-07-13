@@ -12,6 +12,13 @@ export const SLACK_INACTIVITY_START_CARD_DELAY_MS = allowShortSlackTimer
   ? Math.max(1_000, Number.isFinite(requestedSlackInactivityDelay) ? requestedSlackInactivityDelay : 5 * 60 * 1000)
   : Math.max(5 * 60 * 1000, Number.isFinite(requestedSlackInactivityDelay) ? requestedSlackInactivityDelay : 5 * 60 * 1000);
 
+const slackInactivityRuntime = globalThis as typeof globalThis & {
+  beckettSlackScheduledMessages?: Map<string, string>;
+};
+const beckettSlackScheduledMessages =
+  slackInactivityRuntime.beckettSlackScheduledMessages || new Map<string, string>();
+slackInactivityRuntime.beckettSlackScheduledMessages = beckettSlackScheduledMessages;
+
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "relationship" | "prep" | "practice" | "message";
 
 export type SlackGuestPrepState = {
@@ -822,6 +829,20 @@ export async function scheduleSlackInactivityStartCard({
   if (!botAccessToken || !channelId) return;
 
   const payload = buildSlackStartCardPayload("inactivity");
+  const knownScheduledId = beckettSlackScheduledMessages.get(channelId);
+  if (knownScheduledId) {
+    const removedKnown = await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+      channel: channelId,
+      scheduled_message_id: knownScheduledId,
+    }).catch(() => null);
+    if (removedKnown?.ok) beckettSlackScheduledMessages.delete(channelId);
+    else {
+      console.warn("Slack known inactivity timer deletion failed", {
+        channelPresent: true,
+        error: removedKnown?.error || "slack_api_error",
+      });
+    }
+  }
   const pending = await slackApiPost<{
     scheduled_messages?: Array<{ id?: string; text?: string }>;
   }>(botAccessToken, "chat.scheduledMessages.list", {
@@ -834,10 +855,16 @@ export async function scheduleSlackInactivityStartCard({
     // block-kit fallback text from scheduledMessages.list, so filtering on the
     // visible marker left older timers alive and caused duplicate menus.
     if (!scheduled.id) continue;
-    await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+    const removed = await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
       channel: channelId,
       scheduled_message_id: scheduled.id,
     }).catch(() => null);
+    if (!removed?.ok) {
+      console.warn("Slack listed inactivity timer deletion failed", {
+        channelPresent: true,
+        error: removed?.error || "slack_api_error",
+      });
+    }
   }
 
   const postAt = Math.ceil((Date.now() + SLACK_INACTIVITY_START_CARD_DELAY_MS) / 1000);
@@ -852,6 +879,9 @@ export async function scheduleSlackInactivityStartCard({
     ...payload,
   });
   if (!scheduled.ok) throw new Error(scheduled.error || "slack_schedule_message_failed");
+  if (scheduled.scheduled_message_id) {
+    beckettSlackScheduledMessages.set(channelId, scheduled.scheduled_message_id);
+  }
 
   // Several Slack event paths can finish at nearly the same time. Re-list after
   // scheduling and deterministically keep only the newest start-card timer.
@@ -868,10 +898,16 @@ export async function scheduleSlackInactivityStartCard({
       return timeDifference || String(b.id).localeCompare(String(a.id));
     });
   for (const duplicate of markerSchedules.slice(1)) {
-    await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+    const removed = await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
       channel: channelId,
       scheduled_message_id: duplicate.id,
     }).catch(() => null);
+    if (!removed?.ok) {
+      console.warn("Slack duplicate inactivity timer deletion failed", {
+        channelPresent: true,
+        error: removed?.error || "slack_api_error",
+      });
+    }
   }
 }
 

@@ -1072,7 +1072,12 @@ async function respondToAgentMessage({
           messageTs: postedGuided.ts,
           kind: "reply",
         }).catch(() => null);
-        if (guidedPrep.coachingThreadId) {
+        const isCompletedPrep = Boolean(
+          guidedPrep.actions?.some((action) =>
+            String((action as { action_id?: string }).action_id || "").endsWith("_practice")
+          )
+        );
+        if (guidedPrep.coachingThreadId && (guidedPrep.title !== "Prep" || isCompletedPrep)) {
           scheduleSlackBackgroundTask(
             "Slack inactivity start card failed",
             scheduleSlackInactivityStartCard({
