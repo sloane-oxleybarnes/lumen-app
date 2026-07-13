@@ -1210,6 +1210,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "",
         "The audience is optional. Never ask who the message is for or where it will be sent; rewrite from the draft immediately.",
         "When offering variants, begin directly with 'Here are three options:' and do not recap the user's request.",
+        "Keep all three options together under 90 words.",
         "Preserve the original meaning and boundary, apply the requested tone change, and make each option meaningfully different.",
         "Keep the rewritten message Slack-ready, calm when requested, and easy to copy without making it needlessly apologetic.",
       ].join("\n");

@@ -1835,7 +1835,7 @@ ${beckettBoundaryPrompt()}`;
   );
   const responseDetailLine =
     responseDetail === "quick"
-      ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful. Keep the answer under 700 characters."
+      ? "Response length: Quick answer. Keep it concise: 2-4 practical bullets, plus suggested wording only if useful. Keep the complete answer under 500 characters."
       : responseDetail === "longer"
         ? "Response length: Longer explanation. Give more context about likely tone/subtext, what to watch for, next steps, and suggested wording. Keep it scannable in Slack and under 1700 characters."
         : "Response length: Default Slack coaching response. Be concise but useful.";
