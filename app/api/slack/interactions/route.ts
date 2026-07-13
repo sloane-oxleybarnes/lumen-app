@@ -308,7 +308,12 @@ async function handleGuestPrepPracticeAction({
     slackUserId,
     action: "agent_message",
     intent: "practice",
-    messageText: "",
+    messageText: [
+      `Practice role-play with ${prep.person}.`,
+      `Conversation medium: ${mediumInstruction}`,
+      `Desired outcome: ${prep.outcome}`,
+      `Concern or likely pushback: ${prep.concern}`,
+    ].join("\n"),
     prompt: [
       `Begin a role-play as ${prep.person}.`,
       `Conversation location: ${mediumInstruction}`,
