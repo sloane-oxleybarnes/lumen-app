@@ -11,6 +11,112 @@ export const SLACK_INACTIVITY_START_CARD_DELAY_MS =
 
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "relationship" | "prep" | "practice" | "message";
 
+export type SlackGuestPrepState = {
+  threadTs: string;
+  step: "person" | "location" | "outcome" | "concern" | "complete";
+  person?: string;
+  location?: "written" | "call" | "in_person";
+  outcome?: string;
+  concern?: string;
+};
+
+export type SlackGuestPracticeState = {
+  threadTs: string;
+  prepThreadTs: string;
+  person: string;
+  location: "written" | "call" | "in_person";
+  outcome: string;
+  concern: string;
+};
+
+export const SLACK_GUEST_PREP_PRACTICE_ACTION_ID = "beckett_guest_prep_practice";
+
+export async function loadSlackGuestPrepState({
+  teamId,
+  slackUserId,
+  threadTs,
+}: {
+  teamId: string;
+  slackUserId: string;
+  threadTs: string;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("slack_guest_usage_events")
+    .select("metadata")
+    .eq("slack_team_id", teamId)
+    .eq("slack_user_id", slackUserId)
+    .eq("action", "guided_prep_state")
+    .contains("metadata", { threadTs })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.metadata || null) as SlackGuestPrepState | null;
+}
+
+export async function saveSlackGuestPrepState({
+  teamId,
+  slackUserId,
+  state,
+}: {
+  teamId: string;
+  slackUserId: string;
+  state: SlackGuestPrepState;
+}) {
+  const { error } = await supabaseAdmin.from("slack_guest_usage_events").insert({
+    slack_team_id: teamId,
+    slack_user_id: slackUserId,
+    source: "slack_guest",
+    action: "guided_prep_state",
+    token_estimate: 0,
+    metadata: state,
+  });
+  if (error) throw error;
+}
+
+export async function loadSlackGuestPracticeState({
+  teamId,
+  slackUserId,
+  threadTs,
+}: {
+  teamId: string;
+  slackUserId: string;
+  threadTs: string;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("slack_guest_usage_events")
+    .select("metadata")
+    .eq("slack_team_id", teamId)
+    .eq("slack_user_id", slackUserId)
+    .eq("action", "guided_practice_state")
+    .contains("metadata", { threadTs })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return (data?.metadata || null) as SlackGuestPracticeState | null;
+}
+
+export async function saveSlackGuestPracticeState({
+  teamId,
+  slackUserId,
+  state,
+}: {
+  teamId: string;
+  slackUserId: string;
+  state: SlackGuestPracticeState;
+}) {
+  const { error } = await supabaseAdmin.from("slack_guest_usage_events").insert({
+    slack_team_id: teamId,
+    slack_user_id: slackUserId,
+    source: "slack_guest",
+    action: "guided_practice_state",
+    token_estimate: 0,
+    metadata: state,
+  });
+  if (error) throw error;
+}
+
 export type SlackCoachingThread = {
   id: string;
   user_id: string;

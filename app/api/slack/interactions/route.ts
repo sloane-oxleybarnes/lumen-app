@@ -44,15 +44,19 @@ import {
   createSlackCoachingThread,
   loadSlackCoachingMessages,
   loadSlackCoachingThread,
+  loadSlackGuestPrepState,
   parseSlackHistoryAction,
   publishSlackHome,
   recordSlackCoachingBotMessage,
+  saveSlackGuestPrepState,
+  saveSlackGuestPracticeState,
   scheduleSlackInactivityStartCard,
   slackHistoryTitle,
   SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID,
   SLACK_HISTORY_ARCHIVE_ACTION_ID,
   SLACK_HISTORY_CONTINUE_ACTION_ID,
   SLACK_HISTORY_QUICK_ACTION_ID,
+  SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
   SlackHistoryFlowType,
   summarizeSlackCoachingResponse,
 } from "@/lib/slack-history";
@@ -241,6 +245,88 @@ function getHistoryAction(payload: SlackInteractionPayload) {
     threadId: parsed?.threadId,
     flowType: parsed?.flowType,
   };
+}
+
+function getGuestPrepPracticeAction(payload: SlackInteractionPayload) {
+  const action = payload.actions?.find((item) => item.action_id === SLACK_GUEST_PREP_PRACTICE_ACTION_ID);
+  if (!action?.value) return null;
+  try {
+    const parsed = JSON.parse(action.value) as { prepThreadTs?: string };
+    return parsed.prepThreadTs ? { prepThreadTs: parsed.prepThreadTs } : null;
+  } catch {
+    return null;
+  }
+}
+
+async function handleGuestPrepPracticeAction({
+  payload,
+  prepThreadTs,
+}: {
+  payload: SlackInteractionPayload;
+  prepThreadTs: string;
+}) {
+  const teamId = payload.team?.id || "";
+  const slackUserId = payload.user?.id || "";
+  if (!teamId || !slackUserId) return;
+
+  const prep = await loadSlackGuestPrepState({ teamId, slackUserId, threadTs: prepThreadTs });
+  if (!prep?.person || !prep.location || !prep.outcome || !prep.concern) return;
+  const botAccessToken = await lookupSlackWorkspaceBotToken(teamId);
+  if (!botAccessToken) return;
+
+  const mediumInstruction = prep.location === "written"
+    ? "We’ll practice this message by message."
+    : prep.location === "call"
+      ? "We’ll practice it like a live call."
+      : "We’ll practice it like an in-person conversation.";
+  const opened = await postSlackAgentMessage({
+    botAccessToken,
+    slackUserId,
+    title: "Practice conversation",
+    text: [
+      `I’ll play ${prep.person}. ${mediumInstruction}`,
+      "Reply as yourself. I’ll stay in character until you say `pause`, `stop practice`, or ask for feedback.",
+    ].join("\n\n"),
+  });
+  if (!opened.ok || !("ts" in opened) || !opened.ts || !opened.channelId) return;
+
+  await saveSlackGuestPracticeState({
+    teamId,
+    slackUserId,
+    state: {
+      threadTs: opened.ts,
+      prepThreadTs,
+      person: prep.person,
+      location: prep.location,
+      outcome: prep.outcome,
+      concern: prep.concern,
+    },
+  });
+
+  const opening = await runSlackGuestCoaching({
+    teamId,
+    slackUserId,
+    action: "agent_message",
+    intent: "practice",
+    messageText: "",
+    prompt: [
+      `Begin a role-play as ${prep.person}.`,
+      `Conversation location: ${mediumInstruction}`,
+      `The user's desired outcome: ${prep.outcome}`,
+      `Likely concern or pushback: ${prep.concern}`,
+      "Give only one short, natural opening line in character. Do not coach, explain, summarize, or ask if the user is ready.",
+    ].join("\n"),
+  });
+  await slackApiPost(botAccessToken, "chat.postMessage", {
+    channel: opened.channelId,
+    thread_ts: opened.ts,
+    ...buildBeckettPayload({
+      title: "Beckett",
+      body: opening,
+      footer: "Guest mode • Connect Beckett for personalized context.",
+      hideTitle: true,
+    }),
+  });
 }
 
 function detailLabel(responseDetail: SlackResponseDetail) {
@@ -1157,6 +1243,17 @@ async function handleHistoryButtonResponse({
         });
         const openedTs = "ts" in opened ? opened.ts : null;
         if (opened.ok && opened.channelId && openedTs) {
+          if (flowType === "prep") {
+            await saveSlackGuestPrepState({
+              teamId,
+              slackUserId,
+              state: { threadTs: openedTs, step: "person" },
+            }).catch((error) => {
+              console.error("Slack guest prep state initialization failed", {
+                message: error instanceof Error ? error.message : String(error),
+              });
+            });
+          }
           await slackApiPost(botAccessToken, "chat.postMessage", {
             channel: opened.channelId,
             thread_ts: openedTs,
@@ -1400,6 +1497,18 @@ export async function POST(req: NextRequest) {
   if (!payload) return NextResponse.json({ error: "Invalid Slack payload." }, { status: 400 });
 
   if (payload.type === "block_actions") {
+    const guestPrepPracticeAction = getGuestPrepPracticeAction(payload);
+    if (guestPrepPracticeAction) {
+      scheduleSlackBackgroundTask(
+        "Slack guest prep practice handoff failed",
+        handleGuestPrepPracticeAction({
+          payload,
+          prepThreadTs: guestPrepPracticeAction.prepThreadTs,
+        })
+      );
+      return NextResponse.json({ ok: true });
+    }
+
     const historyAction = getHistoryAction(payload);
     if (historyAction) {
       scheduleSlackBackgroundTask(

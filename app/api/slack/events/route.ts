@@ -28,10 +28,14 @@ import {
   findSlackCoachingThreadBySlackThread,
   formatSlackCoachingMessages,
   loadSlackCoachingMessages,
+  loadSlackGuestPrepState,
+  loadSlackGuestPracticeState,
   publishSlackConnectHome,
   publishSlackHomeResult,
   recordSlackCoachingBotMessage,
   scheduleSlackInactivityStartCard,
+  saveSlackGuestPrepState,
+  SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
   slackHistoryTitle,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
@@ -229,6 +233,27 @@ function guestPrepPrompt(text: string) {
     return `The user is in an active guided Prep thread and directly asked for opening lines. Give exactly 3 concise Slack-ready openings: Direct, Collaborative, and Concise. Use the person, goal, and concern already present in the exact thread. Do not recap the setup, ask them to choose a focus, or add more than one short closing question. Latest request: ${text}`;
   }
   return `Continue the active guided Prep flow using only this exact Slack thread. Follow this order: (1) person and situation, (2) desired outcome, (3) concern or likely pushback, (4) concise final prep. Identify which fields the user has already answered in the thread and ask only the earliest missing question. If all three are present, give a short prep with Goal, Say this first, If they push back, and Practice next. Do not recap prior answers, offer a long menu, add generic reassurance, or invent a different flow. Latest user answer: ${text}`;
+}
+
+function isDirectGuestPrepRequest(text: string) {
+  return /\b(intro|intros|opening|openers|first line|how (?:do|should) i start|what should i say|draft|example|examples|practice)\b/i.test(text);
+}
+
+function inferGuestConversationLocation(text: string): "written" | "call" | "in_person" | null {
+  if (/\b(slack|message|dm|direct message|channel|email|chat|written|text)\b/i.test(text)) return "written";
+  if (/\b(zoom|meet|teams|video|phone|call|virtual|facetime)\b/i.test(text)) return "call";
+  if (/\b(in[ -]?person|face[ -]?to[ -]?face|at the office|over coffee|when i see|meet in person)\b/i.test(text)) return "in_person";
+  return null;
+}
+
+function guestLocationLabel(location: "written" | "call" | "in_person") {
+  if (location === "written") return "Slack or another written message";
+  if (location === "call") return "a video or phone call";
+  return "in person";
+}
+
+function isPracticeStopRequest(text: string) {
+  return /\b(stop practice|stop role-?play|pause|give me feedback|how did i do|coach me|end practice)\b/i.test(text);
 }
 
 function slackHistoryFailureMessage(reason: string | null | undefined) {
@@ -584,19 +609,127 @@ async function respondToAgentMessage({
           : intent === "prep"
             ? guestPrepPrompt(text)
             : text;
-        const response = await runSlackGuestCoaching({
-          teamId,
-          slackUserId,
-          action: "agent_message",
-          prompt: guestPrompt,
-          messageText,
-          intent,
-        });
+        const prepState = intent === "prep"
+          ? await loadSlackGuestPrepState({ teamId, slackUserId, threadTs }).catch(() => null)
+          : null;
+        const practiceState = await loadSlackGuestPracticeState({ teamId, slackUserId, threadTs }).catch(() => null);
+        let response: string;
+        let actions: Record<string, unknown>[] | undefined;
+        if (practiceState) {
+          const stopping = isPracticeStopRequest(text);
+          response = await runSlackGuestCoaching({
+            teamId,
+            slackUserId,
+            action: "agent_message",
+            prompt: [
+              stopping
+                ? "The user has paused or ended the role-play. Step out of character and give brief, concrete feedback on their most recent responses, then offer one retry."
+                : "Continue the active role-play. Respond only as the other person with one realistic, concise turn. Stay in character. Do not analyze, recap, coach, praise, or restart setup unless the user explicitly pauses or asks for feedback.",
+              `You are role-playing as: ${practiceState.person}`,
+              `Conversation location: ${guestLocationLabel(practiceState.location)}. Tailor the interaction to this medium.`,
+              `User's desired outcome: ${practiceState.outcome}`,
+              `Likely concern or pushback: ${practiceState.concern}`,
+              `Latest user turn: ${text}`,
+            ].join("\n"),
+            messageText,
+            intent: "practice",
+          });
+        } else if (!prepState && intent === "prep" && isAssistantStarterPrompt(text)) {
+          await saveSlackGuestPrepState({
+            teamId,
+            slackUserId,
+            state: { threadTs, step: "person" },
+          });
+          response = [
+            "Let’s prep this conversation together.",
+            "",
+            "First, who are you talking to, and what is the conversation about?",
+            "You can describe their role or tag them with @.",
+          ].join("\n");
+        } else if (prepState && prepState.step !== "complete" && !isDirectGuestPrepRequest(text)) {
+          if (prepState.step === "person") {
+            const inferredLocation = inferGuestConversationLocation(text);
+            await saveSlackGuestPrepState({
+              teamId,
+              slackUserId,
+              state: {
+                ...prepState,
+                person: text,
+                location: inferredLocation || undefined,
+                step: inferredLocation ? "outcome" : "location",
+              },
+            });
+            response = inferredLocation
+              ? "What outcome do you want from the conversation? What would a good result look like?"
+              : [
+                  "Where will this conversation happen?",
+                  "Choose Slack or another written message, a video or phone call, or in person.",
+                ].join("\n");
+          } else if (prepState.step === "location") {
+            const location = inferGuestConversationLocation(text);
+            if (!location) {
+              response = "Will this happen in a written message, on a video or phone call, or in person?";
+            } else {
+              await saveSlackGuestPrepState({
+                teamId,
+                slackUserId,
+                state: { ...prepState, location, step: "outcome" },
+              });
+              response = "What outcome do you want from the conversation? What would a good result look like?";
+            }
+          } else if (prepState.step === "outcome") {
+            await saveSlackGuestPrepState({
+              teamId,
+              slackUserId,
+              state: { ...prepState, outcome: text, step: "concern" },
+            });
+            response = "What are you most concerned they may misunderstand, push back on, or react poorly to?";
+          } else {
+            const completedState = { ...prepState, concern: text, step: "complete" as const };
+            await saveSlackGuestPrepState({ teamId, slackUserId, state: completedState });
+            response = await runSlackGuestCoaching({
+              teamId,
+              slackUserId,
+              action: "agent_message",
+              prompt: [
+                "Create the final concise guided Prep now. All required questions have been answered.",
+                `Person and situation: ${completedState.person || "not specified"}`,
+                `Conversation location: ${guestLocationLabel(completedState.location || "call")}`,
+                `Desired outcome: ${completedState.outcome || "not specified"}`,
+                `Concern or pushback: ${completedState.concern}`,
+                "Tailor the wording and delivery guidance to the conversation location.",
+                "Use only: Goal, Say this first, If they push back.",
+                "Do not ask another setup or clarification question.",
+                "Do not include a Practice next section or a practice question; the interface adds it.",
+              ].join("\n"),
+              messageText,
+              intent: "prep",
+            });
+            response = `${response.trim()}\n\nWould you like to practice the conversation?`;
+            actions = [{
+              type: "button",
+              text: { type: "plain_text", text: "Practice conversation" },
+              style: "primary",
+              action_id: SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
+              value: JSON.stringify({ prepThreadTs: threadTs }),
+            }];
+          }
+        } else {
+          response = await runSlackGuestCoaching({
+            teamId,
+            slackUserId,
+            action: "agent_message",
+            prompt: guestPrompt,
+            messageText,
+            intent,
+          });
+        }
         const payload = buildBeckettPayload({
           title: "Beckett",
           subtitle: "",
           body: response,
           footer: "Guest mode • Connect Beckett for personalized context.",
+          actions,
           hideTitle: true,
         });
 
