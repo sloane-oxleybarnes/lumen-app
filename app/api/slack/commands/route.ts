@@ -272,7 +272,7 @@ async function startSidebarFlow({
           userRequest: latestSourcePrompt,
           currentSlackUserId: payload.user_id,
         });
-        const response = await runSlackGuestCoaching({
+        let response = await runSlackGuestCoaching({
           teamId: payload.team_id,
           slackUserId: payload.user_id,
           action: "slash_command",
@@ -307,6 +307,57 @@ async function startSidebarFlow({
         let agentChannelId: string | null = null;
         if (agentDelivery.ok && "channelId" in agentDelivery && "ts" in agentDelivery && agentDelivery.channelId && agentDelivery.ts) {
           agentChannelId = agentDelivery.channelId;
+          const { startSlackGuestSession } = await import("@/lib/slack-guest-session");
+          const source = latestSource?.targetText
+            ? {
+                channelId: payload.channel_id,
+                channelName: payload.channel_name,
+                messageTs: latestSource.targetTs || undefined,
+                message: latestSource.targetText,
+                context: guestContext.text || latestSource.context?.text || undefined,
+              }
+            : undefined;
+          let state: Record<string, unknown> = { step: "active" };
+          if (parsed.intent === "rewrite") state = { step: "active", draft: parsed.prompt };
+          if (parsed.intent === "prep") {
+            const location: "written" | "call" | "in_person" | undefined = /\b(slack|message|dm|email|written|text)\b/i.test(parsed.prompt)
+              ? "written"
+              : /\b(zoom|meet|video|phone|call|virtual)\b/i.test(parsed.prompt)
+                ? "call"
+                : /\b(in[ -]?person|face[ -]?to[ -]?face|office|coffee)\b/i.test(parsed.prompt)
+                  ? "in_person"
+                  : undefined;
+            const prepState = {
+              threadTs: agentDelivery.ts,
+              step: location ? "outcome" as const : "location" as const,
+              person: parsed.prompt,
+              location,
+            };
+            const { saveSlackGuestPrepState } = await import("@/lib/slack-history");
+            await saveSlackGuestPrepState({ teamId: payload.team_id, slackUserId: payload.user_id, state: prepState });
+            state = prepState;
+            response = location
+              ? "What outcome do you want from the conversation? What would a good result look like?"
+              : "Where will this conversation happen—Slack or another written message, a video or phone call, or in person?";
+          }
+          await startSlackGuestSession({
+            teamId: payload.team_id,
+            slackUserId: payload.user_id,
+            channelId: agentDelivery.channelId,
+            threadTs: agentDelivery.ts,
+            flowType: parsed.intent,
+            source,
+            state,
+            artifacts: { latestResponse: response },
+            transcript: [
+              { role: "user", content: parsed.prompt },
+              { role: "beckett", content: response },
+            ],
+          }).catch((error) => {
+            console.error("Slack guest slash session start failed", {
+              message: error instanceof Error ? error.message : String(error),
+            });
+          });
           const responsePayload = buildBeckettPayload({
             title: "Beckett",
             subtitle: "",

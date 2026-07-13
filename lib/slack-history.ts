@@ -6,8 +6,11 @@ export const SLACK_HISTORY_ARCHIVE_ACTION_ID = "beckett_history_archive";
 export const SLACK_HISTORY_QUICK_ACTION_ID = "beckett_history_quick";
 export const SLACK_HISTORY_EXPLAIN_MORE_ACTION_ID = "beckett_history_explain_more";
 export const SLACK_HISTORY_SETTINGS_ACTION_ID = "beckett_history_settings";
-export const SLACK_INACTIVITY_START_CARD_DELAY_MS =
-  Number(process.env.SLACK_INACTIVITY_START_CARD_DELAY_MS || 5 * 60 * 1000);
+const requestedSlackInactivityDelay = Number(process.env.SLACK_INACTIVITY_START_CARD_DELAY_MS || 5 * 60 * 1000);
+const allowShortSlackTimer = process.env.SLACK_ALLOW_SHORT_INACTIVITY_TIMER === "true" && process.env.NODE_ENV !== "production";
+export const SLACK_INACTIVITY_START_CARD_DELAY_MS = allowShortSlackTimer
+  ? Math.max(1_000, Number.isFinite(requestedSlackInactivityDelay) ? requestedSlackInactivityDelay : 5 * 60 * 1000)
+  : Math.max(5 * 60 * 1000, Number.isFinite(requestedSlackInactivityDelay) ? requestedSlackInactivityDelay : 5 * 60 * 1000);
 
 export type SlackHistoryFlowType = "respond" | "rewrite" | "decode" | "relationship" | "prep" | "practice" | "message";
 
@@ -770,6 +773,7 @@ export function buildSlackStartCardPayload(variant: "archived" | "inactivity" = 
     "Decode a Selected Message — understand tone and possible subtext.",
     "Respond to a Selected Message — get short reply options.",
     "Edit a Draft — rewrite while preserving your meaning.",
+    "Prep — prepare for a conversation, then optionally practice it.",
   ].join("\n");
 
   return buildBeckettPayload({
@@ -835,6 +839,11 @@ export async function scheduleSlackInactivityStartCard({
   }
 
   const postAt = Math.ceil((Date.now() + SLACK_INACTIVITY_START_CARD_DELAY_MS) / 1000);
+  console.info("Slack inactivity card scheduling", {
+    channelPresent: Boolean(channelId),
+    delayMs: SLACK_INACTIVITY_START_CARD_DELAY_MS,
+    postAt,
+  });
   const scheduled = await slackApiPost(botAccessToken, "chat.scheduleMessage", {
     channel: channelId,
     post_at: postAt,

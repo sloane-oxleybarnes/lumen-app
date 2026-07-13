@@ -5,6 +5,7 @@ import {
   buildSlackCoachingContext,
   configureSlackAgentSurface,
   fetchSlackConversationContext,
+  fetchSlackBroaderContext,
   handleSlackAiError,
   isCompactSlackIntent,
   isAllowedSlackPlan,
@@ -41,6 +42,16 @@ import {
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
 } from "@/lib/slack-history";
+import {
+  appendGuestTurn,
+  formatGuestTranscript,
+  loadSlackGuestSession,
+  startSlackGuestSession,
+  updateSlackGuestSession,
+  type SlackGuestFlowType,
+} from "@/lib/slack-guest-session";
+import { startGuestPracticeFromPrep } from "@/lib/slack-guest-practice";
+import { buildSlackPracticeUrl } from "@/lib/slack-practice-link";
 
 export const runtime = "nodejs";
 
@@ -101,6 +112,14 @@ function inferAssistantIntent(text: string): SlackCoachingIntent {
   if (normalized.includes("practice")) return "practice";
   if (normalized.includes("prepare") || normalized.includes("prep")) return "prep";
   return "general";
+}
+
+function isGuestRetrievalRequest(text: string) {
+  return /\b(what did we (?:decide|agree)|what was decided|did we (?:delay|move|change)|when (?:is|was|did).*launch|find (?:the|our).*decision|what happened with)\b/i.test(text);
+}
+
+function guestSessionIntent(flowType: SlackGuestFlowType): SlackCoachingIntent {
+  return flowType === "retrieval" ? "general" : flowType;
 }
 
 function isAssistantStarterPrompt(text: string) {
@@ -241,6 +260,21 @@ function guestPrepPrompt(text: string) {
 
 function isDirectGuestPrepRequest(text: string) {
   return /\b(intro|intros|opening|openers|first line|how (?:do|should) i start|what should i say|draft|example|examples|practice)\b/i.test(text);
+}
+
+function isConversationLocationAdviceRequest(text: string) {
+  return /\b(where|which (?:format|medium|channel)|slack or|zoom or|call or|in person or).{0,50}\b(?:have|hold|do|happen|best|better|conversation|talk)\b|\bshould (?:this|the|we|i).{0,40}\b(?:slack|zoom|call|in person|written)\b/i.test(text);
+}
+
+function recommendGuestConversationLocation(personAndSituation: string, request: string) {
+  const context = `${personAndSituation} ${request}`.toLowerCase();
+  if (/\b(document|record|details|instructions|simple update|quick question|link|status)\b/.test(context)) {
+    return { location: "written" as const, response: "I’d recommend Slack or another written message. This sounds specific enough to handle clearly in writing, and you’ll both have a record to refer back to. Does that work for you?" };
+  }
+  if (/\b(sensitive|conflict|performance|feedback|overwhelm|workload|raise|promotion|misunderstand|emotional|pushback)\b/.test(context)) {
+    return { location: "call" as const, response: "I’d recommend a video or phone call. This topic may need back-and-forth and gives you both room to clarify tone before anything is misunderstood. Does that work for you?" };
+  }
+  return { location: "call" as const, response: "I’d lean toward a short call because it allows quick back-and-forth. If the topic is simple or you mainly need a written record, Slack could work instead. Does a call fit the situation?" };
 }
 
 function inferGuestConversationLocation(text: string): "written" | "call" | "in_person" | null {
@@ -594,21 +628,36 @@ async function respondToAgentMessage({
 
     if (botAccessToken) {
       try {
+        let guestSession = await loadSlackGuestSession({
+          teamId,
+          slackUserId,
+          channelId,
+          threadTs,
+        }).catch(() => null);
         const selectedMessageState = await loadSlackGuestSelectedMessageState({
           teamId,
           slackUserId,
           threadTs,
         }).catch(() => null);
         const linkedSlackContext = extractSlackPermalinkContext(text);
+        const sessionSource = guestSession?.source;
+        const sourceChannelId = linkedSlackContext?.channelId || sessionSource?.channelId || selectedMessageState?.sourceChannelId;
+        const sourceThreadTs = linkedSlackContext
+          ? linkedSlackContext.threadTs || undefined
+          : sessionSource?.channelId
+            ? sessionSource.threadTs
+            : selectedMessageState?.sourceChannelId
+              ? selectedMessageState.sourceThreadTs
+              : threadTs;
         const guestContext = await buildGuestSlackContextPacket({
           botAccessToken,
-          channelId: linkedSlackContext?.channelId || selectedMessageState?.sourceChannelId || activeChannelId || channelId,
-          channelName: selectedMessageState?.sourceChannelName,
-          selectedMessageTs: linkedSlackContext?.messageTs || selectedMessageState?.sourceMessageTs,
+          channelId: sourceChannelId || activeChannelId || channelId,
+          channelName: sessionSource?.channelName || selectedMessageState?.sourceChannelName,
+          selectedMessageTs: linkedSlackContext?.messageTs || sessionSource?.messageTs || selectedMessageState?.sourceMessageTs,
           // A normal assistant reply may only inherit context from its exact
           // Slack thread. Linked conversations retain their linked thread.
-          threadTs: linkedSlackContext?.threadTs || selectedMessageState?.sourceThreadTs || threadTs,
-          selectedMessageText: selectedMessageState?.message || (isAssistantStarterPrompt(text) ? "" : text),
+          threadTs: sourceThreadTs,
+          selectedMessageText: sessionSource?.message || selectedMessageState?.message || (isAssistantStarterPrompt(text) ? "" : text),
           userRequest: text,
           currentSlackUserId: slackUserId,
         });
@@ -620,11 +669,53 @@ async function respondToAgentMessage({
               selectedMessageState.context ? `Saved source context:\n${selectedMessageState.context}` : "",
             ].filter(Boolean).join("\n")
           : "";
-        const messageText = [
+        const sessionTranscript = formatGuestTranscript(guestSession?.transcript);
+        const sessionContext = guestSession
+          ? [
+              `Active ${guestSession.flow_type} task in this exact Beckett thread. Continue it unless the user explicitly changes tasks.`,
+              guestSession.source?.author ? `Selected-message author: ${guestSession.source.author}. Do not attribute their message to the requester.` : "",
+              guestSession.source?.message ? `Selected message: ${guestSession.source.message}` : "",
+              guestSession.artifacts?.latestResponse ? `Latest saved Beckett result: ${String(guestSession.artifacts.latestResponse)}` : "",
+              sessionTranscript ? `Exact thread transcript:\n${sessionTranscript}` : "",
+            ].filter(Boolean).join("\n")
+          : "";
+        let messageText = [
+          sessionContext,
           durableSelectedContext,
           isAssistantStarterPrompt(text) ? guestContext.text : guestContext.text || text,
         ].filter(Boolean).join("\n\n");
-        const intent = selectedMessageState?.intent || guestIntentFromExactThread(messageText, assistantIntent);
+        const inferredFlow: SlackGuestFlowType = isGuestRetrievalRequest(text)
+          ? "retrieval"
+          : (selectedMessageState?.intent || guestIntentFromExactThread(messageText, assistantIntent)) as SlackGuestFlowType;
+        const flowType = guestSession?.flow_type || inferredFlow;
+        const intent = guestSession ? guestSessionIntent(guestSession.flow_type) : guestSessionIntent(flowType);
+        if (!guestSession && ["decode", "respond", "rewrite", "prep", "practice", "retrieval"].includes(flowType)) {
+          guestSession = await startSlackGuestSession({
+            teamId,
+            slackUserId,
+            channelId,
+            threadTs,
+            flowType,
+            source: linkedSlackContext
+              ? { channelId: linkedSlackContext.channelId, messageTs: linkedSlackContext.messageTs, threadTs: linkedSlackContext.threadTs || undefined }
+              : undefined,
+            state: flowType === "prep" ? { step: "person" } : { step: "active" },
+            transcript: [{ role: "user", content: text }],
+          }).catch(() => null);
+        }
+        if (flowType === "retrieval") {
+          const searchContext = await fetchSlackBroaderContext({
+            accessToken: botAccessToken,
+            prompt: text,
+            contextChannelId: activeChannelId || undefined,
+            actionToken,
+            currentSlackUserId: slackUserId,
+          }).catch(() => null);
+          messageText = [
+            messageText,
+            searchContext?.text ? `Live Slack search results:\n${searchContext.text}` : "No usable live Slack search results were returned.",
+          ].filter(Boolean).join("\n\n");
+        }
         const guestPrompt = intent === "practice"
           ? guestPracticePrompt(text, messageText)
           : intent === "prep"
@@ -636,7 +727,18 @@ async function respondToAgentMessage({
         const practiceState = await loadSlackGuestPracticeState({ teamId, slackUserId, threadTs }).catch(() => null);
         let response: string;
         let actions: Record<string, unknown>[] | undefined;
-        if (practiceState) {
+        if (
+          prepState?.step === "complete" &&
+          intent === "prep" &&
+          /\b(?:let'?s|can we|i(?:'d| would) like to|start) practice\b|\bpractice (?:this|the|our) conversation\b/i.test(text)
+        ) {
+          const practice = await startGuestPracticeFromPrep({ teamId, slackUserId, channelId, prepThreadTs: threadTs });
+          response = practice.ok
+            ? practice.permalink
+              ? `I opened a fresh Practice conversation. <${practice.permalink}|Open it in Slack>.`
+              : "I opened a fresh Practice conversation in Beckett."
+            : "I couldn’t open the Practice conversation. Please use the Practice button in this Prep thread.";
+        } else if (practiceState) {
           const stopping = isPracticeStopRequest(text);
           response = await runSlackGuestCoaching({
             teamId,
@@ -657,6 +759,27 @@ async function respondToAgentMessage({
             ].join("\n"),
             messageText,
             intent: "practice",
+          });
+        } else if (flowType === "rewrite" && !guestSession?.source?.message && !guestSession?.state?.draft && !isAssistantStarterPrompt(text)) {
+          if (guestSession) {
+            guestSession = await updateSlackGuestSession(guestSession, {
+              state: { ...guestSession.state, draft: text },
+            });
+          }
+          response = "How would you like me to change this draft—for example, make it warmer, more direct, shorter, or more confident?";
+        } else if (flowType === "rewrite" && guestSession?.state?.draft) {
+          response = await runSlackGuestCoaching({
+            teamId,
+            slackUserId,
+            action: "agent_message",
+            prompt: [
+              "Rewrite the saved draft using the user's latest instruction.",
+              `Saved draft: ${String(guestSession.state.draft)}`,
+              `Latest instruction: ${text}`,
+              "Return exactly three concise options with useful tone labels. Do not ask another question.",
+            ].join("\n"),
+            messageText,
+            intent: "rewrite",
           });
         } else if (!prepState && intent === "prep" && isAssistantStarterPrompt(text)) {
           await saveSlackGuestPrepState({
@@ -690,8 +813,20 @@ async function respondToAgentMessage({
                   "Choose Slack or another written message, a video or phone call, or in person.",
                 ].join("\n");
           } else if (prepState.step === "location") {
-            const location = inferGuestConversationLocation(text);
-            if (!location) {
+            const recommendedLocation = guestSession?.state?.recommendedLocation;
+            const acceptedRecommendation = typeof recommendedLocation === "string" && /^(?:yes|yeah|yep|sure|that works|sounds good|okay|ok)\b/i.test(text.trim());
+            const location = acceptedRecommendation
+              ? recommendedLocation as "written" | "call" | "in_person"
+              : inferGuestConversationLocation(text);
+            if (isConversationLocationAdviceRequest(text)) {
+              const recommendation = recommendGuestConversationLocation(prepState.person || "", text);
+              if (guestSession) {
+                guestSession = await updateSlackGuestSession(guestSession, {
+                  state: { ...guestSession.state, recommendedLocation: recommendation.location, locationStatus: "recommended" },
+                });
+              }
+              response = recommendation.response;
+            } else if (!location) {
               response = "Will this happen in a written message, on a video or phone call, or in person?";
             } else {
               await saveSlackGuestPrepState({
@@ -730,12 +865,14 @@ async function respondToAgentMessage({
               intent: "prep",
             });
             response = `${response.trim()}\n\nWould you like to practice the conversation?`;
+            const practiceUrl = buildSlackPracticeUrl({ teamId, slackUserId, channelId, prepThreadTs: threadTs });
             actions = [{
               type: "button",
               text: { type: "plain_text", text: "Practice conversation" },
               style: "primary",
               action_id: SLACK_GUEST_PREP_PRACTICE_ACTION_ID,
-              value: JSON.stringify({ prepThreadTs: threadTs }),
+              value: JSON.stringify({ prepThreadTs: threadTs, direct: Boolean(practiceUrl) }),
+              ...(practiceUrl ? { url: practiceUrl } : {}),
             }];
           }
         } else {
@@ -757,11 +894,32 @@ async function respondToAgentMessage({
           hideTitle: true,
         });
 
-        await slackApiPost(botAccessToken, "chat.postMessage", {
+        const posted = await slackApiPost(botAccessToken, "chat.postMessage", {
           channel: channelId,
           thread_ts: threadTs,
           ...payload,
         });
+        if (guestSession) {
+          let transcript = guestSession.transcript || [];
+          if (transcript.at(-1)?.role !== "user" || transcript.at(-1)?.content !== text) {
+            transcript = appendGuestTurn(transcript, "user", text);
+          }
+          transcript = appendGuestTurn(transcript, "beckett", response);
+          const latestPrep = intent === "prep"
+            ? await loadSlackGuestPrepState({ teamId, slackUserId, threadTs }).catch(() => null)
+            : null;
+          await updateSlackGuestSession(guestSession, {
+            transcript,
+            artifacts: { ...guestSession.artifacts, latestResponse: response },
+            ...(latestPrep ? { state: { ...guestSession.state, ...latestPrep } } : {}),
+          }).catch(() => null);
+        }
+        if (posted.ok) {
+          scheduleSlackBackgroundTask(
+            "Slack guest inactivity start card failed",
+            scheduleSlackInactivityStartCard({ botAccessToken, channelId })
+          );
+        }
         return;
       } catch (error) {
         const payload = buildBeckettPayload({

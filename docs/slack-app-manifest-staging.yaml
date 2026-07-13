@@ -16,7 +16,7 @@ features:
         message: Show me how to draft a response from a specific Slack message with Beckett.
       - title: Edit a Draft
         message: Help me rewrite this draft so it is clearer and kinder.
-      - title: Prep / Practice
+      - title: Prep
         message: Help me prepare for a difficult conversation.
   bot_user:
     display_name: Beckett Staging

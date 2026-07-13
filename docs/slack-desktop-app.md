@@ -57,7 +57,7 @@ Use Slack Desktop or the Slack web app:
 ### 1A. Beckett Suggested Prompts + Home History
 
 1. Open Beckett in Slack and select the Messages tab.
-   - Expected: Slack's native suggested prompts show `Decode a Selected Message`, `Respond to a Selected Message`, `Edit a Draft`, and `Prep / Practice`.
+   - Expected: Slack's native suggested prompts show `Decode a Selected Message`, `Respond to a Selected Message`, `Edit a Draft`, and `Prep`.
    - Expected: The suggested prompt title says `What can Beckett help with today?`
 2. Click a selected-message suggested prompt, such as `Respond to a Selected Message`.
    - Expected: Beckett gives instructions for using the message’s `...` menu, `/beckett respond` in the source conversation, or a Slack message link.

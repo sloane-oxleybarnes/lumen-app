@@ -152,6 +152,7 @@ export type SlackLatestMessageContext = {
 
 type SlackUserInfo = {
   ok?: boolean;
+  error?: string;
   user?: {
     id?: string;
     name?: string;
@@ -407,6 +408,7 @@ function formatSlackCoachingDisplayText(text: string) {
 
 export function cleanSlackDisplayText(text: string) {
   const plainText = removeStandaloneSlackUncertaintySections(text)
+    .replace(/\bU[A-Z0-9]{8,}\b/g, "the Slack user")
     .replace(/\*\*([^*\n][^*]*?)\*\*/g, "$1")
     .replace(/(^|\s)\*([^*\n][^*]*?)\*(?=\s|$|[.,!?;:])/g, "$1$2")
     .replace(/\*/g, "")
@@ -1094,19 +1096,20 @@ function buildTargetedBroaderSearchQuery({
 export async function lookupSlackUserProfile(accessToken: string, userId: string) {
   const cacheKey = `${accessToken.slice(-8)}:${userId}`;
   const cached = slackUserNameCache.get(cacheKey);
-  if (cached) return { id: userId, name: cached, aliases: [cached] };
+  if (cached) return { id: userId, name: cached, aliases: [cached], resolved: cached !== "Slack user" };
 
   const data = await slackApiFetch<SlackUserInfo>(
     accessToken,
     "users.info",
     new URLSearchParams({ user: userId })
   ).catch(() => null);
-  const name =
+  const resolvedName =
     data?.user?.profile?.display_name ||
     data?.user?.profile?.real_name ||
     data?.user?.real_name ||
     data?.user?.name ||
-    userId;
+    "";
+  const name = resolvedName && !/^U[A-Z0-9]+$/i.test(resolvedName) ? resolvedName : "Slack user";
   const aliases = Array.from(
     new Set(
       [
@@ -1114,7 +1117,7 @@ export async function lookupSlackUserProfile(accessToken: string, userId: string
         data?.user?.profile?.real_name,
         data?.user?.real_name,
         data?.user?.name,
-        name,
+        resolvedName,
       ]
         .map((value) => String(value || "").trim())
         .filter(Boolean)
@@ -1122,7 +1125,13 @@ export async function lookupSlackUserProfile(accessToken: string, userId: string
   );
 
   slackUserNameCache.set(cacheKey, name);
-  return { id: data?.user?.id || userId, name, aliases };
+  if (!resolvedName) {
+    console.warn("Slack user profile name unavailable", {
+      userPresent: Boolean(userId),
+      error: data?.error || "missing_profile_name",
+    });
+  }
+  return { id: data?.user?.id || userId, name, aliases, resolved: Boolean(resolvedName) };
 }
 
 async function lookupSlackUserName(accessToken: string, userId: string) {
@@ -1922,7 +1931,7 @@ export async function runSlackGuestCoaching({
   });
 const system = `You are Beckett, a workplace and workplace-adjacent communication coach for neurodivergent professionals.
 You are responding inside Slack, so be concise, practical, and easy to scan.
-The Slack user is using guest mode. You do not have their Beckett coaching profile, contact memory, saved history, or broader Slack search.
+The Slack user is using guest mode. You do not have their Beckett coaching profile, contact memory, or saved Beckett history. Use live Slack search results only when they are explicitly included in the available Slack text, and never imply access to anything that was not returned there.
 Slack has already authenticated the requester separately from people they tag. Treat a different tagged Slack user as the other person, never ask whether the requester is that tagged person, and never expose Slack user or team IDs.
 Slack flow labels are hints, not rules. Always respond to the user's latest actual request, even if it means switching from decode to drafting, from respond to feedback analysis, from prep to a direct answer, or from a guided flow to one focused clarifying question.
 Every response should be generated from the user's current message plus available Slack text. Do not sound like a fixed template. Use section shapes only when they genuinely fit.
