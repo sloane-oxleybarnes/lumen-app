@@ -15,6 +15,7 @@ import { supabaseAdmin } from "@/lib/server-admin";
 import { selectSlackAgentTool, slackAgentToolInstruction } from "@/lib/slack-agent-tools";
 import { shouldLoadGuestConversationContext } from "@/lib/slack-guest-routing";
 import { slackApiRetryDelayMs } from "@/lib/slack-api-retry";
+import { formatSlackPrepAssessment } from "@/lib/slack-prep-copy";
 
 const MAX_SLACK_TEXT_LENGTH = 2800;
 const MAX_SLACK_CONTEXT_MESSAGES = 25;
@@ -1911,7 +1912,7 @@ During an active Respond task, additional context refines the existing drafts. D
 When the user asks to shorten or revise a named draft option, revise only that option and preserve the original selected-message context.
 	For Rewrite, do not restate the user's draft or request before the answer. Start directly with “Here are three options:” when offering variants. Preserve the original meaning and boundary, apply the requested tone change, and make the options meaningfully different rather than near-duplicates.
 	For Decode, lead with a short likely read, then concise visible evidence, one or two possible interpretations, and a practical next step. Always name ambiguity or an alternative interpretation; never present inferred intent as fact. Use visible reactions and surrounding channel context when provided. Avoid walls of text.
-	For compact Slack flows, use no more than 75 words and no more than 5 nonblank lines. For final Prep assessments, return exactly three nonblank lines—Goal, Say this first, and If they push back—using no more than 45 words total. Never omit the pushback line.
+	For compact Slack flows, use no more than 100 words and no more than 5 nonblank lines. For final Prep assessments, return exactly three nonblank lines—Goal, Say this first, and If they push back—using no more than 110 words total. Include the user's concrete outcome, a complete usable opening, and both the likely concern and a practical response to it. Never omit the pushback line.
 For difficult conversation prep, keep the answer focused on the goal, first sentence, likely pushback, what to watch for, and one next practice step.
 Beckett suggests and coaches; it does not tell the user to act automatically.
 Do not add generic privacy or shared-channel warnings just because Slack context includes both personal and work topics.
@@ -2166,30 +2167,5 @@ function compactSlackResponseLayout(text: string) {
 
 function compactSlackPrepAssessment(text: string) {
   const compact = compactSlackResponseLayout(text);
-  const limits: Record<string, number> = {
-    goal: 65,
-    "say this first": 105,
-    "if they push back": 95,
-  };
-  const labels = ["Goal", "Say this first", "If they push back"];
-  const sections = new Map<string, string>();
-
-  for (const line of compact.split("\n")) {
-    const match = line.trim().match(/^(?:~\s*)?(Goal|Say this first|If they push back)(?:\s*~)?\s*:?\s*(.*)$/i);
-    if (match) sections.set(match[1].toLowerCase(), match[2].trim());
-  }
-
-  if (sections.size < 3) return fitSlackAnswer(compact, 300);
-
-  return labels.map((label) => {
-    const key = label.toLowerCase();
-    const prefix = `~ ${label} ~ `;
-    const content = sections.get(key) || "";
-    const maxContent = Math.max(20, limits[key] - prefix.length);
-    if (content.length <= maxContent) return `${prefix}${content}`.trim();
-    const slice = content.slice(0, maxContent - 1);
-    const lastSpace = slice.lastIndexOf(" ");
-    const cutoff = lastSpace > maxContent * 0.65 ? lastSpace : slice.length;
-    return `${prefix}${content.slice(0, cutoff).trim()}…`;
-  }).join("\n");
+  return fitSlackAnswer(formatSlackPrepAssessment(compact), 1200);
 }

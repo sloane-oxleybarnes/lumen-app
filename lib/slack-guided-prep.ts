@@ -1312,7 +1312,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "",
         "Use exactly these three short sections: ~ Goal ~, ~ Say this first ~, ~ If they push back ~.",
         "Keep each section to 1-2 short bullets or sentences. Do not add more sections, a recap, or another setup question.",
-        "Keep the complete response under 75 words, including the final practice question.",
+        "Keep the complete response under 110 words, including the final practice question. Prioritize the user's concrete goal, a complete opening they can actually say, and a realistic pushback response over extreme brevity.",
         "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
         "If no extra examples were provided, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
         "Do not claim you cannot access DMs, private channels, or Slack history unless the prompt gives a specific Slack failure reason.",
