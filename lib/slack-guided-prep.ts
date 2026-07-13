@@ -8,6 +8,7 @@ import {
   loadSlackCoachingMessages,
   recordSlackCoachingBotMessage,
   scheduleSlackInactivityStartCard,
+  SLACK_HISTORY_QUICK_ACTION_ID,
   summarizeSlackCoachingResponse,
   updateSlackCoachingThread,
 } from "@/lib/slack-history";
@@ -40,6 +41,7 @@ type PrepScenario =
 type GuidedStep =
   | "ask_audience"
   | "ask_person"
+  | "ask_location"
   | "ask_outcome"
   | "ask_concern"
   | "confirm_evidence"
@@ -57,6 +59,7 @@ type GuidedAnswers = {
   person_slack_user_id?: string;
   person_self_mention?: boolean;
   conversation_type?: string;
+  conversation_location?: "written" | "call" | "in_person";
   scenario?: PrepScenario;
   source_channel_id?: string;
   source_channel_name?: string;
@@ -336,6 +339,20 @@ function inferConversationType(text: string) {
   return "Slack conversation";
 }
 
+function inferConversationLocation(text: string): GuidedAnswers["conversation_location"] {
+  if (/\b(slack|dm|channel|message|chat|email|written|async)\b/i.test(text)) return "written";
+  if (/\b(zoom|meet|teams|video|phone|call|1:1|one-on-one)\b/i.test(text)) return "call";
+  if (/\b(in person|face to face|office|coffee|meeting room)\b/i.test(text)) return "in_person";
+  return undefined;
+}
+
+function conversationLocationLabel(location?: GuidedAnswers["conversation_location"]) {
+  if (location === "written") return "Slack or another written message";
+  if (location === "in_person") return "in person";
+  if (location === "call") return "a video or phone call";
+  return "not specified";
+}
+
 function inferPrepScenario(text: string): PrepScenario {
   const lower = text.toLowerCase();
   if (/\bpto\b|\btime off\b|\bvacation\b|\bweek off\b|\bday off\b|\bwedding\b|\bout of office\b|\booo\b/.test(lower)) return "pto";
@@ -439,6 +456,7 @@ function initialAnswers(
     initial_request: initialRequest,
     person: flowType === "prep" || flowType === "practice" ? normalizePersonForUserDisplay(inferPerson(text)) : "",
     conversation_type: inferConversationType(text),
+    conversation_location: flowType === "prep" || flowType === "practice" ? inferConversationLocation(text) : undefined,
     scenario: flowType === "prep" || flowType === "practice" ? inferPrepScenario(text) : "general",
     source_channel_id: source?.channelId || undefined,
     source_channel_name: source?.channelName || undefined,
@@ -451,7 +469,6 @@ function initialAnswers(
 
 function nextStepForAnswers(flowType: GuidedFlowType, answers: GuidedAnswers): GuidedStep | null {
   if (flowType === "rewrite") {
-    if (!answers.audience) return "ask_audience";
     if (!hasPastedMessage(answers.initial_request)) return "ask_rewrite_draft";
     return null;
   }
@@ -470,9 +487,10 @@ function nextStepForAnswers(flowType: GuidedFlowType, answers: GuidedAnswers): G
     return null;
   }
   if (!answers.person) return "ask_person";
+  if (!answers.conversation_location) return "ask_location";
   if (!answers.outcome) return "ask_outcome";
   if (!answers.concern) return "ask_concern";
-  return "confirm_evidence";
+  return null;
 }
 
 function flowTitle(flowType: GuidedFlowType) {
@@ -998,7 +1016,7 @@ function isStartOver(text: string) {
 }
 
 function isCancel(text: string) {
-  return /\b(cancel|stop|never mind|nevermind)\b/i.test(text);
+  return /^(?:cancel|never\s*mind|stop(?:\s+(?:this|the)\s+(?:flow|prep|practice|conversation))?|stop\s+practice)[.!]?$/i.test(text.trim());
 }
 
 function isLikelyTopicChange(text: string) {
@@ -1038,7 +1056,7 @@ function askForStep(session: SlackAgentSession) {
         "For example: `DM to my manager`, `channel reply to the whole team`, or `channel reply to Priya`.",
       ].join("\n");
     case "ask_rewrite_draft":
-      return `Paste the message you want to rewrite, and I'll tighten it up for ${answers.audience || "the person you're sending it to"}, making sure to keep it clear and kind.`;
+      return "Paste the draft you want to rewrite. I’ll keep its meaning, then give you three clear Slack-ready options.";
     case "ask_respond_message":
     case "ask_respond_context":
       return nextRespondContextQuestion(answers) || "Can you paraphrase the message if you do not want to paste it exactly?";
@@ -1065,6 +1083,12 @@ function askForStep(session: SlackAgentSession) {
         "What outcome do you want from the conversation?",
         outcomeExampleForScenario(scenario),
       ].filter(Boolean).join("\n");
+    case "ask_location":
+      return [
+        "Where will this conversation happen?",
+        "Choose Slack or another written message, a video or phone call, or in person.",
+        "If you’re unsure, ask me to recommend the best format.",
+      ].join("\n");
     case "ask_concern":
       return [
         "Finally, what are you worried they may push back on, misunderstand, or react poorly to?",
@@ -1094,6 +1118,15 @@ function askForStep(session: SlackAgentSession) {
 function guidedActions(session: SlackAgentSession, draftOptions: SlackDraftOption[] = []) {
   return [
     ...buildSlackDraftUseActions(session.id, draftOptions),
+    ...(session.flow_type === "prep" && Boolean(session.answers.concern)
+      ? [{
+          type: "button" as const,
+          text: { type: "plain_text" as const, text: "Practice conversation" },
+          style: "primary" as const,
+          action_id: `${SLACK_HISTORY_QUICK_ACTION_ID}_practice`,
+          value: JSON.stringify({ flowType: "practice", threadId: session.coaching_thread_id }),
+        }]
+      : []),
     ...(session.flow_type === "decode" || session.flow_type === "respond"
       ? buildSlackExplainMoreAction(session.coaching_thread_id)
       : []),
@@ -1112,15 +1145,6 @@ function formatPrepExamplesPrompt() {
     "Paste anything helpful here, like a recent message, pattern, project detail, or example of what has happened before.",
     "If not, reply `none` and I’ll prep from what you already told me.",
   ].join("\n");
-}
-
-async function buildEvidenceStep(_input: GuidedFlowInput, session: SlackAgentSession) {
-  const nextSession = await updateSession(session.id, {
-    step: "confirm_evidence",
-    evidence_suggestions: [],
-    confirmed_evidence: [],
-  });
-  return askForStep(nextSession);
 }
 
 function promptForFlow(session: SlackAgentSession, followupText?: string, recentTranscript?: string) {
@@ -1142,6 +1166,7 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
     `Initial request: ${answers.initial_request || "not specified"}`,
     `Audience/person: ${answers.audience || answers.person || "not specified"}`,
     `Conversation type: ${answers.conversation_type || "not specified"}`,
+    `Conversation location: ${conversationLocationLabel(answers.conversation_location)}`,
     `Scenario: ${scenarioFromAnswers(answers)}`,
     `Source Slack channel: ${answers.source_channel_name ? `#${answers.source_channel_name}` : answers.source_channel_id || "not specified"}`,
     `Outcome: ${answers.outcome || "not specified"}`,
@@ -1254,12 +1279,12 @@ function promptForFlow(session: SlackAgentSession, followupText?: string, recent
         "Create final guided prep for this workplace conversation.",
         base,
         "",
-        "Prefer these sections with tildes when they fit: ~ Goal ~, ~ Say this first ~, ~ If they push back ~, ~ Watch for ~, ~ Practice next ~.",
-        "Keep each section to 1-3 short bullets or sentences. Do not include long talking-points lists, likely-pushback lists, or a follow-up draft unless the user explicitly asked for that detail.",
+        "Use exactly these three short sections: ~ Goal ~, ~ Say this first ~, ~ If they push back ~.",
+        "Keep each section to 1-2 short bullets or sentences. Do not add more sections, a recap, or another setup question.",
         "Make it feel like a calm coach helping the user know what to do next, not a full strategy memo.",
         "If no extra examples were provided, still prep from the user's stated scenario. Do not say you need the actual pattern before helping.",
         "Do not claim you cannot access DMs, private channels, or Slack history unless the prompt gives a specific Slack failure reason.",
-        "End with: Want to practice the opening or the pushback?",
+        "End with exactly: Would you like to practice the conversation?",
         "Keep it Slack-ready, concise, direct but kind, and avoid claiming unconfirmed Slack evidence as fact.",
       ].join("\n");
   }
@@ -1332,7 +1357,7 @@ async function completeSession(input: GuidedFlowInput, session: SlackAgentSessio
     contextMessageCount: coachingContext.messageCount,
     broaderSearchUsed: coachingContext.broaderSearchUsed || session.evidence_suggestions.length > 0,
     relationshipContext: input.relationshipContext || null,
-    responseDetail: isCompactSlackIntent(session.flow_type) ? "quick" : "longer",
+    responseDetail: session.flow_type === "prep" || session.flow_type === "practice" || isCompactSlackIntent(session.flow_type) ? "quick" : "longer",
     intent: session.flow_type,
   });
   await updateSession(session.id, {
@@ -1388,7 +1413,9 @@ async function mergeAnswersForStep(input: GuidedFlowInput, session: SlackAgentSe
     answers.person = parsedPerson.label;
     answers.person_slack_user_id = parsedPerson.slackUserId || undefined;
     answers.person_self_mention = parsedPerson.isSelfMention;
+    answers.conversation_location = answers.conversation_location || inferConversationLocation(cleaned);
   }
+  if (session.step === "ask_location") answers.conversation_location = inferConversationLocation(cleaned);
   if (session.step === "ask_outcome") answers.outcome = cleaned;
   if (session.step === "ask_concern") answers.concern = cleaned;
   if (session.step === "ask_practice_goal") answers.practice_goal = cleaned;
@@ -1402,9 +1429,30 @@ async function mergeAnswersForStep(input: GuidedFlowInput, session: SlackAgentSe
 
 async function firstSidebarResponse(input: GuidedFlowInput, session: SlackAgentSession) {
   if (session.flow_type === "decode") {
+    if (!session.answers.source_channel_id && !hasPastedMessage(session.answers.initial_request)) {
+      return [
+        "Share the message you want to decode:",
+        "- Paste it here",
+        "- Send me its Slack link",
+        "- Or use the message’s ⋯ menu and choose ‘Beckett - Decode’",
+      ].join("\n");
+    }
     return safeCompleteSession(input, session);
   }
   if (session.flow_type === "respond" || session.flow_type === "rewrite") {
+    if (
+      session.flow_type === "respond" &&
+      !session.answers.source_channel_id &&
+      !hasPastedMessage(session.answers.initial_request)
+    ) {
+      await updateSession(session.id, { step: "ask_respond_message" });
+      return [
+        "Share the message you want to respond to:",
+        "- Paste it here",
+        "- Send me its Slack link",
+        "- Or use the message’s ⋯ menu and choose ‘Beckett - Respond’",
+      ].join("\n");
+    }
     const nextStep = nextStepForAnswers(session.flow_type, session.answers);
     if (nextStep) {
       const updated = await updateSession(session.id, { step: nextStep });
@@ -1467,6 +1515,10 @@ export async function startGuidedSlackFlow({
     channelName: sourceChannelName,
     threadTs: sourceThreadTs,
   });
+  if (intent === "practice" && seededPrompt.includes("Prepared conversation context.")) {
+    answers.practice_goal = "practice the whole conversation";
+    answers.practice_pushback = seededPrompt.match(/Concern and realistic pushback:\s*(.+)/i)?.[1]?.trim() || "realistic questions or pushback";
+  }
   const sourceActiveContext = providedSourceActiveContext || (sourceChannelId
     ? await fetchSlackConversationContext({
         accessToken: user.accessToken,
@@ -1742,41 +1794,31 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
   }
 
   if (session && session.flow_type === "prep" && isPracticeRoleplayRequest(text)) {
-    const updated = await updateSession(session.id, {
-      flow_type: "practice",
-      step: "ask_practice_goal",
-      status: "active",
-      answers: {
-        ...session.answers,
-        practice_goal: /pushback/i.test(text)
-          ? "practice handling pushback"
-          : /opening/i.test(text)
-            ? "practice the opening"
-            : "practice the whole conversation",
-        practice_pushback: session.answers.concern || session.answers.practice_pushback || "realistic manager questions or pushback",
-        extra_context: [
-          ...(session.answers.extra_context || []),
-          `User asked to switch from prep into role-play: ${text}`,
-        ],
-      },
+    const practicePrompt = [
+      "Prepared conversation context. Start the whole role-play immediately.",
+      `Person: ${session.answers.person || "the other person"}`,
+      `Conversation type: ${session.answers.conversation_type || "not specified"}`,
+      `Conversation location: ${conversationLocationLabel(session.answers.conversation_location)}`,
+      `Goal: ${session.answers.outcome || "not specified"}`,
+      `Concern and realistic pushback: ${session.answers.concern || "realistic questions or pushback"}`,
+    ].join("\n");
+    const started = await startGuidedSlackFlow({
+      user: input.user,
+      teamId: input.teamId,
+      slackUserId: input.slackUserId,
+      intent: "practice",
+      prompt: practicePrompt,
     });
-    const response = await safeCompleteSession(input, updated, text);
-    await updateSession(updated.id, {
-      answers: {
-        ...updated.answers,
-        extra_context: [
-          ...(updated.answers.extra_context || []),
-          PRACTICE_STARTED_MARKER,
-        ],
-      },
-    });
-    await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
+    const response = started.ok
+      ? "I opened a fresh Practice conversation in Beckett Messages."
+      : "I couldn’t open the Practice conversation. Use the Practice conversation button below to try again.";
+    await persistGuidedTurn({ input, session, userText: text, beckettText: response });
     return {
       handled: true,
       title: "Practice",
       response,
-      actions: guidedActions(updated),
-      coachingThreadId: updated.coaching_thread_id,
+      actions: guidedActions(session),
+      coachingThreadId: session.coaching_thread_id,
     };
   }
 
@@ -2080,18 +2122,28 @@ export async function handleGuidedSlackPrep(input: GuidedFlowInput): Promise<Gui
     return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
   }
 
+  if (
+    session.step === "ask_location" &&
+    /\b(recommend|best|better|should (?:this|it|we)|where should|what format)\b/i.test(text)
+  ) {
+    const sensitive = /\b(difficult|feedback|conflict|workload|raise|promotion|boundary|performance|overwhelmed)\b/i.test([
+      session.answers.initial_request,
+      session.answers.conversation_type,
+      text,
+    ].filter(Boolean).join(" "));
+    const response = sensitive
+      ? "I recommend a video, phone, or in-person conversation so tone and questions are easier to handle. If that works, reply `call` or `in person`; otherwise reply `Slack`."
+      : "A Slack message works well if this is a simple update or clarification. If nuance or pushback is likely, use a call. Reply `Slack`, `call`, or `in person` to choose.";
+    await persistGuidedTurn({ input, session, userText: text, beckettText: response });
+    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(session), coachingThreadId: session.coaching_thread_id };
+  }
+
   const answers = await mergeAnswersForStep(input, session, text);
   const nextStep = nextStepForAnswers(session.flow_type, answers);
   const updated = await updateSession(session.id, {
     answers,
     step: nextStep || session.step,
   });
-
-  if (nextStep === "confirm_evidence") {
-    const response = await buildEvidenceStep(input, updated);
-    await persistGuidedTurn({ input, session: updated, userText: text, beckettText: response });
-    return { handled: true, title: flowTitle(session.flow_type), response, actions: guidedActions(updated), coachingThreadId: updated.coaching_thread_id };
-  }
 
   if (nextStep) {
     const response = askForStep(updated);

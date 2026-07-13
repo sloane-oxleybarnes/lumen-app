@@ -1493,7 +1493,14 @@ async function handleHistoryButtonResponse({
         intent: flowType,
         // Continue is the only action that may reopen an existing case.
         // Quick actions always begin with a clean guided session.
-        prompt: quickPrompt(flowType),
+        prompt: flowType === "practice" && thread
+          ? [
+              "Prepared conversation context. Start the whole role-play immediately.",
+              thread.summary || thread.prompt_snippet || "Use the completed Prep context.",
+              ...(await loadSlackCoachingMessages({ threadId: thread.id, userId: user.id, limit: 10 }).catch(() => []))
+                .map((message) => `${message.role === "beckett" ? "Beckett" : "User"}: ${message.content}`),
+            ].join("\n")
+          : quickPrompt(flowType),
       });
       await publishSlackHome({
         botAccessToken: user.botAccessToken,

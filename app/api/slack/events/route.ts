@@ -114,7 +114,7 @@ function inferAssistantIntent(text: string): SlackCoachingIntent {
   return "general";
 }
 
-function isGuestRetrievalRequest(text: string) {
+function isSlackRetrievalRequest(text: string) {
   return /\b(what did we (?:decide|agree)|what was decided|did we (?:delay|move|change)|when (?:is|was|did).*launch|find (?:the|our).*decision|what happened with)\b/i.test(text);
 }
 
@@ -684,7 +684,7 @@ async function respondToAgentMessage({
           durableSelectedContext,
           isAssistantStarterPrompt(text) ? guestContext.text : guestContext.text || text,
         ].filter(Boolean).join("\n\n");
-        const inferredFlow: SlackGuestFlowType = isGuestRetrievalRequest(text)
+        const inferredFlow: SlackGuestFlowType = isSlackRetrievalRequest(text)
           ? "retrieval"
           : (selectedMessageState?.intent || guestIntentFromExactThread(messageText, assistantIntent)) as SlackGuestFlowType;
         const flowType = guestSession?.flow_type || inferredFlow;
@@ -974,30 +974,6 @@ async function respondToAgentMessage({
       slackAuthorUserId: activeUserId,
       interactionType: "slack_agent_message",
     });
-
-    if (
-      isAssistantStarterPrompt(text) &&
-      (assistantIntent === "decode" || assistantIntent === "respond")
-    ) {
-      const payload = buildBeckettPayload({
-        title: "Beckett",
-        subtitle: "",
-        body: starterPromptMissingContextMessage(assistantIntent),
-        hideTitle: true,
-      });
-
-      await slackApiPost(user.botAccessToken, "chat.postMessage", {
-        channel: channelId,
-        thread_ts: threadTs,
-        ...payload,
-      });
-      await slackApiPost(user.botAccessToken, "assistant.threads.setStatus", {
-        channel_id: channelId,
-        thread_ts: threadTs,
-        status: "",
-      }).catch(() => null);
-      return;
-    }
 
     // A reply inside a saved shortcut/coaching thread should continue that
     // conversation before broad trigger words are allowed to start a new flow.
@@ -1303,7 +1279,7 @@ async function respondToAgentMessage({
       activeContext,
       contextChannelId: activeChannelId,
       actionToken,
-      includeBroaderContext: shouldUseBroaderSlackContext(assistantIntent, text),
+      includeBroaderContext: isSlackRetrievalRequest(text) || shouldUseBroaderSlackContext(assistantIntent, text),
       relevantSlackUserIds: activeUserId ? [activeUserId] : [],
       currentSlackUserId: slackUserId,
     });

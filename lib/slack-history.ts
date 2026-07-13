@@ -844,12 +844,33 @@ export async function scheduleSlackInactivityStartCard({
     delayMs: SLACK_INACTIVITY_START_CARD_DELAY_MS,
     postAt,
   });
-  const scheduled = await slackApiPost(botAccessToken, "chat.scheduleMessage", {
+  const scheduled = await slackApiPost<{ scheduled_message_id?: string }>(botAccessToken, "chat.scheduleMessage", {
     channel: channelId,
     post_at: postAt,
     ...payload,
   });
   if (!scheduled.ok) throw new Error(scheduled.error || "slack_schedule_message_failed");
+
+  // Several Slack event paths can finish at nearly the same time. Re-list after
+  // scheduling and deterministically keep only the newest start-card timer.
+  const after = await slackApiPost<{
+    scheduled_messages?: Array<{ id?: string; text?: string; post_at?: number | string }>;
+  }>(botAccessToken, "chat.scheduledMessages.list", {
+    channel: channelId,
+    limit: 100,
+  }).catch(() => null);
+  const markerSchedules = (after?.scheduled_messages || [])
+    .filter((item) => item.id && String(item.text || "").includes(marker))
+    .sort((a, b) => {
+      const timeDifference = Number(b.post_at || 0) - Number(a.post_at || 0);
+      return timeDifference || String(b.id).localeCompare(String(a.id));
+    });
+  for (const duplicate of markerSchedules.slice(1)) {
+    await slackApiPost(botAccessToken, "chat.deleteScheduledMessage", {
+      channel: channelId,
+      scheduled_message_id: duplicate.id,
+    }).catch(() => null);
+  }
 }
 
 export async function publishSlackConnectHome({
