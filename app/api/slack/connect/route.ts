@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
   }
 
   const authRes = await fetch(
-    `${slackOAuthWorker}/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`
+    `${slackOAuthWorker}/auth-url?redirect_uri=${encodeURIComponent(redirectUri)}`,
+    { cache: "no-store" }
   ).catch(() => null);
 
   if (!authRes?.ok) {
