@@ -1870,6 +1870,7 @@ Do not claim certainty about another person's intent. Use phrases like "may" or 
 Do not hallucinate reactions, comfort, rapport, agreement, annoyance, or pushback that is not visible in the provided Slack text.
 Always separate "what is visible" from "possible interpretation" when decoding a Slack message or thread.
 When broader Slack history is included, clearly distinguish active-thread facts from relevant prior history. Prior history can shape preparation, but it does not prove current intent.
+When the user asks Slack search to recall a decision, date, owner, status, or other fact, answer in at most two sentences under 50 words. State the result and its source. Do not comment on how often the requester asked, their search behavior, or unrelated Beckett DM history.
 When active Slack context is available, answer from that visible conversation first. Do not ask broad relationship-history or background questions unless the user explicitly asks for a broad relationship assessment.
 If the user asks for relationship insight and active Slack context is available, give a limited read based on that visible context instead of saying there is nothing to assess. State the limitation briefly if broader history is unavailable.
 For broad relationship, history, pattern, vibe, or dynamic questions where broader Slack history is unavailable but visible context is available, start the answer from the visible thread with phrasing like "Based on the visible conversation..." and do not ask for more background unless there is no visible Slack context.
@@ -1890,7 +1891,7 @@ During an active Respond task, additional context refines the existing drafts. D
 When the user asks to shorten or revise a named draft option, revise only that option and preserve the original selected-message context.
 	For Rewrite, do not restate the user's draft or request before the answer. Start directly with “Here are three options:” when offering variants. Preserve the original meaning and boundary, apply the requested tone change, and make the options meaningfully different rather than near-duplicates.
 	For Decode, lead with a short likely read, then concise visible evidence, one or two possible interpretations, and a practical next step. Always name ambiguity or an alternative interpretation; never present inferred intent as fact. Use visible reactions and surrounding channel context when provided. Avoid walls of text.
-	For compact Slack flows, use no more than 75 words and no more than 5 nonblank lines. For final Prep assessments, use no more than 55 words across Goal, Say this first, and If they push back.
+	For compact Slack flows, use no more than 75 words and no more than 5 nonblank lines. For final Prep assessments, return exactly three nonblank lines—Goal, Say this first, and If they push back—using no more than 45 words total. Never omit the pushback line.
 For difficult conversation prep, keep the answer focused on the goal, first sentence, likely pushback, what to watch for, and one next practice step.
 Beckett suggests and coaches; it does not tell the user to act automatically.
 Do not add generic privacy or shared-channel warnings just because Slack context includes both personal and work topics.
@@ -1968,6 +1969,9 @@ ${prompt}${relationshipLine}${messageLine}`;
       ? `${text.trim()}\n\n${SLACK_RELATIONSHIP_LIMITATION_NOTE}`
       : text;
   const cleaned = withRelationshipLimitation.trim() || "I could not generate a response for that Slack request.";
+  if (broaderSearchUsed && intent === "general") {
+    return fitSlackAnswer(compactSlackResponseLayout(cleaned), 320);
+  }
   if (responseDetail === "quick") return fitSlackAnswer(compactSlackResponseLayout(cleaned), compactSlackLimit(intent));
   if (responseDetail === "longer") return fitSlackAnswer(cleaned, MAX_LONGER_SLACK_ANSWER_LENGTH);
   return truncateSlackText(cleaned);
@@ -2101,7 +2105,7 @@ function compactSlackLimit(intent: SlackCoachingIntent) {
   if (intent === "practice") return 420;
   if (intent === "decode" || intent === "relationship") return 500;
   if (intent === "rewrite" || intent === "respond") return 540;
-  if (intent === "prep") return 330;
+  if (intent === "prep") return 390;
   return MAX_QUICK_SLACK_ANSWER_LENGTH;
 }
 
