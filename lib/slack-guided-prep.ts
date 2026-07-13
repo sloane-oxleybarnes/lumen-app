@@ -119,6 +119,7 @@ type StartGuidedFlowInput = {
   sourceChannelName?: string | null;
   sourceThreadTs?: string | null;
   sourceActiveContext?: SlackConversationContext | null;
+  rootContextLine?: string | null;
 };
 
 type GuidedFlowResult =
@@ -1550,6 +1551,7 @@ export async function startGuidedSlackFlow({
   sourceChannelName,
   sourceThreadTs,
   sourceActiveContext: providedSourceActiveContext,
+  rootContextLine,
 }: StartGuidedFlowInput) {
   if (!isGuidedFlowType(intent)) return { ok: false, error: "unsupported_flow" };
   const seededPrompt = sourceChannelName
@@ -1580,7 +1582,7 @@ export async function startGuidedSlackFlow({
     userName: user.name,
   });
   const step = nextStepForAnswers(intent, answers) || (intent === "decode" ? "decode_followup" : "ask_audience");
-  const initialText = sidebarOpener(intent);
+  const initialText = [sidebarOpener(intent), rootContextLine].filter(Boolean).join("\n\n");
   const posted = await postSlackAgentMessage({
     botAccessToken: user.botAccessToken,
     slackUserId,

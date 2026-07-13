@@ -6,6 +6,7 @@ import {
   inferGuestPrepLocation,
 } from "@/lib/slack-guest-routing";
 import { buildSlackPracticeUrl } from "@/lib/slack-practice-link";
+import { buildSlackCommandExcerpt } from "@/lib/slack-command-copy";
 
 export const runtime = "nodejs";
 
@@ -321,11 +322,15 @@ async function startSidebarFlow({
             : parsed.intent === "respond"
               ? "Reply in this thread so I can keep this message, drafts, and follow-ups saved together."
               : "Reply in this thread so I can keep the setup and follow-ups saved together.";
+        const rootContextLine = buildSlackCommandExcerpt(
+          parsed.intent,
+          latestSource?.targetText || parsed.prompt
+        );
         const agentDelivery = await postSlackAgentMessage({
           botAccessToken,
           slackUserId: payload.user_id,
           title: `${parsed.intent[0].toUpperCase()}${parsed.intent.slice(1)}: Slack conversation`,
-          text: [opener, "", guidance].join("\n\n"),
+          text: [opener, rootContextLine, guidance].filter(Boolean).join("\n\n"),
         });
 
         let agentReplyPosted = false;
@@ -482,9 +487,6 @@ async function startSidebarFlow({
               })
             );
           }
-          await postSlackResponse(responseUrl, "I moved this into our private Beckett conversation.", {
-            replaceOriginal: true,
-          });
           return;
         }
 
@@ -573,6 +575,10 @@ async function startSidebarFlow({
       sourceChannelName: payload.channel_name,
       sourceThreadTs: latestSource?.targetTs || undefined,
       sourceActiveContext: latestSource?.context || undefined,
+      rootContextLine: buildSlackCommandExcerpt(
+        parsed.intent,
+        latestSource?.targetText || parsed.prompt
+      ),
     });
 
     if (!started.ok) {
@@ -584,9 +590,6 @@ async function startSidebarFlow({
       return;
     }
 
-    await postSlackResponse(responseUrl, "I started this in our private conversation.", {
-      replaceOriginal: true,
-    });
   } catch (error) {
     console.error("Slack sidebar flow start failed", {
       intent: parsed.intent,
@@ -666,6 +669,6 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({
     response_type: "ephemeral",
-    text: "I’m starting this in our private conversation.",
+    text: "I’m moving this into a private Beckett conversation.",
   });
 }
