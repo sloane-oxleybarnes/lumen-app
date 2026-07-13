@@ -28,6 +28,7 @@ import {
   SlackConversationContext,
 } from "@/lib/slack-app";
 import { extractGuestPrepOutcomeAndConcern } from "@/lib/slack-guest-routing";
+import { isUserCorrectingWrongFlow } from "@/lib/slack-guided-intent";
 
 type GuidedFlowType = "respond" | "rewrite" | "decode" | "prep" | "practice";
 type PrepScenario =
@@ -1038,10 +1039,6 @@ function isCancel(text: string) {
 function isLikelyTopicChange(text: string) {
   if (text.length < 24) return false;
   return isGuidedPrepRequest(text) && /\b(instead|different|new|another)\b/i.test(text);
-}
-
-function isUserCorrectingWrongFlow(text: string) {
-  return /\b(no,?|not what i mean|that's not what i mean|that is not what i mean|you'?re not responding|you are not responding|i want to know if|i'?m asking if|i asked if)\b/i.test(text);
 }
 
 function isFeedbackAnalysisRequest(text: string) {
