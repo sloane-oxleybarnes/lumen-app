@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 import Link from "next/link";
 import MoodSelector from "@/components/dashboard/MoodSelector";
 import CoachWalkthrough from "@/components/dashboard/CoachWalkthrough";
-import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
+import BetaMissionsCard from "@/components/dashboard/BetaMissionsCard";
 
 type DashboardPageProps = {
   searchParams?: {
@@ -21,11 +21,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     .select("full_name, plan, extension_connected_at, first_login_complete, dashboard_walkthrough_completed_at")
     .eq("id", session.user.id)
     .single();
-
-  const { data: integrations } = await supabase
-    .from("user_integrations")
-    .select("provider, connected_at, updated_at")
-    .eq("user_id", session.user.id);
 
   const name =
     profile?.full_name?.split(" ")[0] ||
@@ -56,34 +51,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     }
   } catch { /* table may not exist yet */ }
 
-  const extensionConnected = Boolean(profile?.extension_connected_at);
-  const gmailConnected = Boolean(integrations?.some((item) => item.provider === "google"));
-  const slackConnected = Boolean(integrations?.some((item) => item.provider === "slack"));
-  const setupItems = [
-    {
-      label: "Chrome extension",
-      description: "Use Beckett inside Gmail and Slack.",
-      done: extensionConnected,
-      href: extensionConnected ? "/dashboard/settings" : CHROME_WEB_STORE_URL,
-      action: extensionConnected ? "Connected" : "Install",
-    },
-    {
-      label: "Gmail",
-      description: "Let Beckett read full email threads when you ask.",
-      done: gmailConnected,
-      href: "/dashboard/settings",
-      action: gmailConnected ? "Connected" : "Connect",
-    },
-    {
-      label: "Slack",
-      description: "Let Beckett use Slack context in DMs, channels, and threads.",
-      done: slackConnected,
-      href: "/dashboard/settings",
-      action: slackConnected ? "Connected" : "Connect",
-    },
-  ];
-  const setupCompleteCount = setupItems.filter((item) => item.done).length;
-  const setupComplete = setupCompleteCount === setupItems.length;
   const tourParam = Array.isArray(searchParams?.tour) ? searchParams?.tour[0] : searchParams?.tour;
   const showWalkthrough =
     tourParam === "1" ||
@@ -123,7 +90,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </section>
 
-      <section className={`mb-6 grid gap-5 ${setupComplete ? "" : "lg:grid-cols-[1fr_1fr]"}`}>
+      <section className="mb-6">
         <div data-tour="start-here" className="rounded-card border border-primary/20 bg-primary-light/40 p-6">
           <p className="text-xs font-medium uppercase tracking-wide text-primary">Start here</p>
           <h2 className="mt-2 text-2xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
@@ -151,27 +118,9 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
           </div>
         </div>
 
-        {!setupComplete && (
-          <div data-tour="beta-setup" className="rounded-card border border-border bg-white p-6">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Beta setup</p>
-                <h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
-                  Connect your coaching tools
-                </h2>
-              </div>
-              <span className="rounded-pill bg-bg px-3 py-1 text-xs font-medium text-ink-mid">
-                {setupCompleteCount}/3 done
-              </span>
-            </div>
-            <div className="space-y-3">
-              {setupItems.map((item) => (
-                <SetupChecklistItem key={item.label} {...item} />
-              ))}
-            </div>
-          </div>
-        )}
       </section>
+
+      <BetaMissionsCard />
 
       <section className="mb-6">
         <div className="rounded-card border border-border bg-white p-6">
@@ -203,52 +152,6 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         </div>
       </section>
 
-    </div>
-  );
-}
-
-function SetupChecklistItem({
-  label,
-  description,
-  done,
-  href,
-  action,
-}: {
-  label: string;
-  description: string;
-  done: boolean;
-  href: string;
-  action: string;
-}) {
-  const isExternal = href.startsWith("http");
-  return (
-    <div className="flex items-start justify-between gap-3 rounded-sm border border-border bg-bg/50 p-3">
-      <div className="flex min-w-0 gap-3">
-        <span
-          className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-xs ${
-            done ? "border-primary bg-primary text-white" : "border-border bg-white text-ink-light"
-          }`}
-          aria-hidden="true"
-        >
-          {done ? "✓" : ""}
-        </span>
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-ink">{label}</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-ink-mid">{description}</p>
-        </div>
-      </div>
-      <Link
-        href={href}
-        target={isExternal ? "_blank" : undefined}
-        rel={isExternal ? "noreferrer" : undefined}
-        className={`shrink-0 rounded-pill px-3 py-1.5 text-xs font-medium transition-colors ${
-          done
-            ? "bg-primary-light text-primary"
-            : "border border-border bg-white text-ink-mid hover:border-primary hover:text-ink"
-        }`}
-      >
-        {action}
-      </Link>
     </div>
   );
 }

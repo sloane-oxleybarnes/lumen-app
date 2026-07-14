@@ -5,10 +5,15 @@ import AdminTabs from "./AdminTabs";
 import AdminApprovalList from "./ApprovalList";
 import AdminContentEditor from "./ContentEditor";
 import AdminCourseStudio from "./CourseStudio";
-import AdminBetaTracker, { type BetaTrackerRow } from "./BetaTracker";
+import AdminBetaTracker, {
+  type BetaTrackerRow,
+  type BetaMissionCoverage,
+  type BetaMissionFeedbackSummary,
+} from "./BetaTracker";
 import AdminFeedbackViewer, { type AdminFeedbackRow } from "./FeedbackViewer";
 import { getCourseStudioItems } from "@/lib/course-content";
 import { getSiteContent } from "@/lib/site-content-server";
+import { BETA_MISSION_DEFINITIONS, getBetaMissionDefinition } from "@/lib/beta-missions";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +39,7 @@ export default async function AdminPage() {
     { data: courseCompletions },
     { data: feedback },
     { data: betaEvents },
+    { data: missionAssignments },
     content,
     courses,
   ] = await Promise.all([
@@ -65,6 +71,9 @@ export default async function AdminPage() {
       .select("id, user_id, email, event_name, source, metadata, created_at")
       .order("created_at", { ascending: false })
       .limit(300),
+    supabase
+      .from("beta_mission_assignments")
+      .select("id, user_id, mission_key, status, presented_at, feedback_rating, feedback_comment, feedback_at, created_at"),
     getSiteContent(),
     getCourseStudioItems(),
   ]);
@@ -79,7 +88,30 @@ export default async function AdminPage() {
     courseCompletions: courseCompletions || [],
     feedback: feedback || [],
     betaEvents: betaEvents || [],
+    missionAssignments: missionAssignments || [],
   });
+  const profileEmailById = new Map((profiles || []).map((profile) => [profile.id, profile.email]));
+  const missionCoverage: BetaMissionCoverage[] = Object.values(BETA_MISSION_DEFINITIONS).map((definition) => {
+    const matching = (missionAssignments || []).filter((item) => item.mission_key === definition.key);
+    return {
+      key: definition.key,
+      label: definition.title,
+      shown: matching.filter((item) => item.presented_at).length,
+      completed: matching.filter((item) => item.status === "completed").length,
+      skipped: matching.filter((item) => item.status === "skipped").length,
+    };
+  });
+  const missionFeedback: BetaMissionFeedbackSummary[] = (missionAssignments || [])
+    .filter((item) => item.feedback_rating === "helpful" || item.feedback_rating === "not_helpful")
+    .map((item) => ({
+      id: item.id,
+      email: profileEmailById.get(item.user_id) || "Unknown tester",
+      missionLabel: getBetaMissionDefinition(item.mission_key)?.title || item.mission_key,
+      rating: item.feedback_rating as "helpful" | "not_helpful",
+      comment: item.feedback_comment,
+      createdAt: item.feedback_at || item.created_at,
+    }))
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
 
   return (
     <AdminTabs
@@ -111,7 +143,7 @@ export default async function AdminPage() {
     >
       <div className="space-y-10 [&>section]:mt-0">
         <AdminApprovalList signups={pendingSignups} />
-        <AdminBetaTracker rows={trackerRows} />
+        <AdminBetaTracker rows={trackerRows} missionCoverage={missionCoverage} missionFeedback={missionFeedback} />
       </div>
       <AdminFeedbackViewer feedback={feedbackRows} profiles={profiles || []} />
       <AdminCourseStudio courses={courses} />
@@ -171,6 +203,12 @@ type BetaEventRow = {
   created_at: string;
 };
 
+type MissionAssignmentRow = {
+  user_id: string;
+  mission_key: string;
+  status: "active" | "completed" | "skipped";
+};
+
 function buildBetaTrackerRows({
   signups,
   profiles,
@@ -179,6 +217,7 @@ function buildBetaTrackerRows({
   courseCompletions,
   feedback,
   betaEvents,
+  missionAssignments,
 }: {
   signups: SignupRow[];
   profiles: ProfileRow[];
@@ -187,6 +226,7 @@ function buildBetaTrackerRows({
   courseCompletions: CourseCompletionRow[];
   feedback: FeedbackRow[];
   betaEvents: BetaEventRow[];
+  missionAssignments: MissionAssignmentRow[];
 }): BetaTrackerRow[] {
   const profileByEmail = new Map(profiles.map((profile) => [profile.email.toLowerCase(), profile]));
   const signupByEmail = new Map(signups.map((signup) => [signup.email.toLowerCase(), signup]));
@@ -202,6 +242,7 @@ function buildBetaTrackerRows({
     const analyses = aiUsage.filter((item) => item.user_id === userId);
     const courses = courseCompletions.filter((item) => item.user_id === userId);
     const feedbackRows = feedback.filter((item) => item.user_id === userId);
+    const missions = missionAssignments.filter((item) => item.user_id === userId);
     const recentEvents = betaEvents
       .filter((item) => (userId && item.user_id === userId) || item.email?.toLowerCase() === email)
       .slice(0, 5)
@@ -231,6 +272,12 @@ function buildBetaTrackerRows({
       feedbackCount: feedbackRows.length,
       negativeFeedbackCount: feedbackRows.filter((item) => item.rating === "no").length,
       lastFeedbackAt: feedbackRows.at(-1)?.created_at || null,
+      missionAssignedCount: missions.length,
+      missionCompletedCount: missions.filter((item) => item.status === "completed").length,
+      missionSkippedCount: missions.filter((item) => item.status === "skipped").length,
+      activeMissionLabels: missions
+        .filter((item) => item.status === "active")
+        .map((item) => getBetaMissionDefinition(item.mission_key)?.title || item.mission_key),
       recentEvents,
     };
   }).sort((a, b) => {
