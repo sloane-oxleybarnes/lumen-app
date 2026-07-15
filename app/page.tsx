@@ -74,7 +74,7 @@ export default function HomePage() {
       n: "01",
       title: "Message decoder",
       personal: "What did they actually mean? In beta, Beckett helps you practice decoding personal messages and dating signals. Mobile text, DM, and dating-app overlays are coming soon.",
-      professional: "Beckett reads your Gmail and Slack and explains what's really happening beneath the surface — the subtext, the power dynamics, what the person actually needs from you.",
+      professional: "Beckett helps separate what a Gmail or Slack message clearly says from uncertain tone, possible interpretations, and useful next steps.",
       action: "Decode this message →",
     },
     {
@@ -120,14 +120,14 @@ export default function HomePage() {
 
   const triggers = [
     { label: "I always over-explain and apologize too much", beckett: "Flags when you're over-qualifying and helps you land the point directly." },
-    { label: "I can't tell when someone is being sarcastic vs. serious", beckett: "Decodes tone and tells you plainly what's actually going on." },
+    { label: "I can't tell when someone is being sarcastic vs. serious", beckett: "Separates visible cues from uncertain interpretations and helps you choose a grounded next step." },
     { label: "I freeze when conflict feels imminent", beckett: "Coaches you in the moment — what to say when you're drawing a blank." },
     { label: "I say yes when I mean no and don't know how to stop", beckett: "Helps you practice setting limits before the conversation happens." },
   ];
 
   const professionalTriggers = [
     { label: "I go blank in meetings and lose what I was about to say", beckett: "Helps you prepare talking points so you're never starting from scratch in the room." },
-    { label: "I can't tell if a Slack message is passive-aggressive or just blunt", beckett: "Decodes workplace tone and tells you plainly what's actually behind the message." },
+    { label: "I can't tell if a Slack message is passive-aggressive or just blunt", beckett: "Highlights observable tone cues, names uncertainty, and offers a grounded way to respond." },
     { label: "I overthink every email for too long before I can hit send", beckett: "Drafts a response you can adjust rather than writing from a blank page." },
     { label: "I shut down when I receive critical feedback, even if it's fair", beckett: "Helps you process and respond when you're not still in the moment." },
   ];
@@ -140,7 +140,7 @@ export default function HomePage() {
 
   const professionalTestimonials = [
     { av: "qa1", initials: "AK", name: "Alex K.", role: "Software Engineer", quote: "I always knew what I wanted to say in meetings — getting it out clearly was the hard part. Beckett helps me prepare." },
-    { av: "qa2", initials: "MR", name: "Morgan R.", role: "Product Manager", quote: "The live meeting guidance changed everything. I can finally be present instead of replaying everything two hours later." },
+    { av: "qa2", initials: "MR", name: "Morgan R.", role: "Product Manager", quote: "Practicing the conversation helped me show up prepared instead of replaying everything two hours later." },
     { av: "qa3", initials: "JT", name: "Jamie T.", role: "Customer Success", quote: "I used to rewrite every work email three times and still wasn't sure it landed. Beckett handles that for me." },
   ];
 
@@ -394,8 +394,8 @@ export default function HomePage() {
             <p className="sec-sub">For beta, Beckett focuses on Gmail, Slack, the Chrome extension, courses, and practice. Meeting support is next, but not live yet.</p>
             <div className="plat-grid">
               {[
-                { icon: "pi-gmail", letter: "G", name: "Gmail", desc: "Reads full inbox threads. One click to insert a coached reply into your compose window." },
-                { icon: "pi-slack", letter: "S", name: "Slack", desc: "Reads DMs and channels in real time. Inserts coached replies directly into Slack." },
+                { icon: "pi-gmail", letter: "G", name: "Gmail", desc: "Uses the message or thread you choose to decode tone, draft a reply, or improve wording." },
+                { icon: "pi-slack", letter: "S", name: "Slack", desc: "Provides private decoding, response help, rewriting, preparation, and practice inside Slack." },
                 { icon: "pi-meet", letter: "C", name: "Chrome extension", desc: "Brings Beckett into the workplace tools beta users are testing now." },
                 { icon: "pi-zoom", letter: "M", name: "Meetings", desc: "Google Meet and Zoom support are planned after the core beta flows are stable.", soon: true },
               ].map((p) => (
@@ -500,6 +500,7 @@ export default function HomePage() {
         <div className="f-copy">© 2026 Beckett. For brains that work differently.</div>
         <div className="f-links">
           <a href="/privacy">Privacy</a>
+          <a href="/terms">Terms</a>
           <a href="mailto:hello@meetbeckett.co">Support</a>
         </div>
       </footer>

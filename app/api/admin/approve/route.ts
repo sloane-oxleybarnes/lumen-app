@@ -75,6 +75,11 @@ export async function POST(req: NextRequest) {
   }
 
   await supabase
+    .from("profiles")
+    .update({ plan: "beta" })
+    .eq("email", normalizedEmail);
+
+  await supabase
     .from("beta_signups")
     .update({
       approved: true,

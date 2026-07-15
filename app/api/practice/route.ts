@@ -5,6 +5,12 @@ import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 import { trackBetaEvent } from '@/lib/beta-events'
 import { beckettBoundaryPrompt } from '@/lib/beckett-boundaries'
 import * as Sentry from '@sentry/nextjs'
+import {
+  WEB_CREDITS_ENABLED,
+  WebCreditLimitError,
+  assertWebCreditsAvailable,
+  recordSuccessfulWebCredit,
+} from '@/lib/web-credits'
 
 const METERED_PRACTICE_ACTIONS = new Set([
   'turn',
@@ -45,7 +51,7 @@ export async function POST(req: NextRequest) {
     .single()
 
   const plan = profile?.plan || 'free'
-  if (plan !== 'pro' && plan !== 'beta') {
+  if (plan !== 'pro' && plan !== 'beta' && plan !== 'team') {
     return NextResponse.json({ error: 'Practice requires a Pro or Beta plan.' }, { status: 403 })
   }
 
@@ -79,13 +85,24 @@ export async function POST(req: NextRequest) {
     maxTokens: number
   ) => {
     if (METERED_PRACTICE_ACTIONS.has(action)) {
-      await recordAiUsage(session.user.id, {
+      if (WEB_CREDITS_ENABLED) {
+        await assertWebCreditsAvailable(session.user.id)
+      } else {
+        await recordAiUsage(session.user.id, {
+          source: 'dashboard',
+          action: `practice_${action}`,
+          metadata: { mode: mode || null },
+        })
+      }
+    }
+    const result = await callAnthropic(system, messages, maxTokens)
+    if (WEB_CREDITS_ENABLED && METERED_PRACTICE_ACTIONS.has(action)) {
+      await recordSuccessfulWebCredit(session.user.id, {
         source: 'dashboard',
         action: `practice_${action}`,
         metadata: { mode: mode || null },
       })
     }
-    const result = await callAnthropic(system, messages, maxTokens)
     await trackBetaEvent({
       userId: session.user.id,
       email: session.user.email,
@@ -318,10 +335,10 @@ Return ONLY valid JSON in this shape:
 
 Rules:
 - Use exactly those three titles, in that order.
-- Each text field should be 2-4 natural sentences. No one-sentence cards.
+- Each text field must be exactly 2 natural sentences and no more than 45 words total.
 - The user should immediately recognize their specific situation in the advice. Reuse concrete details from the situation instead of giving abstract coaching principles.
 - "How to start" should include the first move and, when useful, one example phrase the user could adapt.
-- "How this might go" should describe the likely shape of this type of conversation, including 2-3 realistic reactions, questions, objections, or forms of pushback the other person may have.
+- "How this might go" should compactly cover two realistic reactions, questions, objections, or forms of pushback the other person may have.
 - "What to watch for" should name the user's most likely trap in this scenario and give a concrete recovery move if the conversation gets awkward.
 - Infer the conversation type from the situation. For example, a raise conversation often involves evidence, timing, budget, performance examples, or the manager needing to check with someone else; a coverage handoff often involves priorities, ownership, what can wait, and who decides when something is unclear.
 - If the context suggests the other person responds poorly, defensively, dismissively, vaguely, intensely, or under pressure, name that pattern and give the user a grounded way to prepare.
@@ -331,7 +348,7 @@ Quality bar:
 - Too vague: "Be direct and explain what you need."
 - Better: "Start by making the handoff practical, not apologetic: 'Before you're out, I want to make sure I'm covering the right things. What should I prioritize this week if anything urgent comes up?'"`
 
-    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 900)
+    const result = await callMeteredAnthropic(system, [{ role: 'user', content: user }], 450)
     try {
       const parsed = JSON.parse(extractJsonObject(result)) as { tips?: { title?: string; text?: string }[] }
       const expectedTitles = ['How to start', 'How this might go', 'What to watch for']
@@ -421,6 +438,9 @@ Return only valid JSON. No markdown, no extra text.`
 
   return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   } catch (error) {
+    if (error instanceof WebCreditLimitError) {
+      return NextResponse.json({ error: error.message, kind: error.kind }, { status: error.status })
+    }
     if (error instanceof AiUsageLimitError) {
       return NextResponse.json(
         {

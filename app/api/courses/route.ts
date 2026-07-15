@@ -5,6 +5,7 @@ import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 import { trackBetaEvent } from '@/lib/beta-events'
 import { beckettBoundaryPrompt } from '@/lib/beckett-boundaries'
 import * as Sentry from '@sentry/nextjs'
+import { WEB_CREDITS_ENABLED } from '@/lib/web-credits'
 
 function extractJsonObject(text: string) {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
@@ -26,8 +27,8 @@ export async function POST(req: NextRequest) {
     .single()
 
   const plan = profile?.plan || 'free'
-  if (plan !== 'pro' && plan !== 'beta') {
-    return NextResponse.json({ error: 'Courses require a Pro or Beta plan.' }, { status: 403 })
+  if (plan !== 'pro' && plan !== 'beta' && plan !== 'team' && !(WEB_CREDITS_ENABLED && plan === 'free')) {
+    return NextResponse.json({ error: 'Courses require Beta or Pro access.' }, { status: 403 })
   }
 
   const body = await req.json() as {
@@ -55,10 +56,12 @@ export async function POST(req: NextRequest) {
     messages: { role: 'user' | 'assistant'; content: string }[],
     maxTokens: number
   ) => {
-    await recordAiUsage(session.user.id, {
-      source: 'course',
-      action: `course_${action}`,
-    })
+    if (!WEB_CREDITS_ENABLED) {
+      await recordAiUsage(session.user.id, {
+        source: 'course',
+        action: `course_${action}`,
+      })
+    }
     const result = await callAnthropic(system, messages, maxTokens)
     await trackBetaEvent({
       userId: session.user.id,
@@ -196,10 +199,10 @@ Always respond with valid JSON only — no extra text.`
 Here is the conversation:
 ${conversationHistory}
 
-Break character completely. Return a JSON object with exactly these 4 fields (each 1-2 sentences, honest but constructive):
+Break character completely. Return a JSON object with exactly these 4 fields (each 1-2 sentences, honest but constructive). Base the feedback only on observable wording and behavior in the conversation. Use uncertainty language such as “may have,” “could have,” or “likely” when describing the other person's experience; never state their private thoughts or feelings as fact:
 
 {
-  "other_person_felt": "How the match likely felt during this conversation",
+  "other_person_felt": "What the other person may have experienced during this conversation, based on observable cues",
   "how_you_came_across": "How the user came across overall",
   "what_went_well": "One or two specific things that worked",
   "things_to_work_on": "The main thing to improve next time"

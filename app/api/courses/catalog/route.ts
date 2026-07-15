@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getPublishedCourseCatalog } from "@/lib/course-content";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { canBrowseWebCourses } from "@/lib/web-credits";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,8 @@ export async function GET() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan !== "pro" && profile?.plan !== "beta") {
-    return NextResponse.json({ error: "Courses require a Pro or Beta plan." }, { status: 403 });
+  if (!(await canBrowseWebCourses(profile?.plan))) {
+    return NextResponse.json({ error: "Courses require Beta or Pro access." }, { status: 403 });
   }
 
   const courses = await getPublishedCourseCatalog();

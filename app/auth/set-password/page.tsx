@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function SetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -53,6 +54,11 @@ export default function SetPasswordPage() {
           <button type="submit" disabled={loading} style={{ width: '100%', background: '#BA7517', color: '#fff', border: 'none', borderRadius: 100, padding: '11px', fontSize: 15, fontWeight: 500, cursor: 'pointer', opacity: loading ? 0.7 : 1 }}>
             {loading ? 'Setting password…' : 'Set password and sign in'}
           </button>
+          <p style={{ color: '#8A8784', fontSize: 12, lineHeight: 1.5, marginTop: 16, textAlign: 'center' }}>
+            By continuing, you confirm that you are at least 18, are located in the United States,
+            and agree to Beckett&apos;s <Link href="/terms" style={{ color: '#BA7517' }}>Terms</Link> and{' '}
+            <Link href="/privacy" style={{ color: '#BA7517' }}>Privacy Policy</Link>.
+          </p>
         </form>
       </div>
     </div>

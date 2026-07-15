@@ -25,12 +25,18 @@ export default function Footer() {
             <Link href="/beta" className="hover:text-ink transition-colors">
               Beta
             </Link>
+            <Link href="/privacy" className="hover:text-ink transition-colors">
+              Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-ink transition-colors">
+              Terms
+            </Link>
             <Link href="/auth/login" className="hover:text-ink transition-colors">
               Sign in
             </Link>
           </div>
           <p className="text-sm text-ink-light">
-            &copy; {new Date().getFullYear()} Beckett. All rights reserved.
+            &copy; {new Date().getFullYear()} Beckett Labs Inc. All rights reserved.
           </p>
         </div>
       </div>

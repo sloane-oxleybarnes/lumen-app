@@ -1,14 +1,5 @@
-import dynamic from "next/dynamic";
-
-const SignupForm = dynamic(() => import("@/components/auth/SignupForm"), {
-  ssr: false,
-  loading: () => (
-    <div className="min-h-screen bg-bg flex items-center justify-center">
-      <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-    </div>
-  ),
-});
+import { redirect } from "next/navigation";
 
 export default function SignupPage() {
-  return <SignupForm />;
+  redirect("/beta");
 }

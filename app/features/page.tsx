@@ -18,7 +18,7 @@ const features = [
   {
     title: "Message decoder",
     description:
-      "Understand what someone is really saying — the tone, the subtext, the ask beneath the ask.",
+      "Separate what a message clearly says from uncertain tone or possible interpretations, then choose a grounded next step.",
     plan: "free",
     icon: "🔍",
   },
@@ -47,56 +47,56 @@ const features = [
     title: "Practice mode",
     description:
       "Run through hard conversations in a low-stakes space. Get feedback on what landed and what didn't.",
-    plan: "pro",
+    plan: "beta",
     icon: "🎯",
   },
   {
     title: "Meeting support",
     description:
       "Google Meet and Zoom coaching are planned after the Gmail and Slack beta flows are stable.",
-    plan: "pro",
+    plan: "coming",
     icon: "🎥",
   },
   {
     title: "Slack integration",
     description:
       "Decode and draft directly inside Slack. Works on any channel, DM, or thread.",
-    plan: "pro",
+    plan: "free",
     icon: "💬",
   },
   {
     title: "LinkedIn messaging",
     description:
       "Professional outreach coaching is on the roadmap after the workplace beta.",
-    plan: "pro",
+    plan: "coming",
     icon: "💼",
   },
   {
     title: "Skill modules",
     description:
       "Structured coaching on specific communication challenges — from giving feedback to navigating conflict.",
-    plan: "pro",
+    plan: "free",
     icon: "📚",
   },
   {
     title: "Course feedback loop",
     description:
       "Beta course feedback helps Beckett learn which coaching moments are actually useful.",
-    plan: "pro",
+    plan: "beta",
     icon: "📊",
   },
   {
     title: "Beta feedback",
     description:
       "Send course and coaching feedback so Beckett can improve around real beta usage.",
-    plan: "pro",
+    plan: "beta",
     icon: "📝",
   },
   {
     title: "Beta access tracking",
     description:
       "Beta administration is focused on access approval, feedback review, and setup tracking.",
-    plan: "pro",
+    plan: "beta",
     icon: "⚙️",
   },
 ];
@@ -104,12 +104,16 @@ const features = [
 const planBadge: Record<string, string> = {
   free: "Free",
   pro: "Pro",
+  beta: "Beta",
+  coming: "Coming later",
   team: "Team",
 };
 
 const planColor: Record<string, string> = {
   free: "bg-green-50 text-green-700 border border-green-200",
   pro: "bg-primary-light text-primary border border-primary/20",
+  beta: "bg-primary-light text-primary border border-primary/20",
+  coming: "bg-gray-50 text-ink-light border border-border",
   team: "bg-amber-50 text-amber-700 border border-amber-200",
 };
 

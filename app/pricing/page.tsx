@@ -16,65 +16,40 @@ export const metadata: Metadata = {
 
 const plans = [
   {
-    name: "Free",
-    price: "$0",
-    period: "forever",
-    description: "The essentials to get started with clearer communication.",
-    cta: "Get started",
-    href: "/auth/signup",
-    highlight: false,
-    features: [
-      "Message decoder in Gmail",
-      "Draft from context (10/month)",
-      "Tone analysis",
-      "Safe people mode",
-      "Chrome extension",
-    ],
-    notIncluded: [
-      "Meeting support",
-      "Slack integration",
-      "Practice mode",
-      "Skill modules",
-      "Weekly digest",
-    ],
-  },
-  {
-    name: "Pro",
-    price: "$12",
-    period: "per month",
-    description: "Everything you need to build lasting communication skills.",
-    cta: "Join the beta — get Pro free",
+    name: "Beta",
+    price: "Free",
+    period: "during beta",
+    description: "Invite-only access for early testers helping shape Beckett.",
+    cta: "Request beta access",
     href: "/beta",
     highlight: true,
     features: [
-      "Everything in Free",
-      "Unlimited drafts",
-      "Slack integration",
-      "Practice mode",
-      "Beta skill modules",
-      "Course feedback",
-      "Meeting support coming soon",
+      "60 successful coaching actions per day",
+      "500 successful coaching actions per month",
+      "Slack, Gmail, and Chrome coaching",
+      "Full standalone conversation Practice",
+      "All available skill courses",
+      "Course activities do not use coaching credits",
     ],
-    notIncluded: [],
+    notIncluded: ["Live meeting support (coming later)"],
   },
   {
-    name: "Team",
-    price: "Custom",
-    period: "per team",
-    description: "For managers who want to support their team's communication.",
-    cta: "Contact us",
-    href: "mailto:hello@meetbeckett.co",
+    name: "Free after beta",
+    price: "Free",
+    period: "ongoing",
+    description: "A generous starting point for everyday communication coaching.",
+    cta: "Join the beta first",
+    href: "/beta",
     highlight: false,
     features: [
-      "Everything in Pro for each member",
-      "Team admin dashboard",
-      "Seat management",
-      "Aggregated team insights",
-      "Data sharing controls",
-      "Priority support",
-      "Onboarding call",
+      "20 welcome credits on your first day",
+      "10 coaching credits per day after that",
+      "80 credits in your first month; 70 monthly after",
+      "Slack, Gmail, and Chrome included",
+      "Two skill courses each month",
+      "Slack Practice uses normal coaching credits",
     ],
-    notIncluded: [],
+    notIncluded: ["Standalone web Practice", "Live meeting support"],
   },
 ];
 
@@ -114,7 +89,7 @@ export default async function PricingPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-6 items-start">
+        <div className="mx-auto grid max-w-4xl md:grid-cols-2 gap-6 items-start">
           {plans.map((plan) => (
             <div
               key={plan.name}
@@ -138,7 +113,7 @@ export default async function PricingPage() {
                     {plan.price}
                   </span>
                   <span className={`text-sm ${plan.highlight ? "text-white/70" : "text-ink-light"}`}>
-                    /{plan.period}
+                    {plan.period}
                   </span>
                 </div>
                 <p className={`text-sm ${plan.highlight ? "text-white/80" : "text-ink-mid"}`}>

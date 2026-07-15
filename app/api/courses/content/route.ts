@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPublishedCourse } from "@/lib/course-content";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { ensureWebCourseAccess, WebCourseLimitError } from "@/lib/web-credits";
 
 export const dynamic = "force-dynamic";
 
@@ -15,11 +16,7 @@ async function requireCourseAccess() {
     .eq("id", user.id)
     .single();
 
-  if (profile?.plan !== "pro" && profile?.plan !== "beta") {
-    return { ok: false as const, status: 403, error: "Courses require a Pro or Beta plan." };
-  }
-
-  return { ok: true as const };
+  return { ok: true as const, userId: user.id, plan: profile?.plan || "free" };
 }
 
 export async function GET(req: NextRequest) {
@@ -31,6 +28,15 @@ export async function GET(req: NextRequest) {
   const courseId = req.nextUrl.searchParams.get("id")?.trim();
   if (!courseId) {
     return NextResponse.json({ error: "Course ID is required." }, { status: 400 });
+  }
+
+  try {
+    await ensureWebCourseAccess(access.userId, access.plan, courseId);
+  } catch (error) {
+    if (error instanceof WebCourseLimitError) {
+      return NextResponse.json({ error: error.message }, { status: error.status });
+    }
+    throw error;
   }
 
   const course = await getPublishedCourse(courseId);

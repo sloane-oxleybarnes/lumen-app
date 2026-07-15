@@ -53,7 +53,7 @@ export const SITE_CONTENT_FIELDS = [
     label: "Homepage beta subheadline",
     group: "Homepage beta",
     defaultValue:
-      "Every feature. No credit card. No paywalls. Just full access while we build together.",
+      "Free, invite-only access with 60 successful coaching actions per day, full Practice, and all current skill courses.",
     inputType: "textarea",
   },
   {
@@ -66,7 +66,7 @@ export const SITE_CONTENT_FIELDS = [
     key: "home.beta.note",
     label: "Homepage beta note",
     group: "Homepage beta",
-    defaultValue: "No credit card required. Full access during beta.",
+    defaultValue: "No credit card required. Beta limits are 60 coaching actions per day and 500 per month.",
   },
   {
     key: "beta.hero.badge",
@@ -112,7 +112,7 @@ export const SITE_CONTENT_FIELDS = [
     key: "features.cta.copy",
     label: "Features CTA copy",
     group: "Features page",
-    defaultValue: "Want all of it? Join the beta for full Pro access, free.",
+    defaultValue: "Join the free beta to test Beckett's current coaching tools and help shape what comes next.",
     inputType: "textarea",
   },
   {

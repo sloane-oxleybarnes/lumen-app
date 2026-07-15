@@ -4,6 +4,13 @@ import { AiUsageLimitError, recordAiUsage } from '@/lib/ai-usage'
 import { getExtensionProfile } from '@/lib/extension-auth'
 import { trackBetaEvent } from '@/lib/beta-events'
 import { beckettBoundaryPrompt } from '@/lib/beckett-boundaries'
+import {
+  WEB_CREDITS_ENABLED,
+  WebCreditLimitError,
+  assertWebCreditsAvailable,
+  getWebCreditSummary,
+  recordSuccessfulWebCredit,
+} from '@/lib/web-credits'
 
 type ExtensionAiAction =
   | 'analyze_message'
@@ -45,7 +52,7 @@ export async function POST(req: NextRequest) {
   if (!profile) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const plan = profile.plan || 'free'
-  if (plan !== 'beta' && plan !== 'pro') {
+  if (plan !== 'beta' && plan !== 'pro' && plan !== 'team' && !(WEB_CREDITS_ENABLED && plan === 'free')) {
     return NextResponse.json({ error: 'Beta access required.' }, { status: 403 })
   }
 
@@ -63,14 +70,16 @@ export async function POST(req: NextRequest) {
 
     if (!messages.length) return NextResponse.json({ error: 'prompt or messages required' }, { status: 400 })
 
-    const usage = await recordAiUsage(profile.id, {
-      source: 'extension',
-      action,
-      metadata: {
-        responseFormat,
-        ...metadata,
-      },
-    })
+    const usage = WEB_CREDITS_ENABLED
+      ? await assertWebCreditsAvailable(profile.id)
+      : await recordAiUsage(profile.id, {
+          source: 'extension',
+          action,
+          metadata: {
+            responseFormat,
+            ...metadata,
+          },
+        })
 
     const systemWithBoundaries = system
       ? system.includes('Relationship-at-work guidance')
@@ -79,6 +88,15 @@ export async function POST(req: NextRequest) {
       : beckettBoundaryPrompt()
     const text = await callAnthropic(systemWithBoundaries, messages, clampMaxTokens(body.maxTokens))
     const cleaned = text.trim()
+
+    if (WEB_CREDITS_ENABLED) {
+      await recordSuccessfulWebCredit(profile.id, {
+        source: 'extension',
+        action,
+        metadata: { responseFormat },
+      })
+    }
+    const currentUsage = WEB_CREDITS_ENABLED ? await getWebCreditSummary(profile.id) : usage
 
     await trackBetaEvent({
       userId: profile.id,
@@ -94,11 +112,14 @@ export async function POST(req: NextRequest) {
     })
 
     if (responseFormat === 'json') {
-      return NextResponse.json({ result: extractJson(cleaned), usage })
+      return NextResponse.json({ result: extractJson(cleaned), usage: currentUsage })
     }
 
-    return NextResponse.json({ text: cleaned, usage })
+    return NextResponse.json({ text: cleaned, usage: currentUsage })
   } catch (error) {
+    if (error instanceof WebCreditLimitError) {
+      return NextResponse.json({ error: error.message, kind: error.kind }, { status: error.status })
+    }
     if (error instanceof AiUsageLimitError) {
       return NextResponse.json(
         {

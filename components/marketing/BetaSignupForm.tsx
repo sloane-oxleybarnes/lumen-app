@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 
 export default function BetaSignupForm({
   source = "landing_page",
@@ -78,6 +79,12 @@ export default function BetaSignupForm({
           Something went wrong. Please try again.
         </p>
       )}
+      <p className="text-xs leading-relaxed text-ink-light">
+        By requesting access, you confirm that you are at least 18, are located in the United
+        States, and agree to Beckett&apos;s{" "}
+        <Link href="/terms" className="text-primary hover:underline">Terms</Link> and{" "}
+        <Link href="/privacy" className="text-primary hover:underline">Privacy Policy</Link>.
+      </p>
     </form>
   );
 }

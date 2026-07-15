@@ -408,9 +408,8 @@ export default function ProfileSetupForm() {
               </div>
               <div className="mb-4">
                 <TrustNote>
-                  During beta, you get 30 daily Beckett credits for general AI coaching requests,
-                  including extension analysis, drafting or rewrite help, and dashboard practice
-                  support.
+                  During beta, you get 60 successful coaching actions per day and 500 per month.
+                  Only completed coaching responses use a credit; skill-course activities do not.
                 </TrustNote>
               </div>
               <div className="space-y-3">

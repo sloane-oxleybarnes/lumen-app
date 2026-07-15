@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase-server'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/server-admin'
 import { trackBetaEvent } from '@/lib/beta-events'
+import { ensureApprovedBetaPlan, hasApprovedBetaAccess } from '@/lib/beta-access'
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -33,6 +34,27 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
     if (!error) {
+      if (data.session?.user && !isPasswordAction) {
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('plan')
+          .eq('id', data.session.user.id)
+          .maybeSingle()
+        const approved = await hasApprovedBetaAccess({
+          email: data.session.user.email,
+          plan: profile?.plan,
+        })
+        if (!approved) {
+          await supabase.auth.signOut()
+          return NextResponse.redirect(new URL('/beta?access=approval-required', origin))
+        }
+        await ensureApprovedBetaPlan({
+          userId: data.session.user.id,
+          email: data.session.user.email,
+          plan: profile?.plan,
+        })
+      }
+
       if (integration === 'google' && data.session?.user) {
         const now = new Date().toISOString()
         await supabaseAdmin.from('user_integrations').upsert(

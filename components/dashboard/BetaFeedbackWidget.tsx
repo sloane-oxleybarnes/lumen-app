@@ -2,6 +2,7 @@
 
 import { usePathname } from "next/navigation";
 import { useState } from "react";
+import CreditTracker from "@/components/dashboard/CreditTracker";
 
 type Rating = "yes" | "no";
 
@@ -51,6 +52,7 @@ export default function BetaFeedbackWidget() {
 
   return (
     <div className="fixed bottom-4 right-4 z-40 flex flex-col items-end gap-3">
+      <CreditTracker />
       {open && (
         <div className="w-[min(calc(100vw-2rem),360px)] rounded-card border border-border bg-white p-4 shadow-xl">
           <div className="mb-4 flex items-start justify-between gap-3">

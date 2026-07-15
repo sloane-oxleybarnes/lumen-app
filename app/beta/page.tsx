@@ -15,13 +15,18 @@ export const metadata: Metadata = {
 };
 
 const betaPerks = [
-  "Full Pro access — every feature, no limits",
+  "Generous beta access to every currently available feature",
+  "60 successful coaching actions per day and 500 per month",
+  "Slack, Gmail, Chrome, Practice, and all available skill courses",
   "First look at new features before anyone else",
   "Direct line to the team — your feedback shapes what we build",
-  "Beta pricing locked in when we go paid",
 ];
 
-export default async function BetaPage() {
+export default async function BetaPage({
+  searchParams,
+}: {
+  searchParams?: { access?: string };
+}) {
   const content = await getSiteContent([
     "beta.hero.badge",
     "beta.hero.title",
@@ -52,6 +57,11 @@ export default async function BetaPage() {
         </div>
 
         <div className="bg-white rounded-card border border-border p-8 mb-10">
+          {searchParams?.access === "approval-required" && (
+            <div className="mb-6 rounded-card border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-ink-mid">
+              Beckett is invite-only during beta. Request access below, or sign in with the email address from your invitation.
+            </div>
+          )}
           <h2
             className="text-xl text-ink mb-6"
             style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
@@ -84,7 +94,7 @@ export default async function BetaPage() {
             placeholder="your@email.com"
           />
           <p className="text-xs text-ink-light mt-3 text-center">
-            Free during beta &middot; No credit card &middot; Cancel any time
+            Free during beta &middot; Invite only &middot; No credit card
           </p>
         </div>
 

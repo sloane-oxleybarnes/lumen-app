@@ -103,6 +103,9 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       if (res.ok) {
         const data = await res.json().catch(() => ({})) as { course?: Course }
         if (data.course) setLoadedCourse(data.course)
+      } else {
+        const data = await res.json().catch(() => ({})) as { error?: string }
+        setPlanError(data.error || 'This course is not available on your current plan.')
       }
       setCourseLoading(false)
     }
@@ -115,10 +118,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) { router.push('/auth/login'); return }
       const { data: profile } = await supabase.from('profiles').select('plan, display_name, first_name, full_name').eq('id', user.id).single()
-      if (profile?.plan !== 'pro' && profile?.plan !== 'beta') {
-        setPlanError('Courses require a Pro or Beta plan.')
-        return
-      }
       setProfileName(profile?.display_name || profile?.first_name || profile?.full_name?.split(' ')[0] || '')
       if (courseCandidate) {
         const { data: completion } = await supabase.from('course_completions')
@@ -2628,6 +2627,19 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                 ))}
               </div>
             )}
+            {course.reviewSummary.checklist && (
+              <div className="mt-4 border-t border-primary/15 pt-4">
+                <p className="mb-2 text-xs font-medium uppercase tracking-wide text-primary">Quick check</p>
+                <ul className="space-y-2">
+                  {course.reviewSummary.checklist.map((item) => (
+                    <li key={item} className="flex gap-2 text-sm leading-relaxed text-ink-mid">
+                      <span className="mt-0.5 text-primary" aria-hidden="true">✓</span>
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -2761,7 +2773,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   // ── Open practice ──────────────────────────────────────────────────────────
   function openPracticeChecklistStatus(messages: Message[]) {
     const checklist = course.openPractice.progressChecklist || []
-    const transcript = messages.map((message) => message.content.toLowerCase()).join('\n')
+    const transcript = messages
+      .filter((message) => message.role === 'assistant')
+      .map((message) => message.content.toLowerCase())
+      .join('\n')
     return checklist.map((item) => ({
       ...item,
       complete: item.patterns.some((pattern) => transcript.includes(pattern.toLowerCase())),
@@ -2772,8 +2787,8 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const items = openPracticeChecklistStatus(messages)
     if (items.length === 0) return null
     const completeCount = items.filter((item) => item.complete).length
-    const enough = completeCount / items.length >= 0.8
-    const close = !enough && completeCount >= Math.max(1, items.length - 2)
+    const enough = completeCount === items.length
+    const close = !enough && completeCount >= Math.max(1, items.length - 1)
     return (
       <aside className="rounded-card border border-border bg-white p-4">
         <p className="mb-1 text-xs font-medium uppercase tracking-wide text-ink-light">Clarity checklist</p>
@@ -2897,10 +2912,10 @@ export default function CoursePage({ params }: { params: { id: string } }) {
     const builtStarterOptions = toolkitItems
       .filter((item) => item.course_id === course.id && item.category === starterCategory)
       .map((item) => item.content)
-      .filter((content) => course.id !== 'ask-someone-out' || /\bcoffee|cafe|shop\b/i.test(content))
+      .filter((content) => content.trim().length > 0)
     const starterOptions = builtStarterOptions.length > 0 ? builtStarterOptions : (course.openPractice.starterOptions || [])
     const displayedMessages = practiceMessages.length === 0 ? starterMessages : practiceMessages
-    const checklistMessages = practiceMessages.length === 0 ? starterMessages : practiceMessages
+    const checklistMessages = practiceMessages
 
     return (
       <div className="mx-auto grid max-w-4xl gap-4 lg:grid-cols-[minmax(0,1fr)_250px]">
@@ -3087,7 +3102,7 @@ export default function CoursePage({ params }: { params: { id: string } }) {
         <p className="text-ink-mid text-sm mb-8">Honest feedback from Beckett.</p>
         <div className="space-y-4 mb-8">
           {[
-            { label: 'How they likely felt', value: debrief.other_person_felt },
+            { label: 'How it may have landed', value: debrief.other_person_felt },
             { label: 'How you came across', value: debrief.how_you_came_across },
             { label: 'What went well', value: debrief.what_went_well },
             { label: 'Things to work on', value: debrief.things_to_work_on },

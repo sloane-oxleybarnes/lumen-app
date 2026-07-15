@@ -1,5 +1,6 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 
 type Phase = 'setup' | 'conversation' | 'debrief' | 'feedback'
@@ -30,6 +31,12 @@ type SavedSession = {
   practiceFocus?: string
   messages: Message[]
   savedAt: string
+}
+
+type ActiveSessionRow = {
+  id: string
+  session_data: Partial<SavedSession> & { phase?: Phase; setupStep?: number }
+  updated_at: string
 }
 
 type PracticeContext = {
@@ -270,25 +277,6 @@ function buildLoadingPrepTips(fallbackTips: PrepTip[]) {
   }))
 }
 
-// ── LocalStorage helpers ───────────────────────────────────────────────────
-
-function loadSavedSessions(): SavedSession[] {
-  try {
-    const raw = localStorage.getItem('beckett_practice_sessions')
-    if (!raw) return []
-    return JSON.parse(raw) as SavedSession[]
-  } catch { return [] }
-}
-
-function persistSession(session: SavedSession) {
-  try {
-    const existing = loadSavedSessions()
-    const updated = [session, ...existing.filter(s => s.id !== session.id)].slice(0, 5)
-    localStorage.setItem('beckett_practice_sessions', JSON.stringify(updated))
-    return updated
-  } catch { return [] }
-}
-
 // ── Contact overlay ────────────────────────────────────────────────────────
 
 function ContactOverlay({
@@ -449,6 +437,8 @@ export default function PracticePage() {
   const [suggestedPrompts, setSuggestedPrompts] = useState<string[]>([])
   const [intervention, setIntervention] = useState<Intervention | null>(null)
   const [savedSessions, setSavedSessions] = useState<SavedSession[]>([])
+  const [activeSessionId, setActiveSessionId] = useState<string | null>(null)
+  const [activeSessionCandidate, setActiveSessionCandidate] = useState<ActiveSessionRow | null>(null)
   const [practiceFeedbackRating, setPracticeFeedbackRating] = useState<PracticeFeedbackRating | null>(null)
   const [practiceFeedbackUseful, setPracticeFeedbackUseful] = useState('')
   const [practiceFeedbackOff, setPracticeFeedbackOff] = useState('')
@@ -456,6 +446,7 @@ export default function PracticePage() {
   const [practiceFeedbackSubmitting, setPracticeFeedbackSubmitting] = useState(false)
   const [practiceFeedbackSubmitted, setPracticeFeedbackSubmitted] = useState(false)
   const [practiceFeedbackError, setPracticeFeedbackError] = useState<string | null>(null)
+  const [practiceAccess, setPracticeAccess] = useState<'loading' | 'allowed' | 'restricted'>('loading')
   const bottomRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -472,7 +463,21 @@ export default function PracticePage() {
   }, [input, phase, conversationFormat, textSubFormat])
 
   useEffect(() => {
-    setSavedSessions(loadSavedSessions())
+    localStorage.removeItem('beckett_practice_sessions')
+    setSavedSessions([])
+    async function loadPracticeAccess() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setPracticeAccess('restricted')
+        return
+      }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('plan')
+        .eq('id', user.id)
+        .maybeSingle()
+      setPracticeAccess(['beta', 'pro', 'team'].includes(profile?.plan || '') ? 'allowed' : 'restricted')
+    }
     async function loadTrustedPeople() {
       try {
         const { data: { user } } = await supabase.auth.getUser()
@@ -485,7 +490,22 @@ export default function PracticePage() {
         setTrustedPeople((data as TrustedPerson[]) || [])
       } catch { /* table may not exist yet */ }
     }
+    loadPracticeAccess()
     loadTrustedPeople()
+    async function loadActivePractice() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data } = await supabase
+        .from('practice_sessions')
+        .select('id, session_data, updated_at')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (data?.session_data) setActiveSessionCandidate(data as ActiveSessionRow)
+    }
+    loadActivePractice()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -610,6 +630,36 @@ export default function PracticePage() {
     setDraftImprovedResponse(data.improvedResponse || null)
   }
 
+  function currentSessionData(nextMessages = messages, nextPhase: Phase = phase) {
+    return {
+      person,
+      situation,
+      goal,
+      mode,
+      conversationFormat,
+      textSubFormat,
+      emailSubject,
+      relationshipContext,
+      personStyle,
+      recurringPattern,
+      stakes,
+      expectedResponse,
+      practiceFocus,
+      messages: nextMessages,
+      phase: nextPhase,
+      setupStep,
+      savedAt: new Date().toISOString(),
+    }
+  }
+
+  async function persistActivePractice(nextMessages = messages) {
+    if (!activeSessionId) return
+    await supabase
+      .from('practice_sessions')
+      .update({ session_data: currentSessionData(nextMessages, 'conversation'), updated_at: new Date().toISOString() })
+      .eq('id', activeSessionId)
+  }
+
   async function startPractice() {
     if (!person.trim()) {
       setSetupStep(0)
@@ -621,6 +671,18 @@ export default function PracticePage() {
       setError('Please add the conversation you want help with.')
       return
     }
+    if (!stakes.trim()) {
+      setSetupStep(1)
+      setError('Please choose how high-pressure this conversation feels.')
+      return
+    }
+    if (!practiceFocus.trim()) {
+      setSetupStep(2)
+      setError('Please choose what you want Beckett to help you practice.')
+      return
+    }
+    if (loading) return
+    setLoading(true)
     setError('')
     setMessages([])
     setInlineFeedback({})
@@ -635,6 +697,35 @@ export default function PracticePage() {
     setPracticeFeedbackWouldUse('')
     setPracticeFeedbackSubmitted(false)
     setPracticeFeedbackError(null)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      setLoading(false)
+      setError('Please sign in again before starting practice.')
+      return
+    }
+    const { data: created, error: createError } = await supabase
+      .from('practice_sessions')
+      .insert({
+        user_id: user.id,
+        person: person.trim(),
+        situation: situation.trim(),
+        goal: (goal || situation).trim(),
+        status: 'active',
+        mode,
+        conversation_format: conversationFormat,
+        text_sub_format: textSubFormat,
+        session_data: currentSessionData([], 'conversation'),
+        updated_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single()
+    setLoading(false)
+    if (createError || !created) {
+      setError('Beckett could not save this practice session. Please try again.')
+      return
+    }
+    setActiveSessionId(created.id)
+    setActiveSessionCandidate(null)
     setPhase('conversation')
     setLimitNotice(null)
     loadSuggestedPrompts(undefined, 0)
@@ -645,6 +736,7 @@ export default function PracticePage() {
     const userMsg: Message = { role: 'user', content: input.trim() }
     const next = [...messages, userMsg]
     setMessages(next)
+    void persistActivePractice(next)
     setInput('')
     setDraftNote(null)
     setDraftImprovedResponse(null)
@@ -674,6 +766,7 @@ export default function PracticePage() {
       const aiMsg = data.text.replace(/^["""'']|["""'']$/g, '').trim()
       const withAI = [...next, { role: 'assistant' as const, content: aiMsg }]
       setMessages(withAI)
+      void persistActivePractice(withAI)
 
       loadSuggestedPrompts(aiMsg, withAI.length)
 
@@ -710,25 +803,28 @@ export default function PracticePage() {
     setLoading(false)
     if (result.error) { setError(result.error); return }
 
-    const session: SavedSession = {
-      id: Date.now().toString(),
-      person,
-      situation,
-      goal,
-      mode,
-      conversationFormat,
-      textSubFormat,
-      emailSubject,
-      relationshipContext,
-      personStyle,
-      recurringPattern,
-      stakes,
-      expectedResponse,
-      practiceFocus,
-      messages,
-      savedAt: new Date().toISOString(),
+    if (activeSessionId) {
+      await supabase
+        .from('practice_sessions')
+        .update({
+          status: 'completed',
+          debrief_summary: result,
+          session_data: {
+            person,
+            situation,
+            goal,
+            mode,
+            conversationFormat,
+            textSubFormat,
+            messageCount: messages.length,
+            completedAt: new Date().toISOString(),
+          },
+          completed_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', activeSessionId)
+      setActiveSessionId(null)
     }
-    setSavedSessions(persistSession(session))
 
     setDebrief(result)
     setPhase('debrief')
@@ -811,6 +907,41 @@ export default function PracticePage() {
     setPhase('conversation')
   }
 
+  function resumeActiveSession(row: ActiveSessionRow) {
+    const session = row.session_data
+    if (!session.person || !session.situation) return
+    loadSession({
+      id: row.id,
+      person: session.person,
+      situation: session.situation,
+      goal: session.goal || '',
+      mode: session.mode || 'professional',
+      conversationFormat: session.conversationFormat || 'text',
+      textSubFormat: session.textSubFormat || 'slack',
+      emailSubject: session.emailSubject,
+      relationshipContext: session.relationshipContext,
+      personStyle: session.personStyle,
+      recurringPattern: session.recurringPattern,
+      stakes: session.stakes,
+      expectedResponse: session.expectedResponse,
+      practiceFocus: session.practiceFocus,
+      messages: session.messages || [],
+      savedAt: row.updated_at,
+    })
+    setActiveSessionId(row.id)
+    setActiveSessionCandidate(null)
+  }
+
+  async function abandonActiveSession() {
+    if (!activeSessionCandidate) return
+    await supabase
+      .from('practice_sessions')
+      .update({ status: 'abandoned', updated_at: new Date().toISOString() })
+      .eq('id', activeSessionCandidate.id)
+    setActiveSessionCandidate(null)
+    resetToSetup()
+  }
+
   function resetToSetup() {
     setPhase('setup')
     setSetupStep(0)
@@ -833,6 +964,36 @@ export default function PracticePage() {
   }
 
   // ── Setup ──────────────────────────────────────────────────────────────────
+
+  if (practiceAccess === 'loading') {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="Loading Practice access">
+        <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (practiceAccess === 'restricted') {
+    return (
+      <div className="w-full max-w-2xl">
+        <h1 className="mb-2 text-3xl text-ink" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>
+          Practice a conversation
+        </h1>
+        <p className="mb-6 text-sm text-ink-mid">Rehearse before the real thing with Beckett playing the other person.</p>
+        <div className="rounded-card border border-primary/20 bg-white p-6">
+          <p className="text-xs font-medium uppercase tracking-wide text-primary">Beta feature</p>
+          <h2 className="mt-2 text-xl font-medium text-ink">Standalone Practice is not included on the Free plan.</h2>
+          <p className="mt-2 text-sm leading-relaxed text-ink-mid">
+            Free accounts can still use Beckett in Slack, Gmail, and Chrome within their coaching-credit limits,
+            and can unlock two skill courses each month. Full standalone Practice is included during beta.
+          </p>
+          <Link href="/beta" className="mt-5 inline-block rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-dark">
+            View beta access
+          </Link>
+        </div>
+      </div>
+    )
+  }
 
   if (phase === 'setup') {
     const textSubFormatOptions: { value: TextSubFormat; label: string }[] = [
@@ -916,7 +1077,20 @@ export default function PracticePage() {
         </h1>
         <p className="text-ink-mid text-sm mb-6">Rehearse before the real thing. Beckett plays the other person and helps you adjust as you go.</p>
 
-        {error && <p className="text-red-600 text-sm mb-4" role="alert">{error}</p>}
+        {activeSessionCandidate && (
+          <div className="mb-5 rounded-card border border-primary/20 bg-primary-light/40 p-4">
+            <p className="text-sm font-medium text-ink">Continue your unfinished practice?</p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-mid">
+              Beckett saved your conversation with {activeSessionCandidate.session_data.person || 'the other person'}.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button type="button" onClick={() => resumeActiveSession(activeSessionCandidate)} className="rounded-pill bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-primary-dark">Resume</button>
+              <button type="button" onClick={abandonActiveSession} className="rounded-pill border border-border bg-white px-4 py-2 text-xs font-medium text-ink-mid hover:border-primary">Start over</button>
+            </div>
+          </div>
+        )}
+
+        {error && !limitNotice && <p className="text-red-600 text-sm mb-4" role="alert">{error}</p>}
 
         <div className="rounded-card border border-border bg-white p-5 shadow-sm">
           <div className="mb-6 flex items-start justify-between gap-4">
@@ -1179,7 +1353,26 @@ export default function PracticePage() {
             {setupStep < setupSlides.length - 1 ? (
               <button
                 type="button"
-                onClick={() => { setError(''); setSetupStep(Math.min(setupSlides.length - 1, setupStep + 1)) }}
+                onClick={() => {
+                  if (setupStep === 0 && !person.trim()) {
+                    setError('Please add the person you want to practice with.')
+                    return
+                  }
+                  if (setupStep === 1 && !situation.trim()) {
+                    setError('Please describe the conversation and what you want to accomplish.')
+                    return
+                  }
+                  if (setupStep === 1 && !stakes.trim()) {
+                    setError('Please choose how high-pressure this conversation feels.')
+                    return
+                  }
+                  if (setupStep === 2 && !practiceFocus.trim()) {
+                    setError('Please choose what you want Beckett to help you practice.')
+                    return
+                  }
+                  setError('')
+                  setSetupStep(Math.min(setupSlides.length - 1, setupStep + 1))
+                }}
                 className="rounded-pill bg-primary px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-primary-dark"
               >
                 Next
@@ -1412,7 +1605,7 @@ export default function PracticePage() {
           </button>
         </div>
 
-        {error && <p className="text-red-600 text-sm mb-3 shrink-0" role="alert">{error}</p>}
+        {error && !limitNotice && <p className="text-red-600 text-sm mb-3 shrink-0" role="alert">{error}</p>}
         {limitNotice && (
           <div className="mb-3 shrink-0 rounded-card border border-amber-200 bg-amber-50 px-4 py-3">
             <p className="text-sm text-ink">
