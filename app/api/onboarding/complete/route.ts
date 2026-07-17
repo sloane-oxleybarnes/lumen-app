@@ -4,8 +4,13 @@ import { supabaseAdmin } from "@/lib/server-admin";
 import type { CoachingTone } from "@/lib/onboarding";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { triggerLoopsEvent, updateLoopsContact } from "@/lib/loops";
+import {
+  BETA_CONSENT_VERSIONS,
+  hasRequiredBetaConsentSubmission,
+  type BetaConsentSubmission,
+} from "@/lib/beta-consent";
 
-type OnboardingBody = {
+type OnboardingBody = BetaConsentSubmission & {
   email?: string;
   full_name: string;
   first_name: string;
@@ -32,6 +37,13 @@ export async function POST(req: NextRequest) {
   const body = (await req.json()) as OnboardingBody;
   const now = new Date().toISOString();
 
+  if (!hasRequiredBetaConsentSubmission(body)) {
+    return NextResponse.json(
+      { error: "Confirm beta eligibility and all required acknowledgements to continue." },
+      { status: 400 }
+    );
+  }
+
   const { error } = await supabaseAdmin.from("profiles").upsert(
     {
       id: session.user.id,
@@ -46,6 +58,14 @@ export async function POST(req: NextRequest) {
       coaching_tone: body.coaching_tone || "direct_kind",
       neurodivergent_context: body.neurodivergent_context || [],
       neurodivergent_context_other: body.neurodivergent_context_other || null,
+      adult_us_eligibility_confirmed_at: now,
+      adult_us_eligibility_version: BETA_CONSENT_VERSIONS.eligibility,
+      terms_accepted_at: now,
+      terms_version: BETA_CONSENT_VERSIONS.terms,
+      privacy_acknowledged_at: now,
+      privacy_version: BETA_CONSENT_VERSIONS.privacy,
+      coaching_disclaimer_acknowledged_at: now,
+      coaching_disclaimer_version: BETA_CONSENT_VERSIONS.coachingDisclaimer,
       first_login_complete: true,
       onboarding_completed_at: now,
       updated_at: now,

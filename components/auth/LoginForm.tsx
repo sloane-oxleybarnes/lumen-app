@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { hasCurrentBetaConsent } from "@/lib/beta-consent";
 
 export default function LoginPage() {
   const supabase = createClient();
@@ -43,11 +44,11 @@ export default function LoginPage() {
       if (userId) {
         const { data: profile } = await supabase
           .from("profiles")
-          .select("first_login_complete")
+          .select("first_login_complete, adult_us_eligibility_confirmed_at, adult_us_eligibility_version, terms_accepted_at, terms_version, privacy_acknowledged_at, privacy_version, coaching_disclaimer_acknowledged_at, coaching_disclaimer_version")
           .eq("id", userId)
           .single();
 
-        if (!profile?.first_login_complete) {
+        if (!profile?.first_login_complete || !hasCurrentBetaConsent(profile)) {
           nextPath = "/auth/profile-setup";
         } else if (!safeNext) {
           nextPath = "/dashboard";

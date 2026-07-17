@@ -3,8 +3,10 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import AddToSlackButton from "@/components/integrations/AddToSlackButton";
 import { createClient } from "@/lib/supabase";
+import { hasCurrentBetaConsent } from "@/lib/beta-consent";
 import {
   coachingToneOptions,
   communicationPreferenceOptions,
@@ -16,6 +18,7 @@ import {
 import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
 
 const steps = [
+  "Before we begin",
   "Name",
   "Strengths",
   "Triggers",
@@ -75,6 +78,9 @@ export default function ProfileSetupForm() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [email, setEmail] = useState("");
+  const [adultUsEligibilityConfirmed, setAdultUsEligibilityConfirmed] = useState(false);
+  const [termsAndPrivacyConfirmed, setTermsAndPrivacyConfirmed] = useState(false);
+  const [coachingDisclaimerConfirmed, setCoachingDisclaimerConfirmed] = useState(false);
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -103,9 +109,16 @@ export default function ProfileSetupForm() {
         .eq("id", user.id)
         .single();
 
-      if (profile?.first_login_complete) {
+      const hasConsent = hasCurrentBetaConsent(profile);
+      if (profile?.first_login_complete && hasConsent) {
         router.replace("/dashboard");
         return;
+      }
+
+      if (hasConsent) {
+        setAdultUsEligibilityConfirmed(true);
+        setTermsAndPrivacyConfirmed(true);
+        setCoachingDisclaimerConfirmed(true);
       }
 
       const fullName = profile?.full_name || user.user_metadata?.full_name || "";
@@ -127,12 +140,15 @@ export default function ProfileSetupForm() {
   }, []);
 
   const canContinue = useMemo(() => {
-    if (step === 0) return firstName.trim() && lastName.trim() && displayName.trim();
-    if (step === 1) return strengths.length > 0;
-    if (step === 2) return triggers.length > 0;
-    if (step === 3) return preferences.length > 0 && coachingTone;
+    if (step === 0) {
+      return adultUsEligibilityConfirmed && termsAndPrivacyConfirmed && coachingDisclaimerConfirmed;
+    }
+    if (step === 1) return firstName.trim() && lastName.trim() && displayName.trim();
+    if (step === 2) return strengths.length > 0;
+    if (step === 3) return triggers.length > 0;
+    if (step === 4) return preferences.length > 0 && coachingTone;
     return true;
-  }, [coachingTone, displayName, firstName, lastName, preferences.length, step, strengths.length, triggers.length]);
+  }, [adultUsEligibilityConfirmed, coachingDisclaimerConfirmed, coachingTone, displayName, firstName, lastName, preferences.length, step, strengths.length, termsAndPrivacyConfirmed, triggers.length]);
 
   async function completeOnboarding(destination: "dashboard" | "gmail" | "slack" = "dashboard") {
     setSaving(true);
@@ -150,6 +166,10 @@ export default function ProfileSetupForm() {
       coaching_tone: coachingTone,
       neurodivergent_context: context,
       neurodivergent_context_other: contextOther.trim() || null,
+      adult_us_eligibility_confirmed: adultUsEligibilityConfirmed,
+      terms_accepted: termsAndPrivacyConfirmed,
+      privacy_acknowledged: termsAndPrivacyConfirmed,
+      coaching_disclaimer_acknowledged: coachingDisclaimerConfirmed,
     };
 
     const res = await fetch("/api/onboarding/complete", {
@@ -227,7 +247,10 @@ export default function ProfileSetupForm() {
           </p>
         </div>
 
-        <div className="mb-5 grid grid-cols-6 gap-2">
+        <div
+          className="mb-5 grid gap-2"
+          style={{ gridTemplateColumns: `repeat(${steps.length}, minmax(0, 1fr))` }}
+        >
           {steps.map((label, index) => (
             <div key={label} className="min-w-0">
               <div
@@ -242,6 +265,66 @@ export default function ProfileSetupForm() {
 
         <div className="bg-white rounded-card border border-border p-6 shadow-sm">
           {step === 0 && (
+            <div>
+              <h2 className="text-xl text-ink mb-2 font-serif">Before we begin</h2>
+              <p className="text-sm text-ink-mid mb-5">
+                Beckett&apos;s beta is currently available to adults in the United States. Please
+                review and confirm each item before setting up your coach.
+              </p>
+              <div className="space-y-3">
+                <label className="flex cursor-pointer items-start gap-3 rounded-sm border border-border p-4 transition-colors hover:border-primary-mid">
+                  <input
+                    type="checkbox"
+                    checked={adultUsEligibilityConfirmed}
+                    onChange={(event) => setAdultUsEligibilityConfirmed(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                  />
+                  <span className="text-sm leading-relaxed text-ink">
+                    I confirm that I am at least 18 years old and currently located in the United States.
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-sm border border-border p-4 transition-colors hover:border-primary-mid">
+                  <input
+                    type="checkbox"
+                    checked={termsAndPrivacyConfirmed}
+                    onChange={(event) => setTermsAndPrivacyConfirmed(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                  />
+                  <span className="text-sm leading-relaxed text-ink">
+                    I agree to Beckett&apos;s{" "}
+                    <Link href="/terms" target="_blank" className="text-primary underline underline-offset-2">
+                      Terms of Use
+                    </Link>{" "}
+                    and acknowledge the{" "}
+                    <Link href="/privacy" target="_blank" className="text-primary underline underline-offset-2">
+                      Privacy Policy
+                    </Link>
+                    .
+                  </span>
+                </label>
+                <label className="flex cursor-pointer items-start gap-3 rounded-sm border border-border p-4 transition-colors hover:border-primary-mid">
+                  <input
+                    type="checkbox"
+                    checked={coachingDisclaimerConfirmed}
+                    onChange={(event) => setCoachingDisclaimerConfirmed(event.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                  />
+                  <span className="text-sm leading-relaxed text-ink">
+                    I understand that Beckett provides communication coaching, not medical,
+                    mental-health, legal, or employment advice.
+                  </span>
+                </label>
+              </div>
+              <div className="mt-5">
+                <TrustNote>
+                  Beckett records when you accept these items and which policy versions you
+                  reviewed. It does not ask for or store your date of birth.
+                </TrustNote>
+              </div>
+            </div>
+          )}
+
+          {step === 1 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What should Beckett call you?</h2>
               <p className="text-sm text-ink-mid mb-5">
@@ -272,7 +355,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {step === 1 && (
+          {step === 2 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What are your communication strengths?</h2>
               <p className="text-sm text-ink-mid mb-5">
@@ -293,7 +376,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">What tends to make work communication harder?</h2>
               <p className="text-sm text-ink-mid mb-5">
@@ -313,7 +396,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">How should Beckett coach you?</h2>
               <p className="text-sm text-ink-mid mb-5">
@@ -358,7 +441,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">
                 Is there any neurodivergent context you want Beckett to know?
@@ -392,7 +475,7 @@ export default function ProfileSetupForm() {
             </div>
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <div>
               <h2 className="text-xl text-ink mb-2 font-serif">Connect your work tools</h2>
               <p className="text-sm text-ink-mid mb-5">
