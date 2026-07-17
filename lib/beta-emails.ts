@@ -137,6 +137,30 @@ export async function sendBetaSignupConfirmation(params: {
   });
 }
 
+export async function sendBetaSignupNotification(params: {
+  email: string;
+  name?: string | null;
+  source?: string | null;
+}) {
+  return sendBrandedEmail({
+    to: REPLY_TO_EMAIL,
+    subject: "New Beckett beta request",
+    preview: "A new person requested Beckett beta access.",
+    eyebrow: "Beta operations",
+    heading: "New beta request",
+    body: [
+      `Name: ${params.name?.trim() || "Not provided"}`,
+      `Email: ${params.email}`,
+      `Source: ${params.source?.trim() || "landing_page"}`,
+      "Review this request in Beckett Admin before sending an invitation.",
+    ],
+    button: {
+      label: "Review beta requests",
+      href: "https://www.meetbeckett.co/admin#beta-testers",
+    },
+  });
+}
+
 export async function sendBetaInviteEmail(params: {
   email: string;
   name?: string | null;
