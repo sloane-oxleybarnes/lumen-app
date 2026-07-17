@@ -1,6 +1,6 @@
 'use client'
 
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, useEffect, useRef, useState } from 'react'
 import type { AdaptiveAssessment, AdaptiveReplay, AdaptiveSnapshot, AdaptiveTranscriptItem } from '@/lib/adaptive-conversation'
 
 type Contact = { id: string; name: string; notes: string | null; relationship_type: string | null; relationship_other: string | null }
@@ -35,6 +35,27 @@ export default function AdaptiveConversationSimulator() {
   const [replay, setReplay] = useState<AdaptiveReplay | null>(null)
   const [replayInput, setReplayInput] = useState('')
   const [replayBusy, setReplayBusy] = useState(false)
+  const [speaking, setSpeaking] = useState(false)
+  const [audioError, setAudioError] = useState('')
+  const spokenMessageRef = useRef('')
+
+  useEffect(() => {
+    if (setup.channel !== 'video') return
+    const latest = [...messages].reverse().find((message) => message.role === 'simulated_person')
+    if (!latest || latest.content === spokenMessageRef.current || typeof window === 'undefined') return
+    spokenMessageRef.current = latest.content
+    if (!('speechSynthesis' in window)) {
+      setAudioError('Spoken playback is unavailable in this browser. Use the live captions and text fallback below.')
+      return
+    }
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(latest.content)
+    utterance.onstart = () => { setSpeaking(true); setAudioError('') }
+    utterance.onend = () => setSpeaking(false)
+    utterance.onerror = () => { setSpeaking(false); setAudioError('Audio playback failed. Continue with the live captions and text fallback below.') }
+    window.speechSynthesis.speak(utterance)
+    return () => window.speechSynthesis.cancel()
+  }, [messages, setup.channel])
   const [error, setError] = useState('')
 
   useEffect(() => {
@@ -90,6 +111,9 @@ export default function AdaptiveConversationSimulator() {
       setMessages([])
       setAssessment(null)
       setReplay(null)
+      setSpeaking(false)
+      setAudioError('')
+      spokenMessageRef.current = ''
       setPaused(false)
       setHelpText('')
       setTyping(false)
@@ -189,7 +213,7 @@ export default function AdaptiveConversationSimulator() {
     finally { setReplayBusy(false) }
   }
 
-  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setReplay(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setStage('setup'); setError('') }
+  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setReplay(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setSpeaking(false); setAudioError(''); spokenMessageRef.current = ''; setStage('setup'); setError('') }
 
   async function deleteSession(id: string) {
     if (!window.confirm('Delete this saved simulation and its transcript?')) return
@@ -222,7 +246,7 @@ export default function AdaptiveConversationSimulator() {
             <div className="mt-6 flex gap-2">
               {(['general', 'contact'] as const).map((type) => <button key={type} type="button" onClick={() => updateSetup('scenarioType', type)} className={`rounded-pill px-4 py-2 text-sm ${setup.scenarioType === type ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{type === 'general' ? 'General scenario' : 'Existing contact'}</button>)}
             </div>
-            <div className="mt-5"><p className="text-sm font-medium">Practice channel</p><div className="mt-2 flex flex-wrap gap-2">{(['text', 'phone'] as const).map((channel) => <button key={channel} type="button" onClick={() => updateSetup('channel', channel)} className={`rounded-pill px-4 py-2 text-sm ${setup.channel === channel ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{channel === 'text' ? 'Text conversation' : 'Phone call'}</button>)}<span className="rounded-pill border border-border px-4 py-2 text-sm text-ink-light">Video call · coming soon</span></div><p className="mt-2 text-xs text-ink-light">Phone mode is currently a concise call-style text simulation. Live voice will use this same session later.</p></div>
+            <div className="mt-5"><p className="text-sm font-medium">Practice channel</p><div className="mt-2 flex flex-wrap gap-2">{(['text', 'phone', 'video'] as const).map((channel) => <button key={channel} type="button" onClick={() => updateSetup('channel', channel)} className={`rounded-pill px-4 py-2 text-sm ${setup.channel === channel ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{channel === 'text' ? 'Text conversation' : channel === 'phone' ? 'Phone call' : 'Video call'}</button>)}</div><p className="mt-2 text-xs text-ink-light">Video mode is a modest call layout with optional camera, microphone capture, live captions, and spoken playback. Text remains available if audio fails.</p></div>
             {setup.scenarioType === 'contact' && <label className="mt-5 block text-sm font-medium">Contact<select value={setup.contactId} onChange={(e) => selectContact(e.target.value)} className="mt-2 block w-full rounded-card border border-border bg-white px-3 py-3 font-normal"><option value="">Choose a contact…</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}</select></label>}
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Who are you talking to?" value={setup.person} onChange={(v) => updateSetup('person', v)} placeholder="e.g. my manager" />
@@ -241,6 +265,8 @@ export default function AdaptiveConversationSimulator() {
         </section>}
 
         {stage === 'conversation' && endReason && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Natural stopping point</p><p className="mt-2">{endReason}</p><p className="mt-2 text-xs text-ink-light">You can finish and assess this conversation, including if it ended with disagreement or ambiguity.</p></div>}
+
+        {stage === 'conversation' && setup.channel === 'video' && <VideoCallFrame person={setup.person} messages={messages} typing={typing} speaking={speaking} audioError={audioError} input={input} setInput={setInput} onSubmit={sendMessage} disabled={busy || paused || Boolean(endReason)} />}
 
         {stage === 'review' && <section className="mx-auto max-w-3xl rounded-card border border-border bg-white p-6 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Step 2</p>
@@ -268,3 +294,59 @@ function TextArea({ label, value, onChange, placeholder }: { label: string; valu
 function ReviewRow({ label, value }: { label: string; value: string }) { return <div><p className="text-xs font-medium uppercase tracking-wide text-ink-light">{label}</p><p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-ink">{value}</p></div> }
 function AssessmentView({ assessment, onNew, onReplay }: { assessment: Assessment; onNew: () => void; onReplay: () => void }) { return <section className="mx-auto max-w-3xl"><div className="rounded-card border border-border bg-white p-6 shadow-sm"><p className="text-xs font-medium uppercase tracking-wide text-primary">Conversation assessment</p><h2 className="mt-1 text-3xl" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>What this conversation showed</h2><p className="mt-4 text-sm leading-6 text-ink">{assessment.summary}</p><AssessmentList title="What worked" items={assessment.whatWorked} /><AssessmentList title="Turning points" items={assessment.turningPoints} /><div className="mt-6 grid gap-5 sm:grid-cols-2"><AssessmentList title="What increased resistance" items={assessment.resistance?.increased || []} /><AssessmentList title="What reduced resistance" items={assessment.resistance?.reduced || []} /></div><div className="mt-6 rounded-card bg-primary-light/40 p-4"><p className="text-xs font-medium uppercase tracking-wide text-primary">A stronger response</p><p className="mt-2 text-sm leading-6 text-ink">{assessment.strongerResponse}</p></div><div className="mt-5"><p className="text-xs font-medium uppercase tracking-wide text-ink-light">Progress toward your goal</p><p className="mt-2 text-sm leading-6 text-ink">{assessment.goalProgress}</p></div>{assessment.replayPoint && <div className="mt-5 rounded-card border border-border p-4"><p className="text-xs font-medium uppercase tracking-wide text-ink-light">A moment worth revisiting · exchange {assessment.replayPoint.turn}</p><p className="mt-2 text-sm leading-6 text-ink">{assessment.replayPoint.why}</p><button onClick={onReplay} className="mt-4 rounded-pill bg-primary px-4 py-2 text-sm font-medium text-white">Replay this turning point →</button></div>}<button onClick={onNew} className="mt-7 rounded-pill border border-border px-5 py-3 text-sm font-medium text-ink">Start a new simulation</button></div></section> }
 function AssessmentList({ title, items }: { title: string; items: string[] }) { return <div className="mt-6"><p className="text-xs font-medium uppercase tracking-wide text-ink-light">{title}</p>{items.length ? <ul className="mt-2 space-y-2 text-sm leading-6 text-ink">{items.map((item, index) => <li key={`${item}-${index}`} className="flex gap-2"><span className="text-primary">•</span><span>{item}</span></li>)}</ul> : <p className="mt-2 text-sm text-ink-light">Nothing notable here.</p>}</div> }
+type SpeechResultEvent = { results: ArrayLike<{ 0: { transcript: string } }> }
+type SpeechRecognizer = { lang: string; interimResults: boolean; start: () => void; stop: () => void; onresult: ((event: SpeechResultEvent) => void) | null; onend: (() => void) | null; onerror: (() => void) | null }
+type BrowserSpeechWindow = Window & { SpeechRecognition?: new () => SpeechRecognizer; webkitSpeechRecognition?: new () => SpeechRecognizer }
+
+function VideoCallFrame({ person, messages, typing, speaking, audioError, input, setInput, onSubmit, disabled }: { person: string; messages: Message[]; typing: boolean; speaking: boolean; audioError: string; input: string; setInput: (value: string) => void; onSubmit: (event: FormEvent) => void; disabled: boolean }) {
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const [cameraOn, setCameraOn] = useState(false)
+  const [micOn, setMicOn] = useState(false)
+  const [mediaError, setMediaError] = useState('')
+  const recognitionRef = useRef<SpeechRecognizer | null>(null)
+
+  async function enableMedia() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+      streamRef.current = stream
+      if (videoRef.current) videoRef.current.srcObject = stream
+      setCameraOn(true)
+      setMicOn(true)
+      setMediaError('')
+    } catch { setMediaError('Camera or microphone permission was unavailable. You can continue with the text fallback.') }
+  }
+
+  function toggleCamera() {
+    const track = streamRef.current?.getVideoTracks()[0]
+    if (!track) return
+    track.enabled = !track.enabled
+    setCameraOn(track.enabled)
+  }
+
+  function toggleMic() {
+    const track = streamRef.current?.getAudioTracks()[0]
+    if (!track) return
+    track.enabled = !track.enabled
+    setMicOn(track.enabled)
+  }
+
+  function captureSpeech() {
+    const browserWindow = window as BrowserSpeechWindow
+    const SpeechRecognition = browserWindow.SpeechRecognition || browserWindow.webkitSpeechRecognition
+    if (!SpeechRecognition) { setMediaError('Live speech recognition is unavailable in this browser. Use the text fallback below.'); return }
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'en-US'
+    recognition.interimResults = false
+    recognition.onresult = (event: SpeechResultEvent) => setInput(Array.from(event.results).map((result) => result[0].transcript).join(' '))
+    recognition.onerror = () => setMediaError('Microphone transcription failed. Use the text fallback below.')
+    recognition.onend = () => setMicOn(Boolean(streamRef.current?.getAudioTracks()[0]?.enabled))
+    recognitionRef.current = recognition
+    setMicOn(true)
+    recognition.start()
+  }
+
+  useEffect(() => () => { streamRef.current?.getTracks().forEach((track) => track.stop()); recognitionRef.current?.stop() }, [])
+  const latest = [...messages].reverse().find((message) => message.role === 'simulated_person')
+  return <section className="mx-auto mb-5 max-w-3xl rounded-card border border-border bg-[#17202B] p-4 text-white shadow-sm"><div className="flex items-center justify-between"><div><p className="text-xs font-medium uppercase tracking-[0.18em] text-white/60">Beckett video practice</p><h2 className="mt-1 text-xl">Conversation with {person}</h2></div><span className={`rounded-pill px-3 py-1 text-xs ${speaking || typing ? 'bg-emerald-400/20 text-emerald-200' : 'bg-white/10 text-white/70'}`}>{speaking ? 'Speaking' : typing ? 'Connecting…' : 'Live'}</span></div><div className="mt-4 grid gap-3 sm:grid-cols-[1fr_180px]"><div className="relative flex min-h-[220px] items-end overflow-hidden rounded-card bg-gradient-to-br from-[#33485C] to-[#111820] p-4"><div className="absolute left-4 top-4 rounded-pill bg-black/25 px-3 py-1 text-xs text-white/80">{person} · AI persona</div><div className="mx-auto mb-5 flex h-28 w-28 items-center justify-center rounded-full border border-white/25 bg-white/10 text-5xl">{person.trim().charAt(0).toUpperCase() || 'B'}</div><div className="absolute bottom-3 left-3 right-3 rounded-card bg-black/40 px-3 py-2 text-sm leading-5">{typing ? `${person} is responding…` : latest?.content || 'Start the conversation below.'}</div></div><div className="relative min-h-[160px] overflow-hidden rounded-card bg-[#263341]">{cameraOn ? <video ref={videoRef} autoPlay muted playsInline className="h-full min-h-[160px] w-full object-cover" /> : <div className="flex h-full min-h-[160px] items-center justify-center px-4 text-center text-xs text-white/60">Your camera is off. You can still practice with voice or text.</div>}<span className="absolute bottom-2 left-2 rounded-pill bg-black/40 px-2 py-1 text-[10px] text-white/80">You</span></div></div><div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" onClick={enableMedia} className="rounded-pill bg-white/15 px-3 py-2 text-xs hover:bg-white/25">{cameraOn || micOn ? 'Permissions ready' : 'Enable camera & mic'}</button><button type="button" onClick={toggleCamera} disabled={!streamRef.current} className="rounded-pill bg-white/10 px-3 py-2 text-xs disabled:opacity-40">{cameraOn ? 'Camera off' : 'Camera on'}</button><button type="button" onClick={toggleMic} disabled={!streamRef.current} className="rounded-pill bg-white/10 px-3 py-2 text-xs disabled:opacity-40">{micOn ? 'Mute mic' : 'Unmute mic'}</button><button type="button" onClick={captureSpeech} disabled={disabled} className="rounded-pill bg-primary px-3 py-2 text-xs">Speak your response</button></div>{(mediaError || audioError) && <p className="mt-3 rounded-card bg-amber-100/10 px-3 py-2 text-xs leading-5 text-amber-100">{mediaError || audioError}</p>}<div className="mt-4 rounded-card bg-white/5 p-3"><p className="text-[10px] font-medium uppercase tracking-wide text-white/50">Live transcript · text fallback</p><form onSubmit={onSubmit} className="mt-2 flex gap-2"><input value={input} onChange={(event) => setInput(event.target.value)} placeholder="Type if audio is unavailable…" className="min-w-0 flex-1 rounded-pill border border-white/15 bg-white/10 px-3 py-2 text-sm text-white outline-none placeholder:text-white/40" disabled={disabled} /><button type="submit" disabled={disabled || !input.trim()} className="rounded-pill bg-white px-4 py-2 text-xs font-medium text-ink disabled:opacity-40">Send</button></form></div></section>
+}
