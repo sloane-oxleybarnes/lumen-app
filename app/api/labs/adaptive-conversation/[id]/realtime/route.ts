@@ -24,7 +24,10 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     type: 'realtime',
     model: process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-2.1',
     instructions: realtimeInstructions(row.setup_snapshot as AdaptiveSnapshot),
-    audio: { output: { voice: 'marin' } },
+    audio: {
+      input: { turn_detection: { type: 'server_vad', create_response: true, interrupt_response: true }, transcription: { model: 'gpt-realtime-whisper' } },
+      output: { voice: 'marin' },
+    },
   }))
   const safetyIdentifier = createHash('sha256').update(session.user.id).digest('hex').slice(0, 32)
   const realtimeResponse = await fetch('https://api.openai.com/v1/realtime/calls', {
