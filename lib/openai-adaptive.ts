@@ -1,11 +1,12 @@
 import type {
   AdaptiveAssessment,
+  AdaptiveNudge,
   AdaptiveSnapshot,
   AdaptiveState,
   AdaptiveTurnResult,
 } from './adaptive-conversation'
 
-export type { AdaptiveAssessment, AdaptiveSnapshot, AdaptiveState, AdaptiveTurnResult } from './adaptive-conversation'
+export type { AdaptiveAssessment, AdaptiveNudge, AdaptiveSnapshot, AdaptiveState, AdaptiveTurnResult } from './adaptive-conversation'
 
 function parseJson<T>(text: string): T {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
@@ -62,6 +63,14 @@ export function parseAdaptiveTurn(text: string) {
 
 export function parseAdaptiveAssessment(text: string) {
   return parseJson<AdaptiveAssessment>(text)
+}
+
+export function parseAdaptiveNudge(text: string) {
+  return parseJson<AdaptiveNudge>(text)
+}
+
+export function nudgeInstructions() {
+  return `You are Beckett providing a brief, optional coaching nudge during a live conversation practice. Review the transcript and decide whether the user appears to be escalating tension, repeating an assumption, becoming too vague, missing a clear concern, or losing the other person's engagement. Do not judge the user and do not claim to predict the real person. Return only JSON: {"shouldNudge":true|false,"prompt":"one concise observation and next move","examples":["one example phrase","optional second example phrase"]}. Set shouldNudge false when the conversation is progressing normally. Keep the prompt practical and under 35 words.`
 }
 
 export function initialAdaptiveState(snapshot: AdaptiveSnapshot): AdaptiveState {

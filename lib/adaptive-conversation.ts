@@ -57,6 +57,12 @@ export type AdaptiveAssessment = {
   replayPoint: AdaptiveReplayPoint | null
 }
 
+export type AdaptiveNudge = {
+  shouldNudge: boolean
+  prompt: string
+  examples: string[]
+}
+
 export type AdaptiveReplay = {
   branchTurn: number
   transcript: AdaptiveTranscriptItem[]
