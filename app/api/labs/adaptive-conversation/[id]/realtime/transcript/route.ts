@@ -16,6 +16,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     .single()
   if (error || !row) return NextResponse.json({ error: 'Session not found.' }, { status: 404 })
   const transcript = (Array.isArray(row.transcript) ? row.transcript : []) as AdaptiveTranscriptItem[]
+  const normalizedContent = content.replace(/\s+/g, ' ').toLowerCase()
+  const duplicate = [...transcript].reverse().find((item) => item.role === body.role && item.content.replace(/\s+/g, ' ').toLowerCase() === normalizedContent)
+  if (duplicate) return NextResponse.json({ transcript })
   const now = new Date().toISOString()
   const turn = body.role === 'user' ? transcript.filter((item) => item.role === 'user').length + 1 : Math.max(1, transcript.filter((item) => item.role === 'user').length)
   const nextTranscript = [...transcript, { role: body.role, content, turn, createdAt: now }]
