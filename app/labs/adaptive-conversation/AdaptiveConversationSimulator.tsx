@@ -248,7 +248,7 @@ export default function AdaptiveConversationSimulator() {
 
         {stage === 'replay' && assessment?.replayPoint && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-5"><p className="text-xs font-medium uppercase tracking-wide text-primary">Original exchange {assessment.replayPoint.turn}</p>{replayMessages.map((message, index) => <div key={`${message.createdAt}-${index}`} className={`mt-3 rounded-2xl px-4 py-3 text-sm leading-6 ${message.role === 'user' ? 'ml-8 bg-primary text-white' : 'mr-8 bg-white text-ink'}`}><p className="mb-1 text-[10px] font-medium uppercase tracking-wide opacity-60">{message.role === 'user' ? 'You originally said' : setup.person}</p>{message.content}</div>)}<p className="mt-3 text-xs text-ink-light">Your alternate response will replace your original message at this moment.</p></div>}
 
-        {stage === 'setup' && <section className="grid gap-6 lg:grid-cols-[1fr_300px]">
+        {stage === 'setup' && <section className="mx-auto max-w-3xl">
           <form onSubmit={reviewSetup} className="rounded-card border border-border bg-white p-6 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Step 1</p>
             <h2 className="mt-1 text-2xl" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>Set up the conversation</h2>
@@ -272,7 +272,6 @@ export default function AdaptiveConversationSimulator() {
             </div>
             <button type="submit" className="mt-6 rounded-pill bg-primary px-5 py-3 text-sm font-medium text-white hover:bg-primary-dark">Review setup →</button>
           </form>
-          <aside className="rounded-card border border-primary/20 bg-primary-light/40 p-5 text-sm leading-6 text-ink-mid"><p className="font-medium text-primary">Realistic mode</p><p className="mt-2">The first version stays grounded: one plausible person, one conversation, and no automatic coaching while you are in role-play.</p><p className="mt-4">You can pause, ask for help, stop, or finish. The conversation may end with disagreement or uncertainty.</p></aside>
         </section>}
 
         {stage === 'conversation' && endReason && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Natural stopping point</p><p className="mt-2">{endReason}</p><p className="mt-2 text-xs text-ink-light">You can finish and assess this conversation, including if it ended with disagreement or ambiguity.</p></div>}
