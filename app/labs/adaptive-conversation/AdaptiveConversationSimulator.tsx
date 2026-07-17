@@ -1,30 +1,15 @@
 'use client'
 
 import { FormEvent, useEffect, useState } from 'react'
+import type { AdaptiveAssessment, AdaptiveSnapshot, AdaptiveTranscriptItem } from '@/lib/adaptive-conversation'
 
 type Contact = { id: string; name: string; notes: string | null; relationship_type: string | null; relationship_other: string | null }
-type Setup = {
+type Setup = Omit<AdaptiveSnapshot, 'contactId'> & {
   scenarioType: 'general' | 'contact'
   contactId: string
-  person: string
-  situation: string
-  goal: string
-  concern: string
-  relationshipContext: string
-  personStyle: string
-  constraints: string
-  approvedContactContext: string
 }
-type Message = { role: 'user' | 'simulated_person'; content: string; turn: number; createdAt: string }
-type Assessment = {
-  summary: string
-  whatWorked: string[]
-  turningPoints: string[]
-  resistance: { increased: string[]; reduced: string[] }
-  strongerResponse: string
-  goalProgress: string
-  replayPoint: { turn: number; why: string } | null
-}
+type Message = AdaptiveTranscriptItem
+type Assessment = AdaptiveAssessment
 type SavedSession = { id: string; setup_snapshot: Setup; transcript: Message[]; assessment: Assessment | null; status: string; updated_at: string }
 
 const blankSetup: Setup = {

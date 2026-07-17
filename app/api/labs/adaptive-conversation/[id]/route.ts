@@ -6,7 +6,7 @@ export async function GET(_req: Request, { params }: { params: { id: string } })
   if (response || !session) return response
   const { data, error } = await supabase
     .from('adaptive_conversation_sessions')
-    .select('id, scenario_type, difficulty, status, setup_snapshot, transcript, assessment, created_at, updated_at, completed_at')
+    .select('id, scenario_type, difficulty, status, lifecycle, setup_snapshot, transcript, assessment, created_at, updated_at, completed_at')
     .eq('id', params.id)
     .eq('user_id', session.user.id)
     .single()

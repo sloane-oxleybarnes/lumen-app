@@ -35,7 +35,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   const now = new Date().toISOString()
   const { error: updateError } = await supabase
     .from('adaptive_conversation_sessions')
-    .update({ assessment, status: 'completed', completed_at: now, updated_at: now })
+    .update({ assessment, status: 'completed', lifecycle: 'completed', completed_at: now, updated_at: now })
     .eq('id', params.id)
     .eq('user_id', session.user.id)
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })

@@ -1,45 +1,11 @@
-export type AdaptiveSnapshot = {
-  scenarioType: 'general' | 'contact'
-  contactId?: string | null
-  person: string
-  situation: string
-  goal: string
-  concern: string
-  relationshipContext: string
-  personStyle: string
-  constraints: string
-  approvedContactContext?: string
-}
+import type {
+  AdaptiveAssessment,
+  AdaptiveSnapshot,
+  AdaptiveState,
+  AdaptiveTurnResult,
+} from './adaptive-conversation'
 
-export type AdaptiveState = {
-  goal: string
-  concerns: string[]
-  constraints: string[]
-  knownInformation: string[]
-  misunderstandings: string[]
-  trust: number
-  defensiveness: number
-  openness: number
-  relationshipDynamic: string
-  lastReaction: string
-  trajectory: 'opening' | 'uncertain' | 'resistant' | 'disengaging' | 'resolved'
-}
-
-export type AdaptiveTurn = {
-  reply: string
-  state: AdaptiveState
-  signals: string[]
-}
-
-export type AdaptiveAssessment = {
-  summary: string
-  whatWorked: string[]
-  turningPoints: string[]
-  resistance: { increased: string[]; reduced: string[] }
-  strongerResponse: string
-  goalProgress: string
-  replayPoint: { turn: number; why: string } | null
-}
+export type { AdaptiveAssessment, AdaptiveSnapshot, AdaptiveState, AdaptiveTurnResult } from './adaptive-conversation'
 
 function parseJson<T>(text: string): T {
   const cleaned = text.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '')
@@ -91,7 +57,7 @@ export async function callAdaptiveModel(instructions: string, input: string, max
 }
 
 export function parseAdaptiveTurn(text: string) {
-  return parseJson<AdaptiveTurn>(text)
+  return parseJson<AdaptiveTurnResult>(text)
 }
 
 export function parseAdaptiveAssessment(text: string) {

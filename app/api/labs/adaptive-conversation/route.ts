@@ -9,7 +9,7 @@ export async function GET() {
   const [{ data: sessions, error: sessionsError }, { data: contacts, error: contactsError }] = await Promise.all([
     supabase
       .from('adaptive_conversation_sessions')
-      .select('id, scenario_type, difficulty, status, setup_snapshot, transcript, assessment, created_at, updated_at, completed_at')
+      .select('id, scenario_type, difficulty, status, lifecycle, setup_snapshot, transcript, assessment, created_at, updated_at, completed_at')
       .eq('user_id', session.user.id)
       .order('updated_at', { ascending: false })
       .limit(20),
@@ -76,12 +76,13 @@ export async function POST(req: NextRequest) {
       contact_id: snapshot.contactId || null,
       scenario_type: scenarioType,
       difficulty: 'realistic',
+      lifecycle: 'ready',
       setup_snapshot: snapshot,
       simulation_state: initialAdaptiveState(snapshot),
       transcript: [],
       status: 'active',
     })
-    .select('id, scenario_type, difficulty, status, setup_snapshot, transcript, assessment, created_at, updated_at')
+    .select('id, scenario_type, difficulty, status, lifecycle, setup_snapshot, transcript, assessment, created_at, updated_at')
     .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

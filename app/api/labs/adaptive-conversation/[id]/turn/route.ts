@@ -4,11 +4,10 @@ import {
   callAdaptiveModel,
   parseAdaptiveTurn,
   turnInstructions,
-  type AdaptiveSnapshot,
-  type AdaptiveState,
 } from '@/lib/openai-adaptive'
+import type { AdaptiveSnapshot, AdaptiveState, AdaptiveTranscriptItem } from '@/lib/adaptive-conversation'
 
-type TranscriptItem = { role: 'user' | 'simulated_person'; content: string; turn: number; createdAt: string }
+type TranscriptItem = AdaptiveTranscriptItem
 
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
   const { supabase, session, response } = await getAdaptiveAuth()
@@ -19,7 +18,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const { data: row, error: loadError } = await supabase
     .from('adaptive_conversation_sessions')
-    .select('id, status, setup_snapshot, simulation_state, transcript')
+    .select('id, status, lifecycle, setup_snapshot, simulation_state, transcript')
     .eq('id', params.id)
     .eq('user_id', session.user.id)
     .single()
@@ -33,10 +32,20 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const history = transcript.map((item) => `${item.role === 'user' ? 'User' : snapshot.person}: ${item.content}`).join('\n')
   const input = `${history ? `Conversation so far:\n${history}\n\n` : ''}User's latest message:\n${message}`
+  await supabase
+    .from('adaptive_conversation_sessions')
+    .update({ lifecycle: 'responding', updated_at: new Date().toISOString() })
+    .eq('id', params.id)
+    .eq('user_id', session.user.id)
   let result
   try {
     result = parseAdaptiveTurn(await callAdaptiveModel(turnInstructions(snapshot, state), input, 700))
   } catch (error) {
+    await supabase
+      .from('adaptive_conversation_sessions')
+      .update({ lifecycle: 'ready', updated_at: new Date().toISOString() })
+      .eq('id', params.id)
+      .eq('user_id', session.user.id)
     const messageText = error instanceof Error ? error.message : 'The simulator could not respond.'
     return NextResponse.json({ error: messageText }, { status: 502 })
   }
@@ -49,7 +58,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   ]
   const { error: updateError } = await supabase
     .from('adaptive_conversation_sessions')
-    .update({ transcript: nextTranscript, simulation_state: result.state, updated_at: now })
+    .update({ transcript: nextTranscript, simulation_state: result.state, lifecycle: 'ready', updated_at: now })
     .eq('id', params.id)
     .eq('user_id', session.user.id)
   if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 })

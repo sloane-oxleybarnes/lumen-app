@@ -6,7 +6,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (response || !session) return response
   const { error } = await supabase
     .from('adaptive_conversation_sessions')
-    .update({ status: 'abandoned', updated_at: new Date().toISOString() })
+    .update({ status: 'abandoned', lifecycle: 'abandoned', updated_at: new Date().toISOString() })
     .eq('id', params.id)
     .eq('user_id', session.user.id)
     .eq('status', 'active')
