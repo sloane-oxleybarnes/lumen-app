@@ -38,6 +38,7 @@ export default function AdaptiveConversationSimulator() {
   const [speaking, setSpeaking] = useState(false)
   const [audioError, setAudioError] = useState('')
   const spokenMessageRef = useRef('')
+  const lastVoiceTranscriptRef = useRef<Record<string, number>>({})
 
   useEffect(() => {
     if (setup.channel !== 'video') return
@@ -114,6 +115,7 @@ export default function AdaptiveConversationSimulator() {
       setSpeaking(false)
       setAudioError('')
       spokenMessageRef.current = ''
+      lastVoiceTranscriptRef.current = {}
       setPaused(false)
       setHelpText('')
       setTyping(false)
@@ -154,6 +156,10 @@ export default function AdaptiveConversationSimulator() {
   }
 
   async function saveVoiceTranscript(role: 'user' | 'simulated_person', content: string) {
+    const key = `${role}:${content.trim()}`
+    const nowMs = Date.now()
+    if (nowMs - (lastVoiceTranscriptRef.current[key] || 0) < 2500) return
+    lastVoiceTranscriptRef.current[key] = nowMs
     const item: Message = { role, content, turn: role === 'user' ? messages.filter((message) => message.role === 'user').length + 1 : Math.max(1, messages.filter((message) => message.role === 'user').length), createdAt: new Date().toISOString() }
     setMessages((current) => [...current, item])
     if (sessionId) await fetch(`/api/labs/adaptive-conversation/${sessionId}/realtime/transcript`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ role, content }) })
@@ -219,7 +225,7 @@ export default function AdaptiveConversationSimulator() {
     finally { setReplayBusy(false) }
   }
 
-  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setReplay(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setSpeaking(false); setAudioError(''); spokenMessageRef.current = ''; setStage('setup'); setError('') }
+  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setReplay(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setSpeaking(false); setAudioError(''); spokenMessageRef.current = ''; lastVoiceTranscriptRef.current = {}; setStage('setup'); setError('') }
 
   async function deleteSession(id: string) {
     if (!window.confirm('Delete this saved simulation and its transcript?')) return
