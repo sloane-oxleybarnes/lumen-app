@@ -15,7 +15,8 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
   if (error || !row) return NextResponse.json({ error: 'Session not found.' }, { status: 404 })
   if (row.status !== 'active') return NextResponse.json({ shouldNudge: false })
   const transcript = Array.isArray(row.transcript) ? row.transcript : []
-  if (transcript.filter((item: { role?: string }) => item.role === 'user').length < 2) return NextResponse.json({ shouldNudge: false })
+  const userTurnCount = transcript.filter((item: { role?: string }) => item.role === 'user').length
+  if (userTurnCount < 2 || userTurnCount % 2 !== 0) return NextResponse.json({ shouldNudge: false })
   try {
     const result = parseAdaptiveNudge(await callAdaptiveModel(nudgeInstructions(), `Scenario: ${JSON.stringify(row.setup_snapshot as AdaptiveSnapshot)}\nState: ${JSON.stringify(row.simulation_state as AdaptiveState)}\nTranscript: ${JSON.stringify(transcript)}`, 350))
     return NextResponse.json(result)

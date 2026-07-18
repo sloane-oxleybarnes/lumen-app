@@ -418,6 +418,10 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
       const audioTrack = stream.getAudioTracks()[0]
       if (audioTrack) peer.addTrack(audioTrack, stream)
       const events = peer.createDataChannel('oai-events')
+      events.onopen = () => {
+        events.send(JSON.stringify({ type: 'response.create', response: { instructions: channel === 'phone' ? 'Give a brief, casual hello first, such as "Hey, what\'s up?" Do not mention the setup or guess what the user wants yet.' : undefined } }))
+        setCallConnected(true)
+      }
       events.onmessage = (event) => {
         try {
           const payload = JSON.parse(event.data) as { type?: string; delta?: string; transcript?: string }
@@ -431,10 +435,6 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
       const response = await fetch(`/api/labs/adaptive-conversation/${sessionId}/realtime`, { method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: offer.sdp })
       if (!response.ok) throw new Error((await response.json().catch(() => null))?.error || 'Realtime voice session could not start.')
       await peer.setRemoteDescription({ type: 'answer', sdp: await response.text() })
-      events.onopen = () => {
-        events.send(JSON.stringify({ type: 'response.create', response: { instructions: channel === 'phone' ? 'Give a brief, casual hello first, such as "Hey, what\'s up?" Do not mention the setup or guess what the user wants yet.' : undefined } }))
-        setCallConnected(true)
-      }
       setCameraOn(channel === 'video')
       setMicOn(true)
     } catch (error) {
