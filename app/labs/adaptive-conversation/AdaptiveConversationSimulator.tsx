@@ -85,6 +85,9 @@ export default function AdaptiveConversationSimulator() {
       setError('Choose a contact before reviewing the setup.')
       return
     }
+    // Video is not part of the submission experience. Normalize any older
+    // saved video setup to text before it reaches the review or start flow.
+    if (setup.channel === 'video') setSetup((current) => ({ ...current, channel: 'text' }))
     setStage('review')
   }
 
@@ -92,9 +95,10 @@ export default function AdaptiveConversationSimulator() {
     setBusy(true)
     setError('')
     try {
+      const approvedSetup = { ...setup, channel: setup.channel === 'phone' ? 'phone' : 'text' as const }
       const res = await fetch('/api/labs/adaptive-conversation', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...setup, approved: true }),
+        body: JSON.stringify({ ...approvedSetup, approved: true }),
       })
       const body = await res.json()
       if (!res.ok) throw new Error(body.error || 'Could not start the simulation.')
@@ -259,7 +263,7 @@ export default function AdaptiveConversationSimulator() {
       ...blankSetup,
       ...snapshot,
       scenarioType: snapshot.scenarioType === 'contact' ? 'contact' : 'general',
-      channel: snapshot.channel || 'text',
+      channel: snapshot.channel === 'phone' ? 'phone' : 'text',
       difficulty: snapshot.difficulty || 'realistic',
       contactId: snapshot.contactId || '',
     })
@@ -299,7 +303,7 @@ export default function AdaptiveConversationSimulator() {
             <div className="mt-6 flex gap-2">
               {(['general', 'contact'] as const).map((type) => <button key={type} type="button" onClick={() => updateSetup('scenarioType', type)} className={`rounded-pill px-4 py-2 text-sm ${setup.scenarioType === type ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{type === 'general' ? 'General scenario' : 'Existing contact'}</button>)}
             </div>
-            <div className="mt-5"><p className="text-sm font-medium">Practice channel</p><div className="mt-2 flex flex-wrap gap-2">{(['text', 'phone', 'video'] as const).map((channel) => <button key={channel} type="button" onClick={() => updateSetup('channel', channel)} className={`rounded-pill px-4 py-2 text-sm ${setup.channel === channel ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{channel === 'text' ? 'Text conversation' : channel === 'phone' ? 'Phone call' : 'Video call'}</button>)}</div><p className="mt-2 text-xs text-ink-light">Video starts as a real camera-and-voice call with Beckett; an animated LiveAvatar participant is an optional enhancement.</p></div>
+            <div className="mt-5"><p className="text-sm font-medium">Practice channel</p><div className="mt-2 flex flex-wrap gap-2">{(['text', 'phone'] as const).map((channel) => <button key={channel} type="button" onClick={() => updateSetup('channel', channel)} className={`rounded-pill px-4 py-2 text-sm ${setup.channel === channel ? 'bg-primary text-white' : 'border border-border bg-white text-ink-mid'}`}>{channel === 'text' ? 'Text conversation' : 'Phone call'}</button>)}</div><p className="mt-2 text-xs text-ink-light">Choose text for a written exchange or phone for a spoken practice call. Both use the same simulator and debrief.</p></div>
             <div className="mt-5"><p className="text-sm font-medium">Simulation mode</p><div className="mt-2 grid gap-2 sm:grid-cols-3">{(['realistic', 'supportive', 'challenging'] as const).map((difficulty) => <button key={difficulty} type="button" onClick={() => updateSetup('difficulty', difficulty)} className={`rounded-card border px-3 py-3 text-left ${setup.difficulty === difficulty ? 'border-primary bg-primary-light/40' : 'border-border bg-white'}`}><span className="block text-sm font-medium capitalize">{difficulty}</span><span className="mt-1 block text-xs leading-5 text-ink-light">{difficulty === 'realistic' ? 'Balanced and plausible.' : difficulty === 'supportive' ? 'More patient, still authentic.' : 'More guarded, never hostile.'}</span></button>)}</div></div>
             {setup.scenarioType === 'contact' && <label className="mt-5 block text-sm font-medium">Contact<select value={setup.contactId} onChange={(e) => selectContact(e.target.value)} className="mt-2 block w-full rounded-card border border-border bg-white px-3 py-3 font-normal"><option value="">Choose a contact…</option>{contacts.map((contact) => <option key={contact.id} value={contact.id}>{contact.name}</option>)}</select></label>}
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -319,16 +323,16 @@ export default function AdaptiveConversationSimulator() {
 
         {stage === 'conversation' && endReason && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Natural stopping point</p><p className="mt-2">{endReason}</p><p className="mt-2 text-xs text-ink-light">You can finish and assess this conversation, including if it ended with disagreement or ambiguity.</p></div>}
         {stage === 'conversation' && setup.person.trim() && setup.situation.trim() && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4"><p className="text-xs font-medium uppercase tracking-wide text-primary">Suggested opening line</p><p className="mt-2 text-sm leading-6 text-ink">“{suggestedOpeningLine(setup)}”</p><p className="mt-1 text-xs text-ink-light">Use it as-is or make it sound like you.</p></div>}
-        {stage === 'conversation' && setup.channel !== 'video' && <p className="mx-auto mb-2 max-w-3xl text-xs text-ink-light">{setup.channel === 'phone' ? 'Phone call' : 'Text conversation'} · <span className="capitalize">{setup.difficulty}</span> mode</p>}
+        {stage === 'conversation' && <p className="mx-auto mb-2 max-w-3xl text-xs text-ink-light">{setup.channel === 'phone' ? 'Phone call' : 'Text conversation'} · <span className="capitalize">{setup.difficulty}</span> mode</p>}
 
         {stage === 'conversation' && nudge && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Beckett’s nudge</p><p className="mt-2">{nudge.prompt}</p>{nudge.examples?.length > 0 && <p className="mt-2 text-ink-mid">Try: “{nudge.examples.join('” or “')}”</p>}<button type="button" onClick={() => { setPaused(true); setHelpText(nudge.prompt); setNudge(null) }} className="mt-3 text-xs font-medium text-primary hover:underline">Pause and work on this</button><button type="button" onClick={() => setNudge(null)} className="ml-4 mt-3 text-xs text-ink-light hover:underline">Keep practicing</button></div>}
-        {stage === 'conversation' && (setup.channel === 'video' || setup.channel === 'phone') && <VideoCallFrame sessionId={sessionId} person={setup.person} messages={messages} typing={typing} speaking={speaking} audioError={audioError} input={input} setInput={setInput} onSubmit={sendMessage} onVoiceTranscript={saveVoiceTranscript} onTranscriptSync={setMessages} onSupervisorUpdate={setNudge} onSpeakingChange={setSpeaking} onEnd={finishSimulation} onPause={() => setPaused((value) => !value)} paused={paused} disabled={busy} channel={setup.channel} />}
+        {stage === 'conversation' && setup.channel === 'phone' && <VideoCallFrame sessionId={sessionId} person={setup.person} messages={messages} typing={typing} speaking={speaking} audioError={audioError} input={input} setInput={setInput} onSubmit={sendMessage} onVoiceTranscript={saveVoiceTranscript} onTranscriptSync={setMessages} onSupervisorUpdate={setNudge} onSpeakingChange={setSpeaking} onEnd={finishSimulation} onPause={() => setPaused((value) => !value)} paused={paused} disabled={busy} channel="phone" />}
 
         {stage === 'review' && <section className="mx-auto max-w-3xl rounded-card border border-border bg-white p-6 shadow-sm">
           <p className="text-xs font-medium uppercase tracking-wide text-ink-light">Step 2</p>
           <h2 className="mt-1 text-2xl" style={{ fontFamily: 'var(--font-dm-serif), Georgia, serif' }}>Review and approve</h2>
           <p className="mt-2 text-sm leading-6 text-ink-mid">This is the session-specific context GPT‑5.6 will use. It will not change the permanent contact.</p>
-          <div className="mt-6 space-y-4 rounded-card bg-[#FBF8F3] p-5 text-sm"><ReviewRow label="Practice channel" value={setup.channel === 'phone' ? 'Phone call' : setup.channel === 'video' ? 'Video call' : 'Text conversation'} /><ReviewRow label="Person" value={setup.person} /><ReviewRow label="Situation" value={setup.situation} /><ReviewRow label="Goal" value={setup.goal} /><ReviewRow label="Concern" value={setup.concern || 'Not specified'} /><ReviewRow label="Relationship context" value={setup.relationshipContext || 'Not specified'} />{setup.scenarioType === 'contact' && <ReviewRow label="Approved contact context" value={setup.approvedContactContext || 'No additional context'} />}</div>
+          <div className="mt-6 space-y-4 rounded-card bg-[#FBF8F3] p-5 text-sm"><ReviewRow label="Practice channel" value={setup.channel === 'phone' ? 'Phone call' : 'Text conversation'} /><ReviewRow label="Person" value={setup.person} /><ReviewRow label="Situation" value={setup.situation} /><ReviewRow label="Goal" value={setup.goal} /><ReviewRow label="Concern" value={setup.concern || 'Not specified'} /><ReviewRow label="Relationship context" value={setup.relationshipContext || 'Not specified'} />{setup.scenarioType === 'contact' && <ReviewRow label="Approved contact context" value={setup.approvedContactContext || 'No additional context'} />}</div>
           <p className="mt-5 rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6 text-ink"><strong>Important:</strong> This is one plausible simulated response, not a prediction of how the real person will behave. New details introduced during role-play remain simulation-only.</p>
           <p className="mt-3 text-xs text-ink-light">Mode: <span className="font-medium capitalize">{setup.difficulty}</span> · This changes the person’s level of patience and resistance, not the underlying scenario.</p>
           <div className="mt-6 flex flex-wrap gap-3"><button onClick={() => setStage('setup')} className="rounded-pill border border-border px-4 py-2 text-sm">Edit setup</button><button onClick={beginSimulation} disabled={busy} className="rounded-pill bg-primary px-5 py-2 text-sm font-medium text-white disabled:opacity-50">{busy ? 'Starting…' : 'Approve and begin →'}</button></div>
