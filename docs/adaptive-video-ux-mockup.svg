@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="900" viewBox="0 0 1440 900" role="img" aria-labelledby="title desc">
+  <title id="title">Beckett Adaptive Conversation Simulator video practice mockup</title>
+  <desc id="desc">A focused video call layout with a large AI persona tile, centered start button, compact controls, hidden transcript toggle, audio fallback notice, and debrief card.</desc>
+  <defs>
+    <linearGradient id="page" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fbf7f1"/>
+      <stop offset="1" stop-color="#f4eee6"/>
+    </linearGradient>
+    <linearGradient id="call" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#26394b"/>
+      <stop offset="1" stop-color="#101b28"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#172231" flood-opacity=".16"/>
+    </filter>
+  </defs>
+
+  <rect width="1440" height="900" fill="url(#page)"/>
+  <text x="72" y="68" fill="#1b2430" font-family="Georgia, serif" font-size="34" font-weight="700">Beckett</text>
+  <text x="72" y="111" fill="#8d8a87" font-family="Arial, sans-serif" font-size="16" letter-spacing="2.4">LABS  /  ADAPTIVE CONVERSATION</text>
+
+  <rect x="72" y="144" width="1296" height="620" rx="28" fill="#172332" filter="url(#shadow)"/>
+  <text x="112" y="190" fill="#aeb6c0" font-family="Arial, sans-serif" font-size="15" letter-spacing="3.4">VIDEO PRACTICE</text>
+  <text x="112" y="232" fill="#f7f8fa" font-family="Arial, sans-serif" font-size="30" font-weight="600">Conversation with Jordan</text>
+  <rect x="1180" y="182" width="132" height="40" rx="20" fill="#2d3b4b"/>
+  <circle cx="1203" cy="202" r="5" fill="#e6a02a"/>
+  <text x="1218" y="208" fill="#e8edf2" font-family="Arial, sans-serif" font-size="15">Ready</text>
+
+  <rect x="112" y="268" width="1216" height="390" rx="22" fill="url(#call)" stroke="#3a4c5f" stroke-width="1.5"/>
+  <rect x="144" y="298" width="205" height="34" rx="17" fill="#1b2a39"/>
+  <text x="165" y="320" fill="#d2d9df" font-family="Arial, sans-serif" font-size="14">AI persona  ·  Jordan</text>
+  <rect x="1120" y="298" width="158" height="34" rx="17" fill="#1b2a39"/>
+  <circle cx="1144" cy="315" r="5" fill="#56c28b"/>
+  <text x="1157" y="320" fill="#d2d9df" font-family="Arial, sans-serif" font-size="14">Live</text>
+
+  <circle cx="720" cy="421" r="88" fill="#405062" stroke="#8390a0" stroke-width="2"/>
+  <text x="720" y="449" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="76" font-weight="500">J</text>
+  <text x="720" y="552" text-anchor="middle" fill="#f7f8fa" font-family="Arial, sans-serif" font-size="23">Jordan is ready when you are.</text>
+  <rect x="552" y="577" width="336" height="56" rx="28" fill="#d99318"/>
+  <text x="720" y="612" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="19" font-weight="600">Start conversation</text>
+
+  <rect x="1164" y="534" width="132" height="94" rx="14" fill="#334557" stroke="#748294" stroke-width="1"/>
+  <text x="1230" y="575" text-anchor="middle" fill="#cdd5dc" font-family="Arial, sans-serif" font-size="14">Camera off</text>
+  <text x="1230" y="600" text-anchor="middle" fill="#aeb8c2" font-family="Arial, sans-serif" font-size="13">You</text>
+
+  <rect x="112" y="681" width="1216" height="54" rx="27" fill="#202f3e"/>
+  <rect x="136" y="692" width="104" height="34" rx="17" fill="#2c3d4e"/>
+  <text x="188" y="714" text-anchor="middle" fill="#e4e9ed" font-family="Arial, sans-serif" font-size="14">Pause</text>
+  <rect x="252" y="692" width="148" height="34" rx="17" fill="#c83232"/>
+  <text x="326" y="714" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="14">End conversation</text>
+  <rect x="412" y="692" width="104" height="34" rx="17" fill="#2c3d4e"/>
+  <text x="464" y="714" text-anchor="middle" fill="#e4e9ed" font-family="Arial, sans-serif" font-size="14">Camera</text>
+  <rect x="528" y="692" width="82" height="34" rx="17" fill="#2c3d4e"/>
+  <text x="569" y="714" text-anchor="middle" fill="#e4e9ed" font-family="Arial, sans-serif" font-size="14">Mic</text>
+  <rect x="622" y="692" width="112" height="34" rx="17" fill="#2c3d4e"/>
+  <text x="678" y="714" text-anchor="middle" fill="#e4e9ed" font-family="Arial, sans-serif" font-size="14">Transcript off</text>
+  <rect x="1042" y="692" width="262" height="34" rx="17" fill="#3a3023" stroke="#b87717" stroke-width="1"/>
+  <text x="1059" y="714" fill="#f1c67f" font-family="Arial, sans-serif" font-size="13">Audio fallback available</text>
+
+  <rect x="72" y="794" width="1296" height="72" rx="18" fill="#fffaf3" stroke="#ead8bc" stroke-width="1.5"/>
+  <text x="104" y="824" fill="#a86b13" font-family="Arial, sans-serif" font-size="13" letter-spacing="1.4">AFTER YOU END THE CALL</text>
+  <text x="104" y="850" fill="#323438" font-family="Arial, sans-serif" font-size="17" font-weight="600">Debrief ready</text>
+  <text x="282" y="850" fill="#77716a" font-family="Arial, sans-serif" font-size="16">Review the turning point, response pattern, and next practice step.</text>
+  <rect x="1170" y="812" width="160" height="38" rx="19" fill="#d99318"/>
+  <text x="1250" y="837" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="14" font-weight="600">Review conversation</text>
+</svg>
