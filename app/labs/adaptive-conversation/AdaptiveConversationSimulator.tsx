@@ -484,10 +484,10 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
     if (!response?.ok) return
     const body = await response.json().catch(() => null) as { shouldNudge?: boolean; prompt?: string; examples?: string[]; instructions?: string } | null
     if (body?.shouldNudge && body.prompt) onSupervisorUpdate({ shouldNudge: true, prompt: body.prompt, examples: body.examples || [] })
-    if (String(channel) === 'phone' && body?.instructions && dataChannelRef.current?.readyState === 'open') {
+    if (body?.instructions && dataChannelRef.current?.readyState === 'open' && (String(channel) === 'phone' || !avatarEmbedUrl)) {
       dataChannelRef.current.send(JSON.stringify({ type: 'session.update', session: { instructions: body.instructions } }))
     }
-  }, [channel, onSupervisorUpdate, sessionId])
+  }, [avatarEmbedUrl, channel, onSupervisorUpdate, sessionId])
 
   async function startLiveCall() {
     if (!sessionId || callBusy || callConnected) return

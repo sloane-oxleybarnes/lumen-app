@@ -51,9 +51,7 @@ export async function POST(_req: Request, { params }: { params: { id: string } }
       shouldNudge: Boolean(result.shouldNudge),
       prompt: result.prompt || '',
       examples: Array.isArray(result.examples) ? result.examples.slice(0, 2) : [],
-      instructions: row.channel === 'phone'
-        ? `${realtimeInstructions(snapshot)}\n\nPrivate supervisor update for the next turn: ${result.nextTurnGuidance || 'Continue naturally, matching the user and preserving the person\'s current limits and uncertainty.'}`
-        : undefined,
+      instructions: `${realtimeInstructions(snapshot)}\n\nPrivate supervisor update for the next turn: ${result.nextTurnGuidance || 'Continue naturally, matching the user and preserving the person\'s current limits and uncertainty.'}`,
       state: result.state,
     })
   } catch {
