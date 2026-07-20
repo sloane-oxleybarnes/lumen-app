@@ -55,9 +55,9 @@ export default function SetPasswordPage() {
             {loading ? 'Setting password…' : 'Set password and sign in'}
           </button>
           <p style={{ color: '#8A8784', fontSize: 12, lineHeight: 1.5, marginTop: 16, textAlign: 'center' }}>
-            By continuing, you confirm that you are at least 18, are located in the United States,
-            and agree to Beckett&apos;s <Link href="/terms" style={{ color: '#BA7517' }}>Terms</Link> and{' '}
-            <Link href="/privacy" style={{ color: '#BA7517' }}>Privacy Policy</Link>.
+            Next, you&apos;ll confirm beta eligibility and review Beckett&apos;s{' '}
+            <Link href="/terms" style={{ color: '#BA7517' }}>Terms</Link> and{' '}
+            <Link href="/privacy" style={{ color: '#BA7517' }}>Privacy Policy</Link> during onboarding.
           </p>
         </form>
       </div>

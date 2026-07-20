@@ -65,6 +65,14 @@ const sections = [
     ],
   },
   {
+    title: "Support, privacy, and security reports",
+    body: [
+      "To request help or report a privacy or security concern, email hello@meetbeckett.co.",
+      "During beta, Beckett acknowledges normal support requests within one business day. Active or suspected security incidents are reviewed as soon as they are discovered.",
+      "When reporting a problem, describe what happened without including private messages or coaching content unless the Beckett team specifically asks for a redacted example.",
+    ],
+  },
+  {
     title: "Deletion during beta",
     body: [
       "You can request account deletion from Settings. During beta, deletion is handled manually so we can remove data across Beckett, Supabase, HubSpot, email tools, and related systems.",
@@ -121,7 +129,7 @@ export default function PrivacyPage() {
           how it uses and shares data, what feedback can include, and where the coaching
           boundaries are.
         </p>
-        <p className="mt-4 text-sm text-ink-light">Last updated: June 22, 2026</p>
+        <p className="mt-4 text-sm text-ink-light">Last updated: July 16, 2026</p>
       </section>
 
       <section className="mx-auto grid w-full max-w-4xl gap-5 px-5 pb-12">

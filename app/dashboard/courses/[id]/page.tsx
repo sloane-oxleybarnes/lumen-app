@@ -54,6 +54,7 @@ const PAIR_COLORS = [
   { bg: 'bg-emerald-100', border: 'border-emerald-400', text: 'text-emerald-700' },
   { bg: 'bg-amber-100', border: 'border-amber-400', text: 'text-amber-700' },
   { bg: 'bg-violet-100', border: 'border-violet-400', text: 'text-violet-700' },
+  { bg: 'bg-rose-100', border: 'border-rose-400', text: 'text-rose-700' },
 ]
 
 const CLARITY_FORMULA_STEPS = ['What I understand', 'What is unclear', 'Specific question', 'Why it helps']
@@ -697,15 +698,11 @@ export default function CoursePage({ params }: { params: { id: string } }) {
   }
 
   function getLeftColor(leftIdx: number): (typeof PAIR_COLORS)[0] | null {
-    const slide = course.slides[currentSlideIndex]
-    if (slide.type === 'matching' && slide.neutralChecked) return null
     const conn = matchConns.find(c => c.left === leftIdx)
     if (!conn) return null
     return PAIR_COLORS[leftIdx % PAIR_COLORS.length]
   }
   function getRightColor(rightVisualIdx: number): (typeof PAIR_COLORS)[0] | null {
-    const slide = course.slides[currentSlideIndex]
-    if (slide.type === 'matching' && slide.neutralChecked) return null
     const conn = matchConns.find(c => c.right === rightVisualIdx)
     if (!conn) return null
     if (matchErrors.has(conn.left)) return null
@@ -1631,7 +1628,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
             {slide.pairs.map((pair, i) => {
               const color = getLeftColor(i)
               const isPending = pendingLeft === i
-              const isConnected = matchConns.some(c => c.left === i)
               const hasError = matchErrors.has(i)
               const isCorrectChecked = (matchChecked || matchRevealed) && matchConns.some(c => c.left === i && c.left === shuffledRight[c.right])
               return (
@@ -1642,7 +1638,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                     hasError ? 'border-red-400 bg-red-50' :
                     isCorrectChecked && slide.neutralChecked ? 'border-green-300 bg-green-50' :
                     isPending ? 'border-primary bg-primary/5' :
-                    isConnected && slide.neutralChecked ? 'border-primary/50 bg-primary/5' :
                     color ? `${color.bg} ${color.border}` :
                     'border-border bg-white hover:border-primary'
                   }`}
@@ -1670,7 +1665,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
               const color = getRightColor(visualIdx)
               const conn = matchConns.find(c => c.right === visualIdx)
               const isPending = pendingRight === visualIdx
-              const isConnected = Boolean(conn)
               const hasError = conn ? matchErrors.has(conn.left) : false
               const wrongLeftPair = hasError && conn ? slide.pairs[conn.left] : null
               const isCorrectChecked = (matchChecked || matchRevealed) && conn && conn.left === pairIdx
@@ -1682,7 +1676,6 @@ export default function CoursePage({ params }: { params: { id: string } }) {
                       hasError ? 'border-red-400 bg-red-50' :
                       isCorrectChecked && slide.neutralChecked ? 'border-green-300 bg-green-50' :
                       isPending ? 'border-primary bg-primary/5' :
-                      isConnected && slide.neutralChecked ? 'border-primary/50 bg-primary/5' :
                       color ? `${color.bg} ${color.border}` :
                       'border-border bg-white hover:border-primary'
                     }`}

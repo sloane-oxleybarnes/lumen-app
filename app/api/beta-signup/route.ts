@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createOrUpdateHubSpotContact } from "@/lib/hubspot";
 import { addLoopsContact, triggerLoopsEvent } from "@/lib/loops";
 import { trackBetaEvent } from "@/lib/beta-events";
-import { sendBetaSignupConfirmation } from "@/lib/beta-emails";
+import { sendBetaSignupConfirmation, sendBetaSignupNotification } from "@/lib/beta-emails";
 
 export async function POST(req: NextRequest) {
   const { email, name, source, plan } = await req.json();
@@ -82,6 +82,16 @@ export async function POST(req: NextRequest) {
     });
   } catch (e) {
     console.error("Resend signup confirmation error:", e);
+  }
+
+  try {
+    await sendBetaSignupNotification({
+      email: normalizedEmail,
+      name,
+      source: sourceValue,
+    });
+  } catch (e) {
+    console.error("Resend beta signup notification error:", e);
   }
 
   return NextResponse.json({ success: true });

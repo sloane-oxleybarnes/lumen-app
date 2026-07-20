@@ -101,6 +101,15 @@ export default function BetaFeedbackWidget() {
             className="w-full resize-none rounded-sm border border-border bg-white px-3 py-2 text-sm text-ink focus:outline-none focus:ring-2 focus:ring-primary"
           />
 
+          <p className="mt-3 rounded-sm bg-bg px-3 py-2 text-xs leading-relaxed text-ink-mid">
+            Need help or need to report a privacy or security concern? Email{" "}
+            <a className="font-medium text-primary hover:underline" href="mailto:hello@meetbeckett.co">
+              hello@meetbeckett.co
+            </a>
+            . We acknowledge normal beta support requests within one business day. Active or
+            suspected security incidents are reviewed as soon as they are discovered.
+          </p>
+
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
           {status === "saved" && <p className="mt-2 text-xs text-primary">Thanks. This is saved for review.</p>}
 

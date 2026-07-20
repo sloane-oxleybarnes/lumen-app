@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import DashboardShell from "@/components/dashboard/DashboardShell";
 import { ensureApprovedBetaPlan, hasApprovedBetaAccess } from "@/lib/beta-access";
+import { hasCurrentBetaConsent } from "@/lib/beta-consent";
 
 export default async function DashboardLayout({
   children,
@@ -39,7 +40,7 @@ export default async function DashboardLayout({
   });
   const effectiveProfile = profile ? { ...profile, plan: effectivePlan } : profile;
 
-  if (!effectiveProfile?.first_login_complete) {
+  if (!effectiveProfile?.first_login_complete || !hasCurrentBetaConsent(effectiveProfile)) {
     redirect("/auth/profile-setup");
   }
 

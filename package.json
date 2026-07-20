@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "test:onboarding": "node --test tests/beta-consent.test.mjs",
     "test:slack": "node --test tests/slack-guest-routing.test.mjs tests/slack-api-retry.test.mjs tests/slack-command-copy.test.mjs tests/slack-prep-copy.test.mjs tests/slack-guided-intent.test.mjs",
     "demo:plan": "node scripts/demo-seed.js --plan",
     "demo:seed:gmail": "node scripts/demo-seed.js --gmail",

@@ -25,6 +25,14 @@ export type Profile = {
   pattern_model_enabled?: boolean;
   first_login_complete?: boolean;
   onboarding_completed_at?: string | null;
+  adult_us_eligibility_confirmed_at?: string | null;
+  adult_us_eligibility_version?: string | null;
+  terms_accepted_at?: string | null;
+  terms_version?: string | null;
+  privacy_acknowledged_at?: string | null;
+  privacy_version?: string | null;
+  coaching_disclaimer_acknowledged_at?: string | null;
+  coaching_disclaimer_version?: string | null;
   dashboard_walkthrough_completed_at?: string | null;
   deletion_requested_at?: string | null;
   deletion_status?: string | null;
