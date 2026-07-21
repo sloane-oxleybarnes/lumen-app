@@ -20,9 +20,31 @@ function modelName() {
   return process.env.OPENAI_SIMULATOR_MODEL || 'gpt-5.6'
 }
 
-export async function callAdaptiveModel(instructions: string, input: string, maxOutputTokens = 700) {
+export type AdaptiveResponseFormat = {
+  name: string
+  schema: Record<string, unknown>
+}
+
+export async function callAdaptiveModel(
+  instructions: string,
+  input: string,
+  maxOutputTokens = 700,
+  responseFormat?: AdaptiveResponseFormat,
+) {
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('The GPT-5.6 simulator is not configured.')
+
+  const textConfig = responseFormat
+    ? {
+        verbosity: 'low',
+        format: {
+          type: 'json_schema',
+          name: responseFormat.name,
+          strict: true,
+          schema: responseFormat.schema,
+        },
+      }
+    : { verbosity: 'low' }
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -36,17 +58,22 @@ export async function callAdaptiveModel(instructions: string, input: string, max
       input,
       store: false,
       reasoning: { effort: 'low' },
-      text: { verbosity: 'low' },
+      text: textConfig,
       max_output_tokens: maxOutputTokens,
     }),
   })
 
   const data = await response.json().catch(() => ({})) as {
+    status?: string
+    incomplete_details?: { reason?: string }
     output?: Array<{ type?: string; content?: Array<{ type?: string; text?: string }> }>
     error?: { message?: string; code?: string }
   }
   if (!response.ok) {
     throw new Error(data.error?.message || `GPT-5.6 request failed (${response.status}).`)
+  }
+  if (data.status === 'incomplete') {
+    throw new Error(`GPT-5.6 returned an incomplete response${data.incomplete_details?.reason ? ` (${data.incomplete_details.reason})` : ''}.`)
   }
 
   const text = (data.output || [])
@@ -72,6 +99,64 @@ export function parseAdaptiveNudge(text: string) {
 
 export function parseAdaptiveSupervision(text: string) {
   return parseJson<AdaptiveSupervision>(text)
+}
+
+export const adaptiveAssessmentResponseFormat: AdaptiveResponseFormat = {
+  name: 'adaptive_assessment',
+  schema: {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      summary: { type: 'string' },
+      openingLine: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        properties: {
+          user: { type: 'string' },
+          person: { type: 'string' },
+        },
+        required: ['user', 'person'],
+      },
+      whatWorked: {
+        type: 'array',
+        items: { type: 'string' },
+      },
+      turningPoints: {
+        type: 'array',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            turn: { type: 'integer' },
+            userSaid: { type: 'string' },
+            personSaid: { type: 'string' },
+            why: { type: 'string' },
+          },
+          required: ['turn', 'userSaid', 'personSaid', 'why'],
+        },
+      },
+      resistance: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          increased: { type: 'array', items: { type: 'string' } },
+          reduced: { type: 'array', items: { type: 'string' } },
+        },
+        required: ['increased', 'reduced'],
+      },
+      goalProgress: { type: 'string' },
+      replayPoint: {
+        type: ['object', 'null'],
+        additionalProperties: false,
+        properties: {
+          turn: { type: 'integer' },
+          why: { type: 'string' },
+        },
+        required: ['turn', 'why'],
+      },
+    },
+    required: ['summary', 'openingLine', 'whatWorked', 'turningPoints', 'resistance', 'goalProgress', 'replayPoint'],
+  },
 }
 
 export function nudgeInstructions() {
