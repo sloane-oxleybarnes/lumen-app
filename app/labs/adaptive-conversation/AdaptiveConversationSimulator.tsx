@@ -428,6 +428,7 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
   const captionTargetRef = useRef('')
   const captionShownRef = useRef('')
   const captionTimerRef = useRef<number | null>(null)
+  const captionResponseStartedRef = useRef(false)
 
   function stopCaptionPlayback() {
     if (captionTimerRef.current !== null) {
@@ -581,6 +582,7 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
     setRinging(String(channel) === 'phone')
     setMediaError('')
     resetCaptionPlayback()
+    captionResponseStartedRef.current = false
     openingResponseSentRef.current = false
     responsePendingRef.current = false
     try {
@@ -628,14 +630,25 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
         try {
           const payload = JSON.parse(event.data) as { type?: string; delta?: string; transcript?: string }
           if (payload.type === 'response.done') { responsePendingRef.current = false; onSpeakingChange(false) }
-          if (payload.type === 'input_audio_buffer.speech_stopped') resetCaptionPlayback()
+          if (payload.type === 'input_audio_buffer.speech_stopped') captionResponseStartedRef.current = false
           if (payload.type === 'input_audio_buffer.speech_stopped' && !responsePendingRef.current && events.readyState === 'open') {
             responsePendingRef.current = true
             events.send(JSON.stringify({ type: 'response.create' }))
           }
-          if (payload.type === 'response.output_audio_transcript.delta' && payload.delta) { onSpeakingChange(true); queueCaptionText(captionTargetRef.current + payload.delta) }
+          if (payload.type === 'response.output_audio_transcript.delta' && payload.delta) {
+            if (!captionResponseStartedRef.current) {
+              resetCaptionPlayback()
+              captionResponseStartedRef.current = true
+            }
+            onSpeakingChange(true)
+            queueCaptionText(payload.delta)
+          }
           if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript && savedVoiceTranscriptRef.current.user !== payload.transcript) { savedVoiceTranscriptRef.current.user = payload.transcript; queueVoiceTranscript('user', payload.transcript) }
           if (payload.type === 'response.output_audio_transcript.done' && payload.transcript && savedVoiceTranscriptRef.current.simulated_person !== payload.transcript) {
+            if (!captionResponseStartedRef.current) {
+              resetCaptionPlayback()
+              captionResponseStartedRef.current = true
+            }
             savedVoiceTranscriptRef.current.simulated_person = payload.transcript
             queueCaptionText(payload.transcript)
             void (async () => { queueVoiceTranscript('simulated_person', payload.transcript || ''); await requestLiveSupervision() })()
