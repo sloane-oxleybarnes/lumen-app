@@ -6,7 +6,12 @@ export function isBetaInviteOnly() {
 
 function isInternalTester(email: string) {
   const normalized = email.trim().toLowerCase();
-  return normalized === "hello@meetbeckett.co" || /^hello\+[^@]+@meetbeckett\.co$/.test(normalized);
+  return (
+    normalized === "hello@meetbeckett.co" ||
+    /^hello\+[^@]+@meetbeckett\.co$/.test(normalized) ||
+    normalized === "hello@meetbeckett.com" ||
+    normalized === "gpt+judge+hello@meetbeckett.com"
+  );
 }
 
 export async function hasApprovedBetaAccess(input: { email?: string | null; plan?: string | null }) {

@@ -24,7 +24,6 @@ export default async function ProfileSetupPage() {
     .maybeSingle();
   const approved = await hasApprovedBetaAccess({ email: session.user.email, plan: profile?.plan });
   if (!approved) {
-    await supabase.auth.signOut();
     redirect("/beta?access=approval-required");
   }
 

@@ -29,7 +29,6 @@ export default async function DashboardLayout({
     plan: profile?.plan,
   });
   if (!approved) {
-    await supabase.auth.signOut();
     redirect("/beta?access=approval-required");
   }
 
