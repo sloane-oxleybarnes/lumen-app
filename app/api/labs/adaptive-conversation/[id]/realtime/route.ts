@@ -18,12 +18,14 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   if (error || !row) return NextResponse.json({ error: 'Session not found.' }, { status: 404 })
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) return NextResponse.json({ error: 'Realtime voice is not configured.' }, { status: 503 })
+  const snapshot = row.setup_snapshot as AdaptiveSnapshot
+  const goalBoundary = `Critical simulation boundary: the user's goal is private practice context, not shared knowledge. Do not infer it, mention it, initiate it, or accomplish it for the user. Never ask them out, propose drinks or hanging out, offer the requested outcome, or manufacture mutual interest before the user explicitly raises that topic. Once they raise it, respond only to their actual wording as the simulated person; do not coach, complete, or take over their ask.`
   const form = new FormData()
   form.set('sdp', sdp)
   form.set('session', JSON.stringify({
     type: 'realtime',
     model: process.env.OPENAI_REALTIME_MODEL || 'gpt-realtime-2.1',
-    instructions: realtimeInstructions(row.setup_snapshot as AdaptiveSnapshot),
+    instructions: `${realtimeInstructions(snapshot)}\n\n${goalBoundary}`,
     audio: {
       // The client explicitly creates the single opening greeting. Keeping
       // automatic response creation off prevents an empty/ambient audio buffer
