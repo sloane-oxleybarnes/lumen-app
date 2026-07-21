@@ -40,6 +40,7 @@ export default function AdaptiveConversationSimulator() {
   const [speaking, setSpeaking] = useState(false)
   const [audioError, setAudioError] = useState('')
   const [openingLine, setOpeningLine] = useState('')
+  const [keyAsk, setKeyAsk] = useState('')
   const [openingLineLoading, setOpeningLineLoading] = useState(false)
   const lastVoiceTranscriptRef = useRef<Record<string, number>>({})
   const [error, setError] = useState('')
@@ -78,13 +79,18 @@ export default function AdaptiveConversationSimulator() {
 
   async function generateOpeningLine(id: string) {
     setOpeningLine('')
+    setKeyAsk('')
     setOpeningLineLoading(true)
     try {
       const res = await fetch(`/api/labs/adaptive-conversation/${id}/opening-line`, { method: 'POST' })
-      const body = await res.json().catch(() => null) as { openingLine?: string } | null
-      if (res.ok && body?.openingLine) setOpeningLine(body.openingLine)
+      const body = await res.json().catch(() => null) as { openingLine?: string; keyAsk?: string } | null
+      if (res.ok) {
+        if (body?.openingLine) setOpeningLine(body.openingLine)
+        if (body?.keyAsk) setKeyAsk(body.keyAsk)
+      }
     } catch {
       setOpeningLine('')
+      setKeyAsk('')
     } finally {
       setOpeningLineLoading(false)
     }
@@ -126,6 +132,7 @@ export default function AdaptiveConversationSimulator() {
       setSpeaking(false)
       setAudioError('')
       setOpeningLine('')
+      setKeyAsk('')
       lastVoiceTranscriptRef.current = {}
       setPaused(false)
       setHelpText('')
@@ -266,7 +273,7 @@ export default function AdaptiveConversationSimulator() {
     finally { setReplayBusy(false) }
   }
 
-  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setAssessmentLoading(false); setReplay(null); setNudge(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setSpeaking(false); setAudioError(''); setOpeningLine(''); setOpeningLineLoading(false); lastVoiceTranscriptRef.current = {}; setStage('setup'); setError('') }
+  function reset() { setSetup(blankSetup); setSessionId(null); setMessages([]); setAssessment(null); setAssessmentLoading(false); setReplay(null); setNudge(null); setReplayInput(''); setPaused(false); setHelpText(''); setEndReason(''); setSpeaking(false); setAudioError(''); setOpeningLine(''); setKeyAsk(''); setOpeningLineLoading(false); lastVoiceTranscriptRef.current = {}; setStage('setup'); setError('') }
 
   async function deleteSession(id: string) {
     if (!window.confirm('Delete this saved simulation and its transcript?')) return
@@ -340,7 +347,7 @@ export default function AdaptiveConversationSimulator() {
         </section>}
 
         {stage === 'conversation' && endReason && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Natural stopping point</p><p className="mt-2">{endReason}</p><p className="mt-2 text-xs text-ink-light">You can finish and assess this conversation, including if it ended with disagreement or ambiguity.</p></div>}
-        {stage === 'conversation' && setup.person.trim() && setup.situation.trim() && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4"><p className="text-xs font-medium uppercase tracking-wide text-primary">Suggested opening line</p>{openingLineLoading ? <p className="mt-2 text-sm text-ink-mid">Beckett is drafting a natural way to start…</p> : openingLine ? <><p className="mt-2 text-sm leading-6 text-ink">“{openingLine}”</p><p className="mt-1 text-xs text-ink-light">Use it as-is or make it sound like you.</p></> : <p className="mt-2 text-sm text-ink-mid">Start in your own words when you’re ready.</p>}</div>}
+        {stage === 'conversation' && setup.person.trim() && setup.situation.trim() && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4"><p className="text-xs font-medium uppercase tracking-wide text-primary">Suggested opening line</p>{openingLineLoading ? <p className="mt-2 text-sm text-ink-mid">Beckett is drafting a natural way to start…</p> : openingLine ? <><p className="mt-2 text-sm leading-6 text-ink">“{openingLine}”</p><p className="mt-1 text-xs text-ink-light">Use it as-is or make it sound like you.</p>{keyAsk && <><p className="mt-4 text-xs font-medium uppercase tracking-wide text-primary">Suggested key ask</p><p className="mt-2 text-sm leading-6 text-ink">“{keyAsk}”</p><p className="mt-1 text-xs text-ink-light">Use this after the opener, or make it sound like you.</p></>}</> : <p className="mt-2 text-sm text-ink-mid">Start in your own words when you’re ready.</p>}</div>}
         {stage === 'conversation' && <p className="mx-auto mb-2 max-w-3xl text-xs text-ink-light">{setup.channel === 'phone' ? 'Phone call' : 'Text conversation'} · <span className="capitalize">{setup.difficulty}</span> mode</p>}
 
         {stage === 'conversation' && nudge && <div className="mx-auto mb-4 max-w-3xl rounded-card border border-primary/20 bg-primary-light/30 p-4 text-sm leading-6"><p className="text-xs font-medium uppercase tracking-wide text-primary">Beckett’s nudge</p><p className="mt-2">{nudge.prompt}</p>{nudge.examples?.length > 0 && <p className="mt-2 text-ink-mid">Try: “{nudge.examples.join('” or “')}”</p>}<button type="button" onClick={() => { setPaused(true); setHelpText(nudge.prompt); setNudge(null) }} className="mt-3 text-xs font-medium text-primary hover:underline">Pause and work on this</button><button type="button" onClick={() => setNudge(null)} className="ml-4 mt-3 text-xs text-ink-light hover:underline">Keep practicing</button></div>}
