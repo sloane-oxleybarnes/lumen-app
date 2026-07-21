@@ -418,6 +418,42 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
   const openingResponseSentRef = useRef(false)
   const responsePendingRef = useRef(false)
   const pendingTranscriptRef = useRef<Promise<void>[]>([])
+  const captionTargetRef = useRef('')
+  const captionShownRef = useRef('')
+  const captionTimerRef = useRef<number | null>(null)
+
+  function stopCaptionPlayback() {
+    if (captionTimerRef.current !== null) {
+      window.clearInterval(captionTimerRef.current)
+      captionTimerRef.current = null
+    }
+  }
+
+  function resetCaptionPlayback() {
+    stopCaptionPlayback()
+    captionTargetRef.current = ''
+    captionShownRef.current = ''
+    setLiveCaption('')
+  }
+
+  function queueCaptionText(text: string) {
+    if (!text) return
+    captionTargetRef.current = text
+    if (captionTimerRef.current !== null) return
+    // Transcript deltas can arrive before the audio reaches the user. Reveal
+    // captions at roughly spoken pace so the user cannot read ahead.
+    captionTimerRef.current = window.setInterval(() => {
+      const target = captionTargetRef.current
+      const shown = captionShownRef.current
+      if (shown.length >= target.length) {
+        stopCaptionPlayback()
+        return
+      }
+      const next = target.slice(0, shown.length + 1)
+      captionShownRef.current = next
+      setLiveCaption(next)
+    }, 65)
+  }
 
   function queueVoiceTranscript(role: 'user' | 'simulated_person', content: string) {
     const pending = onVoiceTranscript(role, content)
@@ -498,6 +534,7 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
     peerRef.current?.close()
     peerRef.current = null
     recognitionRef.current?.stop()
+    resetCaptionPlayback()
     if (audioRef.current) audioRef.current.srcObject = null
     await Promise.allSettled(pendingTranscriptRef.current)
     let transcript = messages
@@ -536,6 +573,7 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
     setCallBusy(true)
     setRinging(String(channel) === 'phone')
     setMediaError('')
+    resetCaptionPlayback()
     openingResponseSentRef.current = false
     responsePendingRef.current = false
     try {
@@ -583,15 +621,16 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
         try {
           const payload = JSON.parse(event.data) as { type?: string; delta?: string; transcript?: string }
           if (payload.type === 'response.done') { responsePendingRef.current = false; onSpeakingChange(false) }
+          if (payload.type === 'input_audio_buffer.speech_stopped') resetCaptionPlayback()
           if (payload.type === 'input_audio_buffer.speech_stopped' && !responsePendingRef.current && events.readyState === 'open') {
             responsePendingRef.current = true
             events.send(JSON.stringify({ type: 'response.create' }))
           }
-          if (payload.type === 'response.output_audio_transcript.delta' && payload.delta) { onSpeakingChange(true); setLiveCaption((current) => current + payload.delta) }
-          if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript && savedVoiceTranscriptRef.current.user !== payload.transcript) { savedVoiceTranscriptRef.current.user = payload.transcript; setLiveCaption(payload.transcript); queueVoiceTranscript('user', payload.transcript) }
+          if (payload.type === 'response.output_audio_transcript.delta' && payload.delta) { onSpeakingChange(true); queueCaptionText(captionTargetRef.current + payload.delta) }
+          if (payload.type === 'conversation.item.input_audio_transcription.completed' && payload.transcript && savedVoiceTranscriptRef.current.user !== payload.transcript) { savedVoiceTranscriptRef.current.user = payload.transcript; queueVoiceTranscript('user', payload.transcript) }
           if (payload.type === 'response.output_audio_transcript.done' && payload.transcript && savedVoiceTranscriptRef.current.simulated_person !== payload.transcript) {
             savedVoiceTranscriptRef.current.simulated_person = payload.transcript
-            setLiveCaption(payload.transcript)
+            queueCaptionText(payload.transcript)
             void (async () => { queueVoiceTranscript('simulated_person', payload.transcript || ''); await requestLiveSupervision() })()
           }
         } catch { /* Ignore non-JSON WebRTC events. */ }
@@ -659,6 +698,7 @@ function VideoCallFrame({ sessionId, person, messages, typing, speaking, audioEr
     }
     peerRef.current?.close()
     dataChannelRef.current = null
+    stopCaptionPlayback()
     streamRef.current?.getTracks().forEach((track) => track.stop())
     recognitionRef.current?.stop()
   }, [channel, sessionId, avatarEmbedId])
