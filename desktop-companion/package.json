@@ -1,0 +1,15 @@
+{
+  "name": "beckett-desktop-companion",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mac-first, user-invoked Beckett companion.",
+  "main": "src/main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "package:mac": "electron-builder --mac dmg --publish never"
+  },
+  "devDependencies": {
+    "electron": "^43.2.0",
+    "electron-builder": "^26.15.3"
+  }
+}

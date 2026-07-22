@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Beckett Companion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main>
+      <p class="eyebrow">BECKETT COMPANION · STAGING</p>
+      <h1>Support, when you ask for it.</h1>
+      <p class="intro">Use <kbd>⌘</kbd><kbd>⇧</kbd><kbd>B</kbd> anywhere to open Beckett. The companion never sends messages, records your screen, or stores raw meeting audio/transcripts.</p>
+
+      <section>
+        <h2>Selected text</h2>
+        <p>Copy text from any app, then bring it here to decide what you need.</p>
+        <button id="paste">Use clipboard text</button>
+        <textarea id="context" rows="7" maxlength="4000" placeholder="Your selected or copied text appears here. Nothing is saved by the desktop app."></textarea>
+        <div class="actions"><button class="secondary" data-action="decode">Decode in Beckett</button><button class="secondary" data-action="draft">Draft in Beckett</button></div>
+      </section>
+
+      <section>
+        <h2>Zoom-ready Meeting Companion</h2>
+        <p>Start a private session before a Zoom call. Live audio/transcript capture is not enabled in this build.</p>
+        <label>Meeting title <input id="meeting-title" maxlength="200" placeholder="e.g. Project check-in" /></label>
+        <label class="consent"><input id="consent" type="checkbox" /> I understand I am responsible for obtaining any consent required by my workplace rules and applicable law before using transcript-informed support.</label>
+        <button id="start-meeting">Start meeting support</button>
+        <p class="status" id="meeting-status" aria-live="polite"></p>
+      </section>
+
+      <button class="link" id="open-settings">Open Desktop Companion settings</button>
+    </main>
+    <script src="renderer.js"></script>
+  </body>
+</html>
