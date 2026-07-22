@@ -11,6 +11,11 @@ import {
   type CoachingTone,
 } from "@/lib/onboarding";
 import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
+import {
+  DEFAULT_PROACTIVITY_PREFERENCE,
+  proactivityOptions,
+  type ProactivityPreference,
+} from "@/lib/workday-coaching";
 
 function ConnectRow({
   icon,
@@ -272,6 +277,10 @@ export default function SettingsPage() {
   const [profileSaved, setProfileSaved] = useState(false);
   const [preferences, setPreferences] = useState<string[]>([]);
   const [coachingTone, setCoachingTone] = useState<CoachingTone>("direct_kind");
+  const [proactivityPreference, setProactivityPreference] = useState<ProactivityPreference>(
+    DEFAULT_PROACTIVITY_PREFERENCE
+  );
+  const [patternModelEnabled, setPatternModelEnabled] = useState(false);
   const [customPreferences, setCustomPreferences] = useState("");
   const [deletionNotes, setDeletionNotes] = useState("");
   const [deletionStatus, setDeletionStatus] = useState<"idle" | "loading" | "requested" | "error">("idle");
@@ -294,6 +303,10 @@ export default function SettingsPage() {
           setFullName(profileData?.full_name || "");
           setPreferences(profileData?.communication_preferences || []);
           setCoachingTone(profileData?.coaching_tone || "direct_kind");
+          setProactivityPreference(
+            profileData?.proactive_coaching_preference || DEFAULT_PROACTIVITY_PREFERENCE
+          );
+          setPatternModelEnabled(profileData?.pattern_model_enabled || false);
         });
     });
   }, [supabase]);
@@ -358,6 +371,8 @@ export default function SettingsPage() {
     const update = {
       communication_preferences: preferences,
       coaching_tone: coachingTone,
+      proactive_coaching_preference: proactivityPreference,
+      pattern_model_enabled: patternModelEnabled,
       updated_at: new Date().toISOString(),
     };
 
@@ -373,6 +388,8 @@ export default function SettingsPage() {
     }
     setPreferences([]);
     setCoachingTone("direct_kind");
+    setProactivityPreference(DEFAULT_PROACTIVITY_PREFERENCE);
+    setPatternModelEnabled(false);
     setCustomPreferences("");
 
     const { data } = await supabase.auth.getUser();
@@ -383,6 +400,8 @@ export default function SettingsPage() {
       .update({
         communication_preferences: [],
         coaching_tone: "direct_kind",
+        proactive_coaching_preference: DEFAULT_PROACTIVITY_PREFERENCE,
+        pattern_model_enabled: false,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
@@ -610,6 +629,45 @@ export default function SettingsPage() {
                 </button>
               ))}
             </div>
+          </div>
+
+          <div className="border-t border-border pt-6">
+            <label className="block text-sm font-medium text-ink mb-1">Workday coaching</label>
+            <p className="mb-3 text-xs leading-relaxed text-ink-mid">
+              These are your preferences for future workday support. During beta, Beckett will not
+              interrupt your work or observe patterns unless you explicitly ask it to help.
+            </p>
+            <div className="space-y-2">
+              {proactivityOptions.map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setProactivityPreference(option.value)}
+                  className={`w-full text-left rounded-sm border px-3 py-3 transition-colors ${
+                    proactivityPreference === option.value
+                      ? "border-primary bg-primary-light"
+                      : "border-border hover:border-primary-mid"
+                  }`}
+                >
+                  <p className="text-sm font-medium text-ink">{option.label}</p>
+                  <p className="mt-0.5 text-xs text-ink-mid">{option.description}</p>
+                </button>
+              ))}
+            </div>
+            <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-sm border border-border bg-bg/50 p-3">
+              <input
+                type="checkbox"
+                checked={patternModelEnabled}
+                onChange={(event) => setPatternModelEnabled(event.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-primary"
+              />
+              <span>
+                <span className="block text-sm font-medium text-ink">Allow future pattern summaries</span>
+                <span className="mt-0.5 block text-xs leading-relaxed text-ink-mid">
+                  When this capability is introduced, Beckett may save high-level summaries you ask it to create—such as helpful strategies or recurring friction. It will not store full workday history by default.
+                </span>
+              </span>
+            </label>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">

@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { CoachingTone } from './onboarding'
+import type { ProactivityPreference } from './workday-coaching'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -21,7 +22,7 @@ export type Profile = {
   coaching_tone?: CoachingTone | null;
   neurodivergent_context?: string[] | null;
   neurodivergent_context_other?: string | null;
-  proactive_coaching_preference?: "wait_until_asked" | "quiet_prompt" | "direct_interrupt";
+  proactive_coaching_preference?: ProactivityPreference;
   pattern_model_enabled?: boolean;
   first_login_complete?: boolean;
   onboarding_completed_at?: string | null;
