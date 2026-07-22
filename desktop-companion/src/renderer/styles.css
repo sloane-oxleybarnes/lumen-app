@@ -15,6 +15,11 @@ button.link { margin-top: 22px; }
 textarea, input { border: 1px solid #d6d4ce; border-radius: 8px; color: #22302b; font: inherit; font-size: 14px; margin-top: 10px; padding: 10px; width: 100%; }
 label { display: block; color: #22302b; font-size: 13px; font-weight: 650; margin: 14px 0; }
 .overlay-toggle { color: #5b675f; font-size: 13px; font-weight: 400; margin: 14px 0; }
+.active-state { align-items: center; background: #eef6f1; border: 1px solid #c9ddd1; border-radius: 999px; display: inline-flex; font-size: 12px; gap: 7px; margin-top: 12px; padding: 5px 7px 5px 10px; }
+#status-dot { background: #2f6b57; border-radius: 50%; height: 8px; width: 8px; }
+#status-dot.paused { background: #b26732; }
+button.pause { background: #fff; border: 1px solid #b9c8c0; color: #2f6b57; font-size: 12px; padding: 5px 9px; }
+button:disabled { cursor: not-allowed; opacity: .55; }
 .overlay-toggle input { height: 16px; margin: 0 7px 0 0; vertical-align: -3px; width: 16px; }
 label.consent { display: flex; font-weight: 400; gap: 8px; }
 label.consent input { height: 16px; margin: 3px 0 0; width: 16px; }

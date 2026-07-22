@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import Link from "next/link";
-import MoodSelector from "@/components/dashboard/MoodSelector";
+import WorkdayCheckinCard from "@/components/dashboard/WorkdayCheckinCard";
 import CoachWalkthrough from "@/components/dashboard/CoachWalkthrough";
 import BetaMissionsCard from "@/components/dashboard/BetaMissionsCard";
 
@@ -71,25 +71,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         <p className="text-ink-mid text-sm">Here is where things stand today.</p>
       </div>
 
-      <section className="mb-6 rounded-card border border-border bg-white p-6">
-        <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-ink-light">
-              Where I am at today
-            </p>
-            <h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
-              Workday check-in
-            </h2>
-            <p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-mid">
-              Beckett uses this as lightweight context for how much support you may need today.
-            </p>
-          </div>
-          <div className="shrink-0">
-            <p className="text-xs text-ink-light">How are you feeling?</p>
-            <MoodSelector />
-          </div>
-        </div>
-      </section>
+      <WorkdayCheckinCard />
 
       {!isBeta ? <section className="mb-6">
         <div data-tour="start-here" className="rounded-card border border-primary/20 bg-primary-light/40 p-6">

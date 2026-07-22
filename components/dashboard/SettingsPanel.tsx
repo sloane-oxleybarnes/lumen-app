@@ -504,6 +504,18 @@ export default function SettingsPage() {
         </form>
       </section>
 
+      <section className="bg-white rounded-card border border-border p-6 mb-5">
+        <h2 className="text-lg text-ink mb-1" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
+          Safety and resources
+        </h2>
+        <p className="text-sm text-ink-mid mb-4">
+          Review what Beckett can help with, its boundaries, and topic-specific resources for urgent, medical, legal, and relationship-safety support.
+        </p>
+        <Link href="/dashboard/safety" className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light">
+          View safety resources
+        </Link>
+      </section>
+
       {/* Dashboard tour */}
       <section className="bg-white rounded-card border border-border p-6 mb-5">
         <h2

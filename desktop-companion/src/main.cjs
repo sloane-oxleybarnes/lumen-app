@@ -3,6 +3,7 @@ const path = require("path");
 
 const siteUrl = process.env.BECKETT_SITE_URL || "https://beckett-git-staging-sloane-s-projects1.vercel.app";
 let windowRef = null;
+let companionPaused = false;
 
 function createWindow() {
   windowRef = new BrowserWindow({
@@ -51,6 +52,11 @@ ipcMain.handle("meeting:start", (_, meeting) => ({
     startedAt: new Date().toISOString(),
   },
 }));
+ipcMain.handle("companion:pause", (_, paused) => {
+  companionPaused = Boolean(paused);
+  return companionPaused;
+});
+ipcMain.handle("companion:status", () => ({ paused: companionPaused, active: !companionPaused }));
 ipcMain.handle("overlay:set-always-on-top", (_, enabled) => {
   windowRef?.setAlwaysOnTop(Boolean(enabled), "floating");
   return Boolean(enabled);
