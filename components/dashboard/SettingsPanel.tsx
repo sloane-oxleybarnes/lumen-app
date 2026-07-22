@@ -656,7 +656,7 @@ export default function SettingsPage() {
               <span>
                 <span className="block text-sm font-medium text-ink">Allow future pattern summaries</span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-ink-mid">
-                  When this capability is introduced, Beckett may save high-level summaries you ask it to create—such as helpful strategies or recurring friction. It will not store full workday history by default.
+                  After at least three check-ins, Beckett creates simple 14-day summaries in Workday—such as how often you marked a stacked workload or communication friction. It will not use these check-ins in chat, Practice, Calendar, Gmail, Slack, or Meeting support.
                 </span>
               </span>
             </label>

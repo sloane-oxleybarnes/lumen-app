@@ -27,6 +27,14 @@ export type PatternSummary = {
   evidence: { matchingCheckins: number; totalCheckins: number; periodDays: number };
 };
 
+export function timeOfDayForDate(date = new Date()): WorkdayCheckin["time_of_day"] {
+  const hour = date.getHours();
+  if (hour < 11) return "morning";
+  if (hour < 14) return "midday";
+  if (hour < 18) return "afternoon";
+  return "evening";
+}
+
 const labels: Record<WorkdayCheckin["helpful_strategy"], string> = {
   quiet_block: "a quieter block of time",
   written_next_steps: "written next steps",

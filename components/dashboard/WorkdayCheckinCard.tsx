@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import type { WorkdayCheckin } from "@/lib/workday-patterns";
+import { timeOfDayForDate, type WorkdayCheckin } from "@/lib/workday-patterns";
 
 const initialCheckin: WorkdayCheckin = {
   time_of_day: "morning",
@@ -21,7 +21,7 @@ const options = {
 } as const;
 
 export default function WorkdayCheckinCard() {
-  const [checkin, setCheckin] = useState<WorkdayCheckin>(initialCheckin);
+  const [checkin, setCheckin] = useState<WorkdayCheckin>(() => ({ ...initialCheckin, time_of_day: timeOfDayForDate() }));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +41,7 @@ export default function WorkdayCheckinCard() {
 
   return <section className="mb-6 rounded-card border border-border bg-white p-6">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="text-xs font-medium uppercase tracking-wide text-ink-light">Workday</p><h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>Workday check-in</h2><p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-mid">A private, voluntary snapshot of what would help today. Beckett never monitors your work activity or fills this in for you.</p><p className="mt-2 max-w-xl text-xs leading-relaxed text-ink-light">Your choices are only used to show your own optional 14-day pattern summaries and support plans. They are never sent to your employer or used to make decisions about you.</p></div>
+      <div><p className="text-xs font-medium uppercase tracking-wide text-ink-light">Workday</p><h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>Workday check-in</h2></div>
       {saved && <p className="text-sm font-medium text-primary">Saved</p>}
     </div>
     <form onSubmit={save} className="mt-5 grid gap-4 sm:grid-cols-2">

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 import {
+  timeOfDayForDate,
   type PatternSummary,
   type WorkdayCheckin,
 } from "@/lib/workday-patterns";
@@ -21,7 +22,7 @@ const initialCheckin: WorkdayCheckin = { time_of_day: "morning", workload_level:
 
 export default function WorkdayPanel() {
   const [data, setData] = useState<Response | null>(null);
-  const [checkin, setCheckin] = useState<WorkdayCheckin>(initialCheckin);
+  const [checkin, setCheckin] = useState<WorkdayCheckin>(() => ({ ...initialCheckin, time_of_day: timeOfDayForDate() }));
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
