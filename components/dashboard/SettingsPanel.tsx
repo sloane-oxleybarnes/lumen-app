@@ -505,39 +505,7 @@ export default function SettingsPage() {
         </form>
       </section>
 
-      <section className="bg-white rounded-card border border-border p-6 mb-5">
-        <h2 className="text-lg text-ink mb-1" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
-          Safety and resources
-        </h2>
-        <p className="text-sm text-ink-mid mb-4">
-          Review what Beckett can help with, its boundaries, and topic-specific resources for urgent, medical, legal, and relationship-safety support.
-        </p>
-        <Link href="/dashboard/safety" className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light">
-          View safety resources
-        </Link>
-      </section>
-
       <WorkdayReminders />
-
-      {/* Dashboard tour */}
-      <section className="bg-white rounded-card border border-border p-6 mb-5">
-        <h2
-          className="text-lg text-ink mb-1"
-          style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
-        >
-          Dashboard tour
-        </h2>
-        <p className="text-sm text-ink-mid mb-4">
-          Replay Beckett&apos;s short walkthrough of the dashboard, practice, skills, setup,
-          About Me, and Settings.
-        </p>
-        <Link
-          href="/dashboard?tour=1"
-          className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light"
-        >
-          Restart dashboard tour
-        </Link>
-      </section>
 
       {/* Change password */}
       <section className="bg-white rounded-card border border-border p-6 mb-5">
@@ -857,6 +825,38 @@ export default function SettingsPage() {
           )}
         </section>
       )}
+
+      {/* Dashboard tour and safety resources */}
+      <section className="bg-white rounded-card border border-border p-6 mb-5">
+        <h2
+          className="text-lg text-ink mb-1"
+          style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}
+        >
+          Dashboard tour
+        </h2>
+        <p className="text-sm text-ink-mid mb-4">
+          Replay Beckett&apos;s short walkthrough of the dashboard, practice, skills, setup,
+          About Me, and Settings.
+        </p>
+        <Link
+          href="/dashboard?tour=1"
+          className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light"
+        >
+          Restart dashboard tour
+        </Link>
+      </section>
+
+      <section className="bg-white rounded-card border border-border p-6 mb-5">
+        <h2 className="text-lg text-ink mb-1" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>
+          Safety and resources
+        </h2>
+        <p className="text-sm text-ink-mid mb-4">
+          Review what Beckett can help with, its boundaries, and topic-specific resources for urgent, medical, legal, and relationship-safety support.
+        </p>
+        <Link href="/dashboard/safety" className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light">
+          View safety resources
+        </Link>
+      </section>
 
       {/* Danger zone */}
       <section className="bg-white rounded-card border border-red-200 p-6">

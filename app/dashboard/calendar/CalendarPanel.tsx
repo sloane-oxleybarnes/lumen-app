@@ -64,7 +64,7 @@ export default function CalendarPanel() {
 
   async function connectCalendar() {
     setError(null);
-    const { error: authError } = await supabase.auth.signInWithOAuth({
+    const { error: authError } = await supabase.auth.linkIdentity({
       provider: "google",
       options: {
         scopes: "https://www.googleapis.com/auth/calendar.events.readonly",
@@ -113,8 +113,7 @@ export default function CalendarPanel() {
         See what is coming up and prepare before you walk in.
       </p>
       <div className="mb-5 flex flex-wrap gap-4 text-sm font-medium text-primary">
-        <Link href="/dashboard/meeting-prep" className="hover:underline">Prepare for a meeting →</Link>
-        <Link href="/dashboard/meetings" className="hover:underline">Open Meeting Companion →</Link>
+        <Link href="/dashboard/meetings" className="hover:underline">Meeting notes & support →</Link>
       </div>
 
       <div className="mb-5 rounded-sm border border-primary/15 bg-primary-light/40 p-4 text-sm leading-relaxed text-ink-mid">
@@ -192,7 +191,7 @@ export default function CalendarPanel() {
                     ? `${event.attendees.slice(0, 4).map(attendeeLabel).join(", ")}${event.attendees.length > 4 ? ` +${event.attendees.length - 4}` : ""}`
                     : "No other attendees listed"}
                 </p>
-                <Link href={`/dashboard/meeting-prep?title=${encodeURIComponent(event.title)}&attendees=${encodeURIComponent(event.attendees.map(attendeeLabel).join(", "))}`} className="mt-3 inline-block text-xs font-medium text-primary hover:underline">Prepare with Beckett →</Link>
+                <Link href={`/dashboard/meeting-prep?title=${encodeURIComponent(event.title)}&attendees=${encodeURIComponent(event.attendees.map(attendeeLabel).join(", "))}`} className="mt-3 inline-block text-xs font-medium text-primary hover:underline">Prep for this meeting →</Link>
               </article>
             ))}
           </div>

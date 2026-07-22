@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import type { WorkdayCheckin } from "@/lib/workday-patterns";
 
 const initialCheckin: WorkdayCheckin = {
@@ -40,7 +41,7 @@ export default function WorkdayCheckinCard() {
 
   return <section className="mb-6 rounded-card border border-border bg-white p-6">
     <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-      <div><p className="text-xs font-medium uppercase tracking-wide text-ink-light">Workday</p><h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>Workday check-in</h2><p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-mid">A private, voluntary snapshot of what would help today. Beckett never monitors your work activity.</p></div>
+      <div><p className="text-xs font-medium uppercase tracking-wide text-ink-light">Workday</p><h2 className="mt-1 text-xl text-ink" style={{ fontFamily: "var(--font-dm-serif), Georgia, serif" }}>Workday check-in</h2><p className="mt-1 max-w-xl text-sm leading-relaxed text-ink-mid">A private, voluntary snapshot of what would help today. Beckett never monitors your work activity or fills this in for you.</p><p className="mt-2 max-w-xl text-xs leading-relaxed text-ink-light">Your choices are only used to show your own optional 14-day pattern summaries and support plans. They are never sent to your employer or used to make decisions about you.</p></div>
       {saved && <p className="text-sm font-medium text-primary">Saved</p>}
     </div>
     <form onSubmit={save} className="mt-5 grid gap-4 sm:grid-cols-2">
@@ -50,7 +51,7 @@ export default function WorkdayCheckinCard() {
       <Select label="What might help?" value={checkin.helpful_strategy} options={options.helpful_strategy} onChange={(value) => setCheckin({ ...checkin, helpful_strategy: value as WorkdayCheckin["helpful_strategy"] })} />
       <fieldset><legend className="mb-2 text-sm font-medium text-ink">Energy</legend><div className="flex gap-2">{[1, 2, 3, 4, 5].map((level) => <button key={level} type="button" onClick={() => setCheckin({ ...checkin, energy_level: level })} aria-pressed={checkin.energy_level === level} className={`h-9 w-9 rounded-full border text-sm ${checkin.energy_level === level ? "border-primary bg-primary text-white" : "border-border text-ink-mid hover:border-primary"}`}>{level}</button>)}</div></fieldset>
       <label className="flex items-end gap-2 pb-1 text-sm text-ink"><input type="checkbox" checked={checkin.communication_friction} onChange={(event) => setCheckin({ ...checkin, communication_friction: event.target.checked })} className="h-4 w-4 accent-primary" />Communication felt harder than usual</label>
-      <div className="sm:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving} className="rounded-pill bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60">{saving ? "Saving…" : "Save check-in"}</button>{error && <p className="text-sm text-red-700" role="alert">{error}</p>}</div>
+      <div className="sm:col-span-2 flex flex-wrap items-center gap-3"><button disabled={saving} className="rounded-pill bg-primary px-5 py-2 text-sm font-medium text-white hover:bg-primary-dark disabled:opacity-60">{saving ? "Saving…" : "Save check-in"}</button><Link href="/dashboard/settings#workday-reminders" className="text-sm font-medium text-primary hover:underline">Set up reminders to check in</Link><Link href="/dashboard/workday" className="text-sm font-medium text-primary hover:underline">View patterns and support plans</Link>{error && <p className="text-sm text-red-700" role="alert">{error}</p>}</div>
     </form>
   </section>;
 }
