@@ -624,10 +624,9 @@ export default function SettingsPage() {
           </div>
 
           <div className="border-t border-border pt-6">
-            <label className="block text-sm font-medium text-ink mb-1">Workday coaching</label>
+            <label className="block text-sm font-medium text-ink mb-1">Daily Guide</label>
             <p className="mb-3 text-xs leading-relaxed text-ink-mid">
-              These are your preferences for future workday support. During beta, Beckett will not
-              interrupt your work or observe patterns unless you explicitly ask it to help.
+              Choose how Today with Beckett should support you. Beckett refreshes while it is open; notifications only appear in channels you turn on. Calendar changes always require your approval.
             </p>
             <div className="space-y-2">
               {proactivityOptions.map((option) => (
@@ -654,9 +653,9 @@ export default function SettingsPage() {
                 className="mt-0.5 h-4 w-4 accent-primary"
               />
               <span>
-                <span className="block text-sm font-medium text-ink">Allow future pattern summaries</span>
+                <span className="block text-sm font-medium text-ink">Allow pattern summaries</span>
                 <span className="mt-0.5 block text-xs leading-relaxed text-ink-mid">
-                  After at least three check-ins, Beckett creates simple 14-day summaries in Workday—such as how often you marked a stacked workload or communication friction. It will not use these check-ins in chat, Practice, Calendar, Gmail, Slack, or Meeting support.
+                  After at least three check-ins, Beckett creates simple 14-day summaries in Workday. Beckett does not yet save inferred patterns as memory; that future feature will ask for your choice first.
                 </span>
               </span>
             </label>

@@ -5,6 +5,7 @@ import WorkdayCheckinCard from "@/components/dashboard/WorkdayCheckinCard";
 import WorkdayReminderNudge from "@/components/dashboard/WorkdayReminderNudge";
 import CoachWalkthrough from "@/components/dashboard/CoachWalkthrough";
 import BetaMissionsCard from "@/components/dashboard/BetaMissionsCard";
+import TodayGuide from "@/components/dashboard/TodayGuide";
 
 type DashboardPageProps = {
   searchParams?: {
@@ -69,9 +70,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
         >
           Welcome back, {name}.
         </h1>
-        <p className="text-ink-mid text-sm">Here is where things stand today.</p>
+        <p className="text-ink-mid text-sm">Here is your day, refreshed as you go.</p>
       </div>
 
+      <TodayGuide />
       <WorkdayReminderNudge />
       <div id="workday-checkin"><WorkdayCheckinCard /></div>
 

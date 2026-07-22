@@ -15,17 +15,17 @@ export const proactivityOptions: Array<{
 }> = [
   {
     value: "wait_until_asked",
-    label: "Wait until I ask",
-    description: "Beckett only helps when you open it or ask for support.",
+    label: "Dashboard only",
+    description: "Refresh Today when you open Beckett. No notifications.",
   },
   {
     value: "quiet_prompt",
-    label: "Quiet prompt",
-    description: "Allow a low-key suggestion inside Beckett when you choose to check in.",
+    label: "Gentle notifications",
+    description: "Allow optional browser, desktop, or mobile nudges where you turn them on.",
   },
   {
     value: "direct_interrupt",
-    label: "Active interruption",
-    description: "Save this as a future preference. Beckett will not interrupt your work during beta.",
+    label: "More proactive support",
+    description: "Save a future preference for timely suggestions. Beckett never changes your calendar without approval.",
   },
 ];
