@@ -112,6 +112,10 @@ export default function CalendarPanel() {
       <p className="text-ink-mid text-sm mb-8">
         See what is coming up and prepare before you walk in.
       </p>
+      <div className="mb-5 flex flex-wrap gap-4 text-sm font-medium text-primary">
+        <Link href="/dashboard/meeting-prep" className="hover:underline">Prepare for a meeting →</Link>
+        <Link href="/dashboard/meetings" className="hover:underline">Open Meeting Companion →</Link>
+      </div>
 
       <div className="mb-5 rounded-sm border border-primary/15 bg-primary-light/40 p-4 text-sm leading-relaxed text-ink-mid">
         Beckett reads upcoming event titles, timing, and attendees to give you basic meeting context.
