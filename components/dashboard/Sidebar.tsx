@@ -20,6 +20,7 @@ const navItems = [
   { href: "/dashboard/skills", label: "Skills" },
   { href: "/dashboard/contacts", label: "Contacts" },
   { href: "/dashboard/calendar", label: "Calendar" },
+  { href: "/dashboard/meetings", label: "Meetings" },
   { href: "/dashboard/workday", label: "Workday" },
   { href: "/dashboard/personal", label: "Personal" },
   { href: "/dashboard/safety", label: "Support" },
