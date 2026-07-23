@@ -24,6 +24,7 @@ export type Profile = {
   neurodivergent_context_other?: string | null;
   proactive_coaching_preference?: ProactivityPreference;
   pattern_model_enabled?: boolean;
+  safety_resource_region?: "US" | "CA" | "GB" | "AU" | "OTHER" | null;
   desktop_companion_enabled?: boolean;
   meeting_support_enabled?: boolean;
   meeting_prompt_style?: "off" | "quiet" | "direct";

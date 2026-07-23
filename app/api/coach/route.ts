@@ -17,7 +17,12 @@ export async function POST(request: NextRequest) {
   const text = typeof body?.text === "string" ? body.text.trim() : "";
   if (!action || !text || text.length > 5000) return NextResponse.json({ error: "Choose Decode or Draft and add up to 5,000 characters." }, { status: 400 });
 
-  const safety = getSafetyResponse(text);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("safety_resource_region")
+    .eq("id", user.id)
+    .maybeSingle();
+  const safety = getSafetyResponse(text, profile?.safety_resource_region);
   if (safety) return NextResponse.json({ safety, response: null });
 
   const warmth = typeof body?.warmth === "string" ? body.warmth.slice(0, 30) : "warm";

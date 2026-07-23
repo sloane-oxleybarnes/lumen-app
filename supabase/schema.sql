@@ -26,6 +26,7 @@ create table public.profiles (
   team_opt_in boolean default false,
   hubspot_contact_id text,
   stripe_customer_id text,
+  safety_resource_region text check (safety_resource_region in ('US', 'CA', 'GB', 'AU', 'OTHER')),
   created_at timestamptz default now(),
   updated_at timestamptz default now()
 );

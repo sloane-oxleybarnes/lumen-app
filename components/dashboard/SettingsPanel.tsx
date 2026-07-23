@@ -963,10 +963,10 @@ export default function SettingsPage() {
           Safety and resources
         </h2>
         <p className="text-sm text-ink-mid mb-4">
-          Review what Beckett can help with, its boundaries, and topic-specific resources for urgent, medical, legal, and relationship-safety support.
+          Review what Beckett can help with, choose the country or region for safety resources, and see topic-specific support for urgent, medical, legal, and relationship-safety situations.
         </p>
         <Link href="/dashboard/safety" className="inline-flex rounded-pill border border-border px-5 py-2 text-sm font-medium text-ink transition-colors hover:border-primary-mid hover:bg-primary-light">
-          View safety resources
+          Manage safety resources
         </Link>
       </section>
 

@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan, safety_resource_region')
     .eq('id', session.user.id)
     .single()
 
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
   const safetyText = [body.situation, body.goal, body.userMessage, body.context, body.personDescription, body.assistantMessage]
     .filter((value): value is string => typeof value === 'string')
     .join('\n')
-  const safety = getSafetyResponse(safetyText)
+  const safety = getSafetyResponse(safetyText, profile?.safety_resource_region)
   if (safety) return NextResponse.json({ error: safety.message, safety }, { status: 422 })
   const callMeteredAnthropic = async (
     system: string | null,

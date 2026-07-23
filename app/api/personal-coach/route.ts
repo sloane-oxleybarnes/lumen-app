@@ -24,7 +24,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Choose a support area and add up to 4,000 characters of context." }, { status: 400 });
   }
 
-  const safety = getSafetyResponse(text);
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("safety_resource_region")
+    .eq("id", user.id)
+    .maybeSingle();
+  const safety = getSafetyResponse(text, profile?.safety_resource_region);
   if (safety) return NextResponse.json({ safety, response: null });
 
   const tone = typeof body?.tone === "string" ? body.tone.slice(0, 80) : "warm and direct";

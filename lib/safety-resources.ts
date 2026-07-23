@@ -1,4 +1,17 @@
 export type SafetyTopic = "crisis" | "relationship_safety" | "health" | "legal";
+export const safetyResourceRegions = [
+  { value: "US", label: "United States" },
+  { value: "CA", label: "Canada" },
+  { value: "GB", label: "United Kingdom" },
+  { value: "AU", label: "Australia" },
+  { value: "OTHER", label: "Another country or region" },
+] as const;
+
+export type SafetyResourceRegion = (typeof safetyResourceRegions)[number]["value"];
+
+export const DEFAULT_SAFETY_RESOURCE_REGION: SafetyResourceRegion = "US";
+export const SAFETY_RESOURCE_REVIEW_CADENCE_DAYS = 90;
+export const SAFETY_RESOURCE_OWNER = "Beckett safety content team";
 
 export type SafetyResponse = {
   topic: SafetyTopic;
@@ -7,6 +20,10 @@ export type SafetyResponse = {
   resources: Array<{ label: string; href: string }>;
   owner: string;
   reviewedAt: string;
+  nextReviewAt: string;
+  reviewCadenceDays: number;
+  region: SafetyResourceRegion;
+  usingUSFallback: boolean;
 };
 
 const TOPIC_PATTERNS: Array<{ topic: SafetyTopic; pattern: RegExp }> = [
@@ -16,7 +33,9 @@ const TOPIC_PATTERNS: Array<{ topic: SafetyTopic; pattern: RegExp }> = [
   { topic: "legal", pattern: /\b(lawsuit|sue|legal advice|attorney|lawyer|illegal|employment law|discrimination claim)\b/i },
 ];
 
-const RESPONSES: Record<SafetyTopic, SafetyResponse> = {
+type SafetyResourceTemplate = Omit<SafetyResponse, "region" | "usingUSFallback">;
+
+const RESPONSES: Record<SafetyTopic, SafetyResourceTemplate> = {
   crisis: {
     topic: "crisis",
     title: "Immediate support matters here",
@@ -25,8 +44,10 @@ const RESPONSES: Record<SafetyTopic, SafetyResponse> = {
       { label: "988 Suicide & Crisis Lifeline (U.S. and Canada)", href: "https://988lifeline.org/" },
       { label: "Find A Helpline (international)", href: "https://findahelpline.com/" },
     ],
-    owner: "Beckett safety content team",
+    owner: SAFETY_RESOURCE_OWNER,
     reviewedAt: "2026-07-22",
+    nextReviewAt: "2026-10-20",
+    reviewCadenceDays: SAFETY_RESOURCE_REVIEW_CADENCE_DAYS,
   },
   relationship_safety: {
     topic: "relationship_safety",
@@ -36,8 +57,10 @@ const RESPONSES: Record<SafetyTopic, SafetyResponse> = {
       { label: "National Domestic Violence Hotline (U.S.)", href: "https://www.thehotline.org/" },
       { label: "NO MORE Global Directory", href: "https://nomoredirectory.org/" },
     ],
-    owner: "Beckett safety content team",
+    owner: SAFETY_RESOURCE_OWNER,
     reviewedAt: "2026-07-22",
+    nextReviewAt: "2026-10-20",
+    reviewCadenceDays: SAFETY_RESOURCE_REVIEW_CADENCE_DAYS,
   },
   health: {
     topic: "health",
@@ -47,8 +70,10 @@ const RESPONSES: Record<SafetyTopic, SafetyResponse> = {
       { label: "Find A Helpline", href: "https://findahelpline.com/" },
       { label: "SAMHSA treatment locator (U.S.)", href: "https://findtreatment.gov/" },
     ],
-    owner: "Beckett safety content team",
+    owner: SAFETY_RESOURCE_OWNER,
     reviewedAt: "2026-07-22",
+    nextReviewAt: "2026-10-20",
+    reviewCadenceDays: SAFETY_RESOURCE_REVIEW_CADENCE_DAYS,
   },
   legal: {
     topic: "legal",
@@ -58,16 +83,40 @@ const RESPONSES: Record<SafetyTopic, SafetyResponse> = {
       { label: "Legal Services Corporation (U.S.)", href: "https://www.lsc.gov/about-lsc/what-legal-aid/get-legal-help" },
       { label: "LawHelp (U.S.)", href: "https://www.lawhelp.org/" },
     ],
-    owner: "Beckett safety content team",
+    owner: SAFETY_RESOURCE_OWNER,
     reviewedAt: "2026-07-22",
+    nextReviewAt: "2026-10-20",
+    reviewCadenceDays: SAFETY_RESOURCE_REVIEW_CADENCE_DAYS,
   },
 };
 
-export function getSafetyResponse(text: string): SafetyResponse | null {
-  const matched = TOPIC_PATTERNS.find(({ pattern }) => pattern.test(text));
-  return matched ? RESPONSES[matched.topic] : null;
+export function normalizeSafetyResourceRegion(region: unknown): SafetyResourceRegion {
+  return safetyResourceRegions.some((option) => option.value === region)
+    ? region as SafetyResourceRegion
+    : DEFAULT_SAFETY_RESOURCE_REGION;
 }
 
-export function allSafetyResources() {
-  return Object.values(RESPONSES);
+export function safetyResourceRegionLabel(region: SafetyResourceRegion) {
+  return safetyResourceRegions.find((option) => option.value === region)?.label || "United States";
+}
+
+export function getSafetyResourceRegionNotice(region: SafetyResourceRegion) {
+  if (region === "US") {
+    return "You are viewing Beckett's reviewed U.S.-first resource set.";
+  }
+  return `Your selected region is ${safetyResourceRegionLabel(region)}. Beckett does not yet maintain a reviewed local directory for this region, so it is showing the clearly labelled U.S.-first fallback plus international directories where available. For immediate danger, contact local emergency services.`;
+}
+
+function forRegion(response: SafetyResourceTemplate, region: SafetyResourceRegion): SafetyResponse {
+  return { ...response, region, usingUSFallback: region !== "US" };
+}
+
+export function getSafetyResponse(text: string, region?: unknown): SafetyResponse | null {
+  const matched = TOPIC_PATTERNS.find(({ pattern }) => pattern.test(text));
+  return matched ? forRegion(RESPONSES[matched.topic], normalizeSafetyResourceRegion(region)) : null;
+}
+
+export function allSafetyResources(region?: unknown) {
+  const normalizedRegion = normalizeSafetyResourceRegion(region);
+  return Object.values(RESPONSES).map((response) => forRegion(response, normalizedRegion));
 }
