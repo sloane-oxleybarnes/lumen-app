@@ -159,7 +159,11 @@ export default function CalendarPanel() {
           </h2>
           <p className="mx-auto mb-6 max-w-md text-sm leading-relaxed text-ink-mid">
             Give Beckett read-only access to your upcoming events so you can see meeting titles,
-            timing, and attendees in one place.
+            timing, and attendees in one place. Beckett does not store your events or make calendar changes.
+          </p>
+          <p className="mx-auto mb-5 max-w-md text-xs leading-relaxed text-ink-light">
+            By continuing, you authorize this read-only access for the feature above. You can disconnect at any time.
+            Read our <Link href="/privacy" className="font-medium text-primary hover:underline">Privacy and Trust policy</Link>.
           </p>
           <button
             type="button"

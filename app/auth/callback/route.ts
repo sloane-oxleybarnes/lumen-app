@@ -4,6 +4,7 @@ import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/server-admin'
 import { trackBetaEvent } from '@/lib/beta-events'
 import { ensureApprovedBetaPlan, hasApprovedBetaAccess } from '@/lib/beta-access'
+import { encryptGoogleAccessToken } from '@/lib/google-token-security'
 
 function createCallbackClient(request: NextRequest, response: NextResponse) {
   return createServerClient(
@@ -86,13 +87,18 @@ export async function GET(request: NextRequest) {
       }
 
       if ((integration === 'google' || integration === 'calendar') && data.session?.user) {
+        if (!data.session.provider_token) {
+          return NextResponse.redirect(
+            new URL(`${next}?calendar=connection-token-missing`, origin)
+          )
+        }
         const now = new Date().toISOString()
         const isCalendarConnection = integration === 'calendar'
         await supabaseAdmin.from('user_integrations').upsert(
           {
             user_id: data.session.user.id,
             provider: isCalendarConnection ? 'google_calendar' : 'google',
-            access_token: data.session.provider_token || null,
+            access_token: encryptGoogleAccessToken(data.session.provider_token),
             external_user_id: data.session.user.email || null,
             external_team_id: null,
             external_team_name: null,
@@ -102,6 +108,7 @@ export async function GET(request: NextRequest) {
               scopes: isCalendarConnection
                 ? 'calendar.events.readonly'
                 : 'gmail.readonly',
+              token_encryption: 'aes-256-gcm:v1',
             },
             connected_at: now,
             updated_at: now,

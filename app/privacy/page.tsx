@@ -6,8 +6,9 @@ const sections = [
   {
     title: "What Beckett reads",
     body: [
-      "During beta, Beckett can use Gmail, Slack, and Chrome extension context only when you connect those tools and ask Beckett for coaching, or when you turn on an analysis setting yourself.",
+      "During beta, Beckett can use Gmail, Google Calendar, Slack, and Chrome extension context only when you connect those tools and ask Beckett for coaching, or when you turn on an analysis setting yourself.",
       "For Gmail, Beckett uses read-only access so it can understand email threads and help draft replies. For Slack, Beckett uses connected workspace context and may search relevant Slack history across authorized channels, DMs, group DMs, and private channels when you ask for coaching.",
+      "For Google Calendar, Beckett uses read-only access to upcoming event titles, timing, and attendees so it can show your day and offer meeting context. Beckett does not create, edit, cancel, or respond to calendar events during beta.",
       "Beckett is not meant to read your work communication in the background without your action.",
     ],
   },
@@ -17,6 +18,7 @@ const sections = [
       "Beckett stores account details, beta access status, onboarding answers, connection status, usage counts, timestamps, contacts you choose to add, and coaching settings.",
       "This can include personal information such as your name and email address, authentication and connection information, user-provided communication preferences, and workplace communication context you choose to send for coaching.",
       "Beckett does not store full Gmail or Slack message history by default, including raw Slack search results used for a coaching response. For product analytics and CRM, Beckett uses counts, timestamps, connection status, and safe event names, not raw message content.",
+      "Beckett does not store Google Calendar events. We retain a Google connection credential only while you keep that connection active, and remove it when you disconnect the service or delete your account.",
       "Beckett may store short summaries or metadata when needed to make the product work, debug beta issues, or remember your preferences.",
     ],
   },
@@ -26,6 +28,7 @@ const sections = [
       "Beckett uses user data to provide and improve its single purpose: workplace and workplace-adjacent communication coaching in Gmail, Slack, the Chrome extension, practice sessions, and skill modules.",
       "That includes authenticating your account, enforcing beta access and usage limits, generating coaching responses, remembering your preferences, connecting Gmail or Slack when you ask, troubleshooting bugs, responding to support requests, and improving coaching quality.",
       "Beckett does not use or transfer user data for purposes unrelated to workplace or workplace-adjacent communication coaching.",
+      "Google data is sent to an AI provider only when it is needed to provide a coaching feature you requested. Beckett does not use Google API data to train generalized AI or machine-learning models.",
     ],
   },
   {
@@ -44,16 +47,24 @@ const sections = [
       "Beckett does not use or transfer user data to determine creditworthiness or for lending purposes.",
       "Beckett does not collect payment card information through the Chrome extension during beta.",
       "Beckett does not collect health information, precise location, or general web browsing history for its Chrome extension.",
-      "Beckett does not connect to LinkedIn, Google Calendar, Zoom, or Google Meet during beta.",
+      "Beckett does not connect to LinkedIn, Zoom, or Google Meet during beta.",
       "Beckett does not ask for or store your personal Anthropic API key.",
     ],
   },
   {
-    title: "Chrome Web Store and Google API Limited Use",
+    title: "Google API Limited Use",
     body: [
-      "The use of information received from Google APIs will adhere to the Chrome Web Store User Data Policy, including the Limited Use requirements.",
+      "The use of information received from Google APIs will adhere to the Google API Services User Data Policy, including the Limited Use requirements.",
       "Beckett uses Google API data only to provide or improve user-facing workplace and workplace-adjacent communication coaching features requested by the user.",
       "Beckett does not use Google API data for advertising, does not sell Google API data, and does not transfer Google API data except as needed to provide or improve Beckett, comply with applicable law, protect against abuse or security threats, or complete a merger, acquisition, or sale of assets with user consent where required.",
+    ],
+  },
+  {
+    title: "How Beckett protects Google data",
+    body: [
+      "Beckett uses HTTPS/TLS to transmit Google data and encrypts stored Google OAuth credentials using AES-256-GCM before they are written to its database. The encryption key is stored separately from the database in managed application secrets.",
+      "Connection credentials are available only to Beckett's server-side services that need them to provide the connected feature. They are not exposed to the browser, included in analytics, or written to application error logs.",
+      "Beckett does not permit routine human review of Google data. A team member may access specific data only with your explicit permission, when needed to investigate a security incident, or when required by law.",
     ],
   },
   {
@@ -129,7 +140,7 @@ export default function PrivacyPage() {
           how it uses and shares data, what feedback can include, and where the coaching
           boundaries are.
         </p>
-        <p className="mt-4 text-sm text-ink-light">Last updated: July 16, 2026</p>
+        <p className="mt-4 text-sm text-ink-light">Last updated: July 23, 2026</p>
       </section>
 
       <section className="mx-auto grid w-full max-w-4xl gap-5 px-5 pb-12">

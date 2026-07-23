@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { decryptGoogleAccessToken } from "@/lib/google-token-security";
 
 const CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
 
@@ -36,7 +37,8 @@ export async function GET() {
     return NextResponse.json({ error: "Could not read the calendar connection." }, { status: 500 });
   }
 
-  if (!integration?.access_token) {
+  const accessToken = decryptGoogleAccessToken(integration?.access_token);
+  if (!accessToken) {
     return NextResponse.json({ connected: false, events: [] });
   }
 
@@ -55,7 +57,7 @@ export async function GET() {
   try {
     calendarResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-      { headers: { Authorization: `Bearer ${integration.access_token}` }, cache: "no-store" }
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
     );
   } catch {
     return NextResponse.json({ error: "Google Calendar could not be reached." }, { status: 502 });
