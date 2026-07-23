@@ -16,6 +16,7 @@ export default function GoogleCalendarConnection() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [disconnecting, setDisconnecting] = useState(false);
+  const [showCalendarChoices, setShowCalendarChoices] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -74,6 +75,7 @@ export default function GoogleCalendarConnection() {
       const data = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(data?.error || "Could not save your calendar choices.");
       await load();
+      setShowCalendarChoices(false);
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not save your calendar choices.");
     } finally {
@@ -102,9 +104,9 @@ export default function GoogleCalendarConnection() {
   return <div id="connected-accounts" className="border-t border-border pt-4">
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-start gap-3"><span className="mt-0.5 text-lg">📅</span><div><p className="text-sm font-medium text-ink">Google Calendar</p><p className="text-xs text-ink-light">Read-only upcoming-meeting context from the calendars you choose.</p></div></div>
-      <div className="flex shrink-0 items-center gap-2">{connection?.connected && <span className={`rounded-pill px-3 py-1 text-xs font-medium ${needsReconnect ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>{needsReconnect ? "Needs reconnection" : "Connected"}</span>}<button type="button" onClick={connect} disabled={disconnecting} className="rounded-pill border border-border px-4 py-1.5 text-xs text-ink hover:bg-bg">{connection?.connected ? "Reconnect" : "Connect"}</button>{connection?.connected && <button type="button" onClick={() => void disconnect()} disabled={disconnecting} className="rounded-pill border border-red-200 px-4 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button>}</div>
+      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2">{connection?.connected && <span className={`rounded-pill px-3 py-1 text-xs font-medium ${needsReconnect ? "bg-amber-50 text-amber-700" : "bg-green-50 text-green-700"}`}>{needsReconnect ? "Needs reconnection" : "Connected"}</span>}{connection?.connected && !connection.reauthorize && <button type="button" onClick={() => setShowCalendarChoices((current) => !current)} className="rounded-pill border border-border px-4 py-1.5 text-xs text-ink hover:bg-bg">{showCalendarChoices ? "Done changing calendars" : "Change connected calendars"}</button>}<button type="button" onClick={connect} disabled={disconnecting} className="rounded-pill border border-border px-4 py-1.5 text-xs text-ink hover:bg-bg">{connection?.connected ? "Reconnect" : "Connect"}</button>{connection?.connected && <button type="button" onClick={() => void disconnect()} disabled={disconnecting} className="rounded-pill border border-red-200 px-4 py-1.5 text-xs text-red-700 hover:bg-red-50 disabled:opacity-60">{disconnecting ? "Disconnecting…" : "Disconnect"}</button>}</div>
     </div>
     {error && <p className="mt-3 text-xs text-red-700">{error}</p>}
-    {connection?.connected && !connection.reauthorize && connection.calendars.length > 0 && <div className="mt-4 rounded-sm border border-border bg-bg/50 p-4"><p className="text-sm font-medium text-ink">Calendars Beckett can use</p><p className="mt-1 text-xs text-ink-mid">Only selected calendars are included in your week view and suggestions.</p><div className="mt-3 space-y-2">{connection.calendars.map((calendar) => <label key={calendar.id} className="flex cursor-pointer items-center gap-3 rounded-sm border border-border bg-white px-3 py-2 text-sm text-ink"><input type="checkbox" checked={selectedCalendarIds.includes(calendar.id)} onChange={() => toggleCalendar(calendar.id)} className="h-4 w-4 accent-primary" /><span>{calendar.name}{calendar.primary ? " (primary)" : ""}</span></label>)}</div><button type="button" onClick={() => void saveChoices()} disabled={saving || !selectedCalendarIds.length} className="mt-4 rounded-pill bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-60">{saving ? "Saving…" : "Save calendar choices"}</button></div>}
+    {connection?.connected && !connection.reauthorize && showCalendarChoices && connection.calendars.length > 0 && <div className="mt-4 rounded-sm border border-border bg-bg/50 p-4"><p className="text-sm font-medium text-ink">Calendars Beckett can use</p><p className="mt-1 text-xs text-ink-mid">Only selected calendars are included in your week view and suggestions.</p><div className="mt-3 space-y-2">{connection.calendars.map((calendar) => <label key={calendar.id} className="flex cursor-pointer items-center gap-3 rounded-sm border border-border bg-white px-3 py-2 text-sm text-ink"><input type="checkbox" checked={selectedCalendarIds.includes(calendar.id)} onChange={() => toggleCalendar(calendar.id)} className="h-4 w-4 accent-primary" /><span>{calendar.name}{calendar.primary ? " (primary)" : ""}</span></label>)}</div><button type="button" onClick={() => void saveChoices()} disabled={saving || !selectedCalendarIds.length} className="mt-4 rounded-pill bg-primary px-4 py-2 text-xs font-medium text-white hover:bg-primary-dark disabled:opacity-60">{saving ? "Saving…" : "Save calendar choices"}</button></div>}
   </div>;
 }
