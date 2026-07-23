@@ -32,9 +32,9 @@ export async function GET(request: NextRequest) {
 
   const supabase = createSupabaseServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
-  if (!session || session.user.id !== expectedUserId) return completeRedirect(origin, "session-expired", returnTo);
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user || user.id !== expectedUserId) return completeRedirect(origin, "session-expired", returnTo);
 
   const config = getGoogleCalendarOAuthConfig(origin);
   if (!config) return completeRedirect(origin, "configuration-required", returnTo);
@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
   const now = new Date().toISOString();
   const { error: upsertError } = await supabaseAdmin.from("user_integrations").upsert(
     {
-      user_id: session.user.id,
+      user_id: user.id,
       provider: "google_calendar",
       access_token: encryptGoogleAccessToken(JSON.stringify({
         version: 1,
@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
         refreshToken: token.refresh_token,
         expiresAt: Date.now() + token.expires_in * 1000,
       })),
-      external_user_id: session.user.email || null,
+      external_user_id: user.email || null,
       external_team_id: null,
       external_team_name: null,
       metadata: {
@@ -90,6 +90,6 @@ export async function GET(request: NextRequest) {
   );
   if (upsertError) return completeRedirect(origin, "connection-failed", returnTo);
 
-  await trackBetaEvent({ userId: session.user.id, email: session.user.email, eventName: "calendar_connected", source: "web_app", metadata: { integration: "calendar" } });
+  await trackBetaEvent({ userId: user.id, email: user.email, eventName: "calendar_connected", source: "web_app", metadata: { integration: "calendar" } });
   return completeRedirect(origin, "connected", returnTo);
 }

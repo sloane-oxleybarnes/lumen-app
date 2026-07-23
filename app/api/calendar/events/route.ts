@@ -33,15 +33,15 @@ type GoogleCalendarEvent = {
 export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
+  if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   const { data: integration, error: integrationError } = await supabaseAdmin
     .from("user_integrations")
     .select("id, access_token, metadata")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("provider", "google_calendar")
     .maybeSingle();
 

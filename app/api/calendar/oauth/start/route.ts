@@ -16,10 +16,10 @@ export async function GET(request: NextRequest) {
   const returnTo = request.nextUrl.searchParams.get("next") === SETTINGS_PATH ? SETTINGS_PATH : "/dashboard/calendar";
   const supabase = createSupabaseServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.redirect(new URL(`/auth/login?next=${encodeURIComponent(returnTo)}`, origin));
   }
 
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
   const options = { httpOnly: true, sameSite: "lax" as const, secure: true, path: COOKIE_PATH, maxAge: MAX_AGE_SECONDS };
   response.cookies.set("beckett_calendar_state", state, options);
   response.cookies.set("beckett_calendar_verifier", verifier, options);
-  response.cookies.set("beckett_calendar_user", session.user.id, options);
+  response.cookies.set("beckett_calendar_user", user.id, options);
   response.cookies.set("beckett_calendar_next", returnTo, options);
   return response;
 }

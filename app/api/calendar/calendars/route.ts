@@ -18,13 +18,13 @@ function selectedCalendarIds(metadata: CalendarMetadata | null) {
 
 async function currentIntegration(request: NextRequest) {
   const supabase = createSupabaseServerClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return { error: NextResponse.json({ error: "Unauthorized." }, { status: 401 }) };
 
   const { data: integration, error } = await supabaseAdmin
     .from("user_integrations")
     .select("id, access_token, metadata")
-    .eq("user_id", session.user.id)
+    .eq("user_id", user.id)
     .eq("provider", "google_calendar")
     .maybeSingle();
   if (error) return { error: NextResponse.json({ error: "Could not read the calendar connection." }, { status: 500 }) };
@@ -33,7 +33,7 @@ async function currentIntegration(request: NextRequest) {
   const config = getGoogleCalendarOAuthConfig(new URL(request.url).origin);
   if (!integration || !credential || !config) return { error: NextResponse.json({ connected: false, calendars: [], selectedCalendarIds: [] }) };
 
-  return { session, integration: { ...integration, metadata: (integration.metadata || {}) as CalendarMetadata }, credential };
+  return { user, integration: { ...integration, metadata: (integration.metadata || {}) as CalendarMetadata }, credential };
 }
 
 export async function GET(request: NextRequest) {

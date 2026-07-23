@@ -92,7 +92,9 @@ create policy "Users can insert upgrade intents"
 -- ============================================================
 
 create or replace function public.handle_new_user()
-returns trigger as $$
+returns trigger
+set search_path = ''
+as $$
 begin
   insert into public.profiles (id, email, full_name)
   values (
@@ -103,6 +105,8 @@ begin
   return new;
 end;
 $$ language plpgsql security definer;
+
+revoke execute on function public.handle_new_user() from public, anon, authenticated;
 
 create trigger on_auth_user_created
   after insert on auth.users

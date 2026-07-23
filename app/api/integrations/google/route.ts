@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
 import { decryptGoogleAccessToken } from "@/lib/google-token-security";
-import { parseGoogleCalendarCredential } from "@/lib/google-calendar-oauth";
+import { trackBetaEvent } from "@/lib/beta-events";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { trackBetaEvent } from "@/lib/beta-events";
 
 async function revokeGoogleToken(token: string) {
   try {
@@ -13,45 +12,33 @@ async function revokeGoogleToken(token: string) {
       body: new URLSearchParams({ token }),
     });
   } catch {
-    // The credential is still removed locally, which immediately stops Beckett access.
+    // Local removal is still enough to stop Beckett access.
   }
 }
 
 export async function DELETE() {
   const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
+  const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
 
   const { data: integration, error: readError } = await supabaseAdmin
     .from("user_integrations")
     .select("access_token")
     .eq("user_id", user.id)
-    .eq("provider", "google_calendar")
+    .eq("provider", "google")
     .maybeSingle();
+  if (readError) return NextResponse.json({ error: "Could not read the Google connection." }, { status: 500 });
 
-  if (readError) return NextResponse.json({ error: "Could not read the calendar connection." }, { status: 500 });
-
-  const credential = parseGoogleCalendarCredential(decryptGoogleAccessToken(integration?.access_token));
-  if (credential) await revokeGoogleToken(credential.refreshToken);
+  const token = decryptGoogleAccessToken(integration?.access_token);
+  if (token) await revokeGoogleToken(token);
 
   const { error: deleteError } = await supabaseAdmin
     .from("user_integrations")
     .delete()
     .eq("user_id", user.id)
-    .eq("provider", "google_calendar");
+    .eq("provider", "google");
+  if (deleteError) return NextResponse.json({ error: "Could not disconnect Google." }, { status: 500 });
 
-  if (deleteError) return NextResponse.json({ error: "Could not disconnect Google Calendar." }, { status: 500 });
-
-  await trackBetaEvent({
-    userId: user.id,
-    email: user.email,
-    eventName: "calendar_disconnected",
-    source: "web_app",
-    metadata: { integration: "calendar" },
-  });
-
+  await trackBetaEvent({ userId: user.id, email: user.email, eventName: "google_disconnected", source: "web_app" });
   return NextResponse.json({ ok: true });
 }

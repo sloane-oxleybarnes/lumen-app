@@ -5,10 +5,10 @@ import { createSupabaseServerClient } from "@/lib/supabase-server";
 export async function POST(req: NextRequest) {
   const supabase = createSupabaseServerClient();
   const {
-    data: { session },
-  } = await supabase.auth.getSession();
+    data: { user },
+  } = await supabase.auth.getUser();
 
-  if (!session) {
+  if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
       deletion_notes: notes,
       updated_at: requestedAt,
     })
-    .eq("id", session.user.id);
+    .eq("id", user.id);
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
@@ -39,8 +39,8 @@ export async function POST(req: NextRequest) {
         subject: "Account deletion requested",
         html: `
           <p>A Beckett beta user requested account deletion.</p>
-          <p><strong>Email:</strong> ${session.user.email || "unknown"}</p>
-          <p><strong>User ID:</strong> ${session.user.id}</p>
+          <p><strong>Email:</strong> ${user.email || "unknown"}</p>
+          <p><strong>User ID:</strong> ${user.id}</p>
           <p><strong>Requested at:</strong> ${requestedAt}</p>
           ${notes ? `<p><strong>Notes:</strong> ${notes}</p>` : ""}
         `,
