@@ -64,11 +64,11 @@ export default function CalendarPanel() {
 
   async function connectCalendar() {
     setError(null);
-    // Supabase may fall back to the Site URL after an identity-link flow. Keep
+    // Supabase may fall back to the Site URL after the OAuth flow. Keep
     // this one-time marker so the landing page can route the returned PKCE code
     // through our server callback and retain the calendar connection intent.
     window.sessionStorage.setItem("beckett:calendar-linking", "1");
-    const { error: authError } = await supabase.auth.linkIdentity({
+    const { error: authError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: {
         scopes: "https://www.googleapis.com/auth/calendar.events.readonly",
