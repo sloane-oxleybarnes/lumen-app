@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import AddToSlackButton from "@/components/integrations/AddToSlackButton";
 import { createClient } from "@/lib/supabase";
 import type { Profile } from "@/lib/supabase";
 import {
@@ -76,15 +75,6 @@ const planBadgeColor: Record<string, string> = {
   pro: "bg-primary text-white",
   team: "bg-amber-100 text-amber-700",
 };
-
-const slackCommandExamples = [
-  "/beckett rewrite \"Any update on this?\"",
-  "/beckett decode \"Sure, sounds fine.\"",
-  "/beckett draft ask my manager for clearer priorities this week",
-  "/beckett prep I need to give a teammate feedback",
-  "/beckett tone \"I need this by Friday.\"",
-  "/beckett followup remind Avery about the readout",
-];
 
 function toggleValue(list: string[], value: string, max?: number) {
   if (list.includes(value)) return list.filter((item) => item !== value);
@@ -683,39 +673,6 @@ export default function SettingsPage() {
             onDisconnect={() => void disconnectIntegration("slack")}
             disconnecting={disconnectingProvider === "slack"}
           />
-          <div className="rounded-sm border border-border bg-bg/60 p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-              <div className="max-w-xl">
-                <p className="text-sm font-medium text-ink">Slack quickstart</p>
-                <ol className="mt-2 space-y-1.5 text-xs leading-relaxed text-ink-mid">
-                  <li>1. Connect Slack from Beckett Settings.</li>
-                  <li>2. Approve Beckett for your workspace. Some workspaces may require admin approval.</li>
-                  <li>3. Open Slack Desktop and type <code className="font-mono text-ink">/beckett</code>.</li>
-                </ol>
-                <p className="mt-3 text-xs leading-relaxed text-ink-mid">
-                  For a specific Slack message, use the message shortcuts: <span className="font-medium text-ink">Beckett - Decode</span> or <span className="font-medium text-ink">Beckett - Respond</span>.
-                </p>
-                {!diagnostics?.integrations.slack.connected && (
-                  <div className="mt-3 flex flex-wrap items-center gap-3">
-                    <AddToSlackButton href="/api/slack/connect" />
-                    <span className="text-xs leading-relaxed text-ink-light">
-                      Connects this Slack workspace to your Beckett account.
-                    </span>
-                  </div>
-                )}
-              </div>
-              <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:max-w-lg">
-                {slackCommandExamples.map((example) => (
-                  <code
-                    key={example}
-                    className="break-words rounded-sm border border-primary/15 bg-white px-2.5 py-2 text-[11px] leading-snug text-ink"
-                  >
-                    {example}
-                  </code>
-                ))}
-              </div>
-            </div>
-          </div>
         </div>
       </section>
 

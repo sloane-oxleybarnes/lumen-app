@@ -41,6 +41,8 @@ export default function GoogleCalendarConnection() {
       void load();
     } else if (status === "cancelled") {
       setError("Calendar connection was cancelled.");
+    } else if (status === "configuration-required") {
+      setError("Calendar connection is still being configured. Please try again shortly.");
     } else {
       setError("Calendar connection could not be completed. Please try again.");
     }
