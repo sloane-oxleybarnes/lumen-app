@@ -1,7 +1,12 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
-import { decryptGoogleAccessToken } from "@/lib/google-token-security";
+import { decryptGoogleAccessToken, encryptGoogleAccessToken } from "@/lib/google-token-security";
+import {
+  getGoogleCalendarOAuthConfig,
+  parseGoogleCalendarCredential,
+  refreshGoogleCalendarCredential,
+} from "@/lib/google-calendar-oauth";
 
 const CALENDAR_EVENTS_SCOPE = "https://www.googleapis.com/auth/calendar.events.readonly";
 
@@ -18,7 +23,7 @@ type GoogleCalendarEvent = {
   }>;
 };
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
   const {
     data: { session },
@@ -28,7 +33,7 @@ export async function GET() {
 
   const { data: integration, error: integrationError } = await supabaseAdmin
     .from("user_integrations")
-    .select("access_token")
+    .select("id, access_token")
     .eq("user_id", session.user.id)
     .eq("provider", "google_calendar")
     .maybeSingle();
@@ -37,9 +42,21 @@ export async function GET() {
     return NextResponse.json({ error: "Could not read the calendar connection." }, { status: 500 });
   }
 
-  const accessToken = decryptGoogleAccessToken(integration?.access_token);
-  if (!accessToken) {
+  const serializedCredential = decryptGoogleAccessToken(integration?.access_token);
+  let credential = parseGoogleCalendarCredential(serializedCredential);
+  const oauthConfig = getGoogleCalendarOAuthConfig(new URL(request.url).origin);
+  if (!integration || !credential || !oauthConfig) {
     return NextResponse.json({ connected: false, events: [] });
+  }
+
+  if (credential.expiresAt <= Date.now() + 60_000) {
+    const refreshed = await refreshGoogleCalendarCredential(credential, oauthConfig.clientId, oauthConfig.clientSecret);
+    if (!refreshed) return NextResponse.json({ connected: true, reauthorize: true, events: [] });
+    credential = refreshed;
+    await supabaseAdmin
+      .from("user_integrations")
+      .update({ access_token: encryptGoogleAccessToken(JSON.stringify(credential)), updated_at: new Date().toISOString() })
+      .eq("id", integration.id);
   }
 
   const now = new Date();
@@ -57,7 +74,7 @@ export async function GET() {
   try {
     calendarResponse = await fetch(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events?${params}`,
-      { headers: { Authorization: `Bearer ${accessToken}` }, cache: "no-store" }
+      { headers: { Authorization: `Bearer ${credential.accessToken}` }, cache: "no-store" }
     );
   } catch {
     return NextResponse.json({ error: "Google Calendar could not be reached." }, { status: 502 });

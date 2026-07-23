@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { decryptGoogleAccessToken } from "@/lib/google-token-security";
+import { parseGoogleCalendarCredential } from "@/lib/google-calendar-oauth";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
 import { trackBetaEvent } from "@/lib/beta-events";
@@ -33,8 +34,8 @@ export async function DELETE() {
 
   if (readError) return NextResponse.json({ error: "Could not read the calendar connection." }, { status: 500 });
 
-  const accessToken = decryptGoogleAccessToken(integration?.access_token);
-  if (accessToken) await revokeGoogleToken(accessToken);
+  const credential = parseGoogleCalendarCredential(decryptGoogleAccessToken(integration?.access_token));
+  if (credential) await revokeGoogleToken(credential.refreshToken);
 
   const { error: deleteError } = await supabaseAdmin
     .from("user_integrations")

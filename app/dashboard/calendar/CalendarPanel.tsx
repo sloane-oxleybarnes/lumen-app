@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase";
 import Link from "next/link";
 
 type CalendarEvent = {
@@ -37,7 +36,6 @@ function attendeeLabel(attendee: CalendarEvent["attendees"][number]) {
 }
 
 export default function CalendarPanel() {
-  const supabase = createClient();
   const [calendar, setCalendar] = useState<CalendarResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,28 +60,19 @@ export default function CalendarPanel() {
     void loadCalendar();
   }, [loadCalendar]);
 
+  useEffect(() => {
+    const status = new URLSearchParams(window.location.search).get("calendar");
+    if (!status) return;
+    if (status === "connected") setError(null);
+    else if (status === "cancelled") setError("Calendar connection was cancelled.");
+    else if (status === "configuration-required") setError("Calendar connection is still being configured. Please try again shortly.");
+    else setError("Calendar connection could not be completed. Please try again.");
+    window.history.replaceState({}, "", "/dashboard/calendar");
+  }, []);
+
   async function connectCalendar() {
     setError(null);
-    // Supabase may fall back to the Site URL after the OAuth flow. Keep
-    // this one-time marker so the landing page can route the returned PKCE code
-    // through our server callback and retain the calendar connection intent.
-    window.sessionStorage.setItem("beckett:calendar-linking", "1");
-    const { error: authError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        scopes: "https://www.googleapis.com/auth/calendar.events.readonly",
-        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent("/dashboard/calendar")}&integration=calendar`,
-        queryParams: {
-          access_type: "offline",
-          prompt: "consent",
-          include_granted_scopes: "true",
-        },
-      },
-    });
-    if (authError) {
-      window.sessionStorage.removeItem("beckett:calendar-linking");
-      setError(authError.message);
-    }
+    window.location.assign("/api/calendar/oauth/start");
   }
 
   async function disconnectCalendar() {

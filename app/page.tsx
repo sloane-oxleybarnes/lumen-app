@@ -19,15 +19,6 @@ export default function HomePage() {
   const copy = (key: string) => contentValue(siteContent, key);
 
   useEffect(() => {
-    const code = new URLSearchParams(window.location.search).get("code");
-    const isCalendarLink = window.sessionStorage.getItem("beckett:calendar-linking") === "1";
-    if (!code || !isCalendarLink) return;
-
-    window.sessionStorage.removeItem("beckett:calendar-linking");
-    window.location.replace(`/auth/callback?code=${encodeURIComponent(code)}&integration=calendar&next=${encodeURIComponent("/dashboard/calendar")}`);
-  }, []);
-
-  useEffect(() => {
     const hash = window.location.hash;
     if (hash.includes("error=")) {
       const params = new URLSearchParams(hash.substring(1));
