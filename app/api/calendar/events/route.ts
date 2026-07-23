@@ -66,17 +66,29 @@ export async function GET(request: Request) {
       .eq("id", integration.id);
   }
 
-  const now = new Date();
-  const weekFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const url = new URL(request.url);
+  const defaultStart = new Date();
+  const defaultEnd = new Date(defaultStart.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const requestedStart = url.searchParams.get("from");
+  const requestedEnd = url.searchParams.get("to");
+  const parsedStart = requestedStart ? new Date(requestedStart) : defaultStart;
+  const parsedEnd = requestedEnd ? new Date(requestedEnd) : defaultEnd;
+  const maxRange = 14 * 24 * 60 * 60 * 1000;
+  const hasValidRequestedRange = !Number.isNaN(parsedStart.getTime())
+    && !Number.isNaN(parsedEnd.getTime())
+    && parsedEnd.getTime() > parsedStart.getTime()
+    && parsedEnd.getTime() - parsedStart.getTime() <= maxRange;
+  const timeMin = hasValidRequestedRange ? parsedStart : defaultStart;
+  const timeMax = hasValidRequestedRange ? parsedEnd : defaultEnd;
   const calendarIds = selectedCalendarIds(integration.metadata);
   try {
     const responses = await Promise.all(calendarIds.map(async (calendarId) => {
       const params = new URLSearchParams({
-        timeMin: now.toISOString(),
-        timeMax: weekFromNow.toISOString(),
+        timeMin: timeMin.toISOString(),
+        timeMax: timeMax.toISOString(),
         singleEvents: "true",
         orderBy: "startTime",
-        maxResults: "20",
+        maxResults: "50",
         fields: "items(id,summary,start(dateTime),end(dateTime),attendees(self,displayName,email,responseStatus))",
       });
       const response = await fetch(
