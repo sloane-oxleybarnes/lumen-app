@@ -271,6 +271,7 @@ export default function SettingsPage() {
   const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
   const [calendarSettingsError, setCalendarSettingsError] = useState<string | null>(null);
   const [savingCalendarSettings, setSavingCalendarSettings] = useState(false);
+  const [showCalendarChoices, setShowCalendarChoices] = useState(false);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -385,6 +386,7 @@ export default function SettingsPage() {
       const result = (await response.json().catch(() => null)) as { error?: string } | null;
       if (!response.ok) throw new Error(result?.error || "Could not save your calendar choices.");
       await loadCalendarConnection();
+      setShowCalendarChoices(false);
     } catch (error) {
       setCalendarSettingsError(error instanceof Error ? error.message : "Could not save your calendar choices.");
     } finally {
@@ -831,7 +833,16 @@ export default function SettingsPage() {
                   disconnecting={disconnectingProvider === "calendar"}
                 />
                 {calendarSettingsError && <p className="mt-3 text-xs text-red-700">{calendarSettingsError}</p>}
-                {calendarConnection?.connected && !calendarConnection.reauthorize && calendarConnection.calendars.length > 0 && (
+                {calendarConnection?.connected && !calendarConnection.reauthorize && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCalendarChoices((current) => !current)}
+                    className="mt-3 rounded-pill border border-border px-4 py-1.5 text-xs text-ink transition-colors hover:bg-bg"
+                  >
+                    {showCalendarChoices ? "Done changing calendars" : "Change connected calendars"}
+                  </button>
+                )}
+                {calendarConnection?.connected && !calendarConnection.reauthorize && showCalendarChoices && calendarConnection.calendars.length > 0 && (
                   <div className="mt-4 rounded-sm border border-border bg-white p-4">
                     <p className="text-sm font-medium text-ink">Calendars Beckett can use</p>
                     <p className="mt-1 text-xs text-ink-mid">Only selected calendars are included in the upcoming-meeting view.</p>
