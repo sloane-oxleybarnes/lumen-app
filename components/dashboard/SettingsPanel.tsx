@@ -11,6 +11,7 @@ import {
   type CoachingTone,
 } from "@/lib/onboarding";
 import { CHROME_WEB_STORE_URL } from "@/lib/app-links";
+import GoogleCalendarConnection from "@/components/dashboard/GoogleCalendarConnection";
 
 function ConnectRow({
   icon,
@@ -668,6 +669,7 @@ export default function SettingsPage() {
             onDisconnect={() => void disconnectIntegration("google")}
             disconnecting={disconnectingProvider === "google"}
           />
+          <GoogleCalendarConnection />
           {/* Slack */}
           <ConnectRow
             icon="💬"

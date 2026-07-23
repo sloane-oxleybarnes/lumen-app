@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { trackBetaEvent } from "@/lib/beta-events";
 import { supabaseAdmin } from "@/lib/server-admin";
 import { createSupabaseServerClient } from "@/lib/supabase-server";
+import { decryptGoogleAccessToken } from "@/lib/google-token-security";
 
 const CONNECTED_PROVIDERS = ["google", "slack"] as const;
 type ConnectedProvider = (typeof CONNECTED_PROVIDERS)[number];
@@ -52,7 +53,10 @@ export async function DELETE(_req: Request, { params }: { params: { provider: st
   if (readError) return NextResponse.json({ error: "Could not read the integration." }, { status: 500 });
 
   if (integration?.access_token) {
-    await revokeProviderToken(params.provider, integration.access_token);
+    const token = params.provider === "google"
+      ? decryptGoogleAccessToken(integration.access_token)
+      : integration.access_token;
+    if (token) await revokeProviderToken(params.provider, token);
   }
 
   const { error: deleteError } = await supabaseAdmin

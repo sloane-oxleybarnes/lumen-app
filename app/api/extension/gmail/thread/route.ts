@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getExtensionProfile } from "@/lib/extension-auth";
 import { supabaseAdmin } from "@/lib/server-admin";
+import { decryptGoogleAccessToken } from "@/lib/google-token-security";
 
 export const runtime = "nodejs";
 
@@ -218,10 +219,11 @@ export async function GET(req: NextRequest) {
     .eq("provider", "google")
     .single();
 
-  if (!integration?.access_token) return jsonError("google_not_connected", 404);
+  const accessToken = decryptGoogleAccessToken(integration?.access_token);
+  if (!integration || !accessToken) return jsonError("google_not_connected", 404);
 
   try {
-    const thread = await resolveThread(integration.access_token, {
+    const thread = await resolveThread(accessToken, {
       threadIds: splitParam(searchParams.get("threadIds")),
       messageIds: splitParam(searchParams.get("messageIds")),
       subject: searchParams.get("subject")?.trim() || "",
