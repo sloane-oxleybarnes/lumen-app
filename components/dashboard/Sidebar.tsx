@@ -16,10 +16,10 @@ const planBadgeColor: Record<string, string> = {
 
 const navItems = [
   { href: "/dashboard", label: "Overview" },
-  { href: "/dashboard/calendar", label: "Calendar & Meetings" },
   { href: "/dashboard/practice", label: "Practice" },
   { href: "/dashboard/skills", label: "Skills" },
   { href: "/dashboard/contacts", label: "Contacts" },
+  { href: "/dashboard/calendar", label: "Calendar & Meetings" },
   { href: "/dashboard/about", label: "About Me" },
   { href: "/dashboard/settings", label: "Settings" },
 ];
