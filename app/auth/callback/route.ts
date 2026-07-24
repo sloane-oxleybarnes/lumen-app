@@ -135,9 +135,10 @@ export async function GET(request: NextRequest) {
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
     if (!error) {
-      return NextResponse.redirect(
-        new URL(isPasswordAction ? '/auth/set-password' : next, origin)
-      )
+      // verifyOtp writes the authenticated session to successResponse. Returning a
+      // fresh redirect here drops those cookies, which makes invite recipients look
+      // signed out on the password-setup page and sends them back to login.
+      return successResponse
     }
     return NextResponse.redirect(
       new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, origin)
