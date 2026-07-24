@@ -1,10 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { createServerClient } from '@supabase/ssr'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { supabaseAdmin } from '@/lib/server-admin'
 import { trackBetaEvent } from '@/lib/beta-events'
 import { ensureApprovedBetaPlan, hasApprovedBetaAccess } from '@/lib/beta-access'
 import { encryptGoogleAccessToken } from '@/lib/google-token-security'
+
+function createCallbackClient(request: NextRequest, response: NextResponse) {
+  return createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: Record<string, unknown>) {
+          response.cookies.set(name, value, options as never)
+        },
+        remove(name: string, options: Record<string, unknown>) {
+          response.cookies.set(name, '', options as never)
+        },
+      },
+    }
+  )
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url)
@@ -30,7 +50,12 @@ export async function GET(request: NextRequest) {
     )
   }
 
-  const supabase = createSupabaseServerClient()
+  // Auth exchanges write session cookies. Attach them to the same response that
+  // redirects the browser so invite and recovery recipients stay authenticated.
+  const successResponse = NextResponse.redirect(
+    new URL(isPasswordAction ? '/auth/set-password' : next, origin)
+  )
+  const supabase = createCallbackClient(request, successResponse)
 
   if (code) {
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
@@ -92,9 +117,7 @@ export async function GET(request: NextRequest) {
         })
       }
 
-      return NextResponse.redirect(
-        new URL(isPasswordAction ? '/auth/set-password' : next, origin)
-      )
+      return successResponse
     }
     return NextResponse.redirect(
       new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, origin)
@@ -104,9 +127,10 @@ export async function GET(request: NextRequest) {
   if (token_hash && type) {
     const { error } = await supabase.auth.verifyOtp({ token_hash, type })
     if (!error) {
-      return NextResponse.redirect(
-        new URL(isPasswordAction ? '/auth/set-password' : next, origin)
-      )
+      // verifyOtp writes the authenticated session to successResponse. Returning a
+      // fresh redirect here drops those cookies, which makes invite recipients look
+      // signed out on the password-setup page and sends them back to login.
+      return successResponse
     }
     return NextResponse.redirect(
       new URL(`/auth/login?error=${encodeURIComponent(error.message)}`, origin)
